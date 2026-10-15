@@ -16,6 +16,7 @@ const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"
 <symbol id="ico-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 16v-4M12 16V7M17 16V10"/></symbol>
 <symbol id="ico-water" viewBox="0 0 24 24"><path d="M12 2C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-13z"/><path d="M9 16a3 3 0 0 0 3 3"/></symbol>
 <symbol id="ico-flame" viewBox="0 0 24 24"><path d="M12 22a8 8 0 0 0 8-8c0-4-3-6-5-10 0 4-2 5-3 6C11 7 10 6 9 4 9 9 4 11 4 15a8 8 0 0 0 8 7z"/><path d="M12 22a4 4 0 0 0 4-4c0-2-2-4-4-6-1 3-4 4-4 6a4 4 0 0 0 4 4z"/></symbol>
+<symbol id="ico-bolt" viewBox="0 0 24 24"><path d="M13.5 2 5 13h6.5l-1 9L20 10h-7L13.5 2z"/></symbol>
 <symbol id="ico-walk" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="m8 22 2-7 2-4-4-2-3 5M12 11l4 3 4 1M9 7l3 4 1 5 4 6"/></symbol>
 <symbol id="ico-protein" viewBox="0 0 24 24"><path d="M5 19a4 4 0 0 1-1-7c-1-3 2-5 5-4 2-3 7-2 8 2 4 0 5 6 1 8l-9 2z"/></symbol>
 <symbol id="ico-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="9"/><path d="M12 8v5l4 3M9 2h6"/></symbol>
@@ -59,6 +60,7 @@ const INITIAL = () => ({
 });
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
+let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
 const renderLater=()=>{render();};
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
 async function persist(){state.dirty=true;await put('state',state);}
@@ -80,13 +82,19 @@ function metric(title,value,goal,unit,iconName,action='',quip=''){
  const tag=action?'button':'div';
  return `<${tag} class="card metric ${action?'metric-interactive':''}" ${action?`type="button" data-action="${action}" aria-label="${escapeHtml(title)}: ${logged?num(value):'not recorded'} ${unit}. Tap to ${action==='metric-water'?'log water':action==='refresh-steps'?'refresh steps':'update activity'}."`:''}><div class="metric-top"><span class="muted strong small">${title}</span><span class="metric-icon">${svg(iconName,'sm-icon')}</span></div><div class="big">${logged?num(value):'—'} <span class="small muted">${logged?unit:''}</span></div>${progress(value,goal)}<div class="metric-foot"><span>${quip|| (!logged?'Not recorded yet':goal===null?'Manually tracked':`Goal: ${num(goal)} ${unit}`)}</span><span>${goal?Math.round(value/goal*100)+'%':''}</span></div></${tag}>`;
 }
+function renderTaskRow(t){
+ const id=escapeHtml(t.id),name=escapeHtml(t.label),done=checkboxDone(t),managing=taskActionsId===t.id;
+ return `<div class="check-task ${done?'is-done':''} ${managing?'task-management-open':''}" data-task-row="${id}" tabindex="0" role="group" aria-label="${name}. Tap the checkbox to complete; press and hold to edit or delete.">
+ <label class="task-check-label"><input class="checkbox" type="checkbox" data-task-id="${id}" ${done?'checked':''} aria-label="Mark ${name} as ${done?'not done':'done'}"/><span class="task-text">${name}</span></label>
+ ${managing?`<div class="task-row-actions" aria-label="Actions for ${name}"><button type="button" class="task-icon-btn" data-action="edit-task" data-id="${id}" aria-label="Edit ${name}" title="Edit task">${svg('edit','tiny-icon')}</button><button type="button" class="task-icon-btn delete-task" data-action="delete-task" data-id="${id}" aria-label="Delete ${name}" title="Delete task">${svg('trash','tiny-icon')}</button></div>`:''}</div>`;
+}
 function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=state.tasks.filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;return `
 ${heading('Make today count.',new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))}
 <div class="dashboard-intro"><span class="orbit-dot"></span><span class="mini-kicker">Your daily pulse</span><span>Consistency looks good on you. <span class="subtle-star">✳</span></span></div>
 <section class="summary-hero"><div class="row space"><div><span class="eyebrow">FUEL IN · CALORIES EATEN</span><div class="hero-number">${num(nutr.calories)} <span class="muted" style="font-size:17px">/ ${num(state.goals.calories)} kcal</span></div></div><span class="metric-icon">${svg('flame')}</span></div><div style="margin-top:18px">${progress(nutr.calories,state.goals.calories)}</div><div class="row space small muted hero-foot" style="margin-top:10px"><span>${num(Math.max(0,state.goals.calories-nutr.calories))} kcal to go</span><span>Move more. Eat smart.</span></div></section>
-<div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','','Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Active calories',act.activeCalories,null,'kcal','flame','metric-active','Come on, burn it ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
+<div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','','Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','bolt','metric-active','Come on, burn it ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Watch sync is coming.</b> Steps currently reflect your last manual entry.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
-<section class="dashboard-tasks"><div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Little wins add up.</div></div><span class="pill">${checked}/${state.tasks.length} done</span><button type="button" class="btn task-add-btn" data-action="add-task">${svg('plus','tiny-icon')} Add</button></div><div class="card daily-tasks">${state.tasks.map(t=>`<div class="check-task"><label class="task-check-label"><input class="checkbox" type="checkbox" data-task-id="${t.id}" ${checkboxDone(t)?'checked':''}/><span class="task-text">${escapeHtml(t.label)}</span></label><div class="task-row-actions">${t.auto?`<span class="micro task-auto" title="Auto-linked to your logs, with manual override">AUTO</span>`:''}<button type="button" class="task-icon-btn" data-action="edit-task" data-id="${escapeHtml(t.id)}" aria-label="Edit ${escapeHtml(t.label)}" title="Edit task">${svg('edit','tiny-icon')}</button><button type="button" class="task-icon-btn delete-task" data-action="delete-task" data-id="${escapeHtml(t.id)}" aria-label="Delete ${escapeHtml(t.label)}" title="Delete task">${svg('trash','tiny-icon')}</button></div></div>`).join('')}<button class="btn ghost manage-tasks" data-action="settings">${svg('settings','tiny-icon')} Manage in Settings</button></div></section>
+<section class="dashboard-tasks"><div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Tap to tick · hold to edit.</div></div><span class="pill">${checked}/${state.tasks.length} done</span><button type="button" class="btn task-add-btn" data-action="add-task">${svg('plus','tiny-icon')} Add</button></div><div class="card daily-tasks">${state.tasks.map(renderTaskRow).join('')}</div></section>
 <div class="home-tools"><div><div class="section-head"><h2 class="section-title">Shortcuts, not detours.</h2></div><div class="card quick-panel"><div class="quick-grid">${[['plus','Food','add-food'],['water','Water','metric-water'],['dumbbell','Workout','start-workout'],['chart','Weight','add-weight']].map(([ic,label,action])=>`<button class="quick-btn" data-action="${action}"><span>${svg(ic)}</span><span>${label}</span></button>`).join('')}</div></div>
 </div><div><div class="section-head"><div><h2 class="section-title">Hydration station</h2><div class="muted small">Sip. Repeat. Celebrate.</div></div><span class="small muted">${num(w)} / ${num(state.goals.water)} ml</span></div><div class="card water-panel"><div class="water-inline">${svg('water','big-icon')}<div><b>${num(w)} <span class="muted small">ml</span></b><p class="muted small">Your body says cheers.</p></div></div><div class="water-stepper"><button class="water-step-button" data-action="water-minus" title="Subtract configured amount" aria-label="Subtract configured water amount">−</button><span class="water-step-amount">${num(waterAmount)} <span class="muted">ml</span><small>per tap</small></span><button class="water-step-button plus" data-action="metric-water" title="Add water" aria-label="Add ${waterAmount} millilitres of water">+</button><button class="btn ghost water-settings" data-action="water-config" aria-label="Configure water amount and goal" title="Configure water">${svg('settings')}</button></div></div></div>
 </div>
@@ -115,7 +123,7 @@ if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
 if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
 if(modal.type==='photo')return modalShell('Add progress photo',`${modalField('date','Photo date',today(),'date','required')}<div class="field"><label class="label">View</label><select class="input" name="view"><option>Front</option><option>Left side</option><option>Right side</option><option>Back</option></select></div><div class="field"><label class="label">Choose photo</label><input class="input" type="file" name="photo" accept="image/*" required/></div><p class="hint">The photo is compressed locally and stored offline. It will only be uploaded if you connect and back up to your own cloud.</p>`,'form-photo','Save photo');
-if(modal.type==='activity'){let a=activityToday();return modalShell('Manual activity entry',`${modalField('steps','Steps today',a.steps,'number','min="0" required')}${modalField('activeCalories','Active calories burnt (kcal)',a.activeCalories,'number','min="0" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Samsung Health/Health Connect automatic import is planned for a native Android development phase.</p>`,'form-activity','Update activity');}
+if(modal.type==='activity'){let a=activityToday();return modalShell('Manual activity entry',`${modalField('steps','Steps today',a.steps,'number','min="0" required')}${modalField('activeCalories','Calories burnt during activity (kcal)',a.activeCalories,'number','min="0" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Samsung Health/Health Connect automatic import is planned for a native Android development phase.</p>`,'form-activity','Update activity');}
 if(modal.type==='task')return modalShell('Add a daily task',`${modalField('name','Task description','','text','maxlength="100" required')}`,'form-task','Add task');
 if(modal.type==='rest-setting'){let e=state.session.exercises[modal.index];return modalShell('Exercise rest time',`${modalField('seconds','Rest duration (seconds)',e.restSeconds,'number','min="0" max="1800" step="15" required')}`,'form-rest-setting','Save duration');}
 if(modal.type==='swap'){let e=state.session.exercises[modal.index];return modalShell('Swap exercise',`<p class="muted small">Replacing <b>${escapeHtml(e.name)}</b>. Your completed sets and their values will stay in the session, but progression history is separate for each exercise.</p><div class="field"><label class="label">Suggested alternatives</label><select class="input" name="exercise">${[...e.alts,e.name].map(x=>`<option>${escapeHtml(x)}</option>`).join('')}</select></div>${modalField('custom','Or enter another exercise name','')}`,'form-swap','Replace exercise');}
@@ -128,7 +136,7 @@ return '';
 function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
 function render(){const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.2 · Small steps, better flow</p></div></aside><main class="main">${section}</main></div>${!active?`<nav class="bottom-nav" aria-label="Main navigation">${[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']].map(([id,ico,label])=>`<button class="bottom-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(ico)}${label}</button>`).join('')}</nav>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('arrow')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.3 · Less clutter, more momentum</p></div></aside><main class="main">${section}</main></div>${!active?`<nav class="bottom-nav" aria-label="Main navigation">${[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']].map(([id,ico,label])=>`<button class="bottom-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(ico)}${label}</button>`).join('')}</nav>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('arrow')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
 if(bodyPanel==='photos')updateCompare();
 }
 function setTab(dest){const change=()=>{tab=dest;if(state.session&&tab==='workouts')state.session.minimized=true;state.lastTab=dest;render();window.scrollTo({top:0,behavior:'instant'});};const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;if(document.startViewTransition&&!reduced){document.startViewTransition(change);}else change();put('state',state).catch(console.error);}
@@ -174,8 +182,8 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'add-photo':modal={type:'photo'};render();break;
  case 'activity':modal={type:'activity'};render();break;
  case 'add-task':modal={type:'task'};render();break;
- case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){modal={type:'edit-task',id:t.id};render();}break;}
- case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
+ case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
+ case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
  case 'close-modal':modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;render();break;
  case 'body-panel':bodyPanel=el.dataset.panel;render();break;
@@ -232,11 +240,66 @@ document.addEventListener('click',async event=>{const target=event.target.closes
 document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}});
 document.addEventListener('change',async event=>{const el=event.target;
 if(el.matches('[data-setfield]')){let i=n(el.dataset.ex),j=n(el.dataset.set);if(!state.session?.exercises?.[i]?.sets?.[j])return;state.session.exercises[i].sets[j][el.dataset.setfield]=Math.max(0,n(el.value));await persist();}
-if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;await commit();}
+if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;await commit();}
 if(el.id==='auto-cloud-sync'){localStorage.setItem('recomp-auto-sync',el.checked?'yes':'no');notify(el.checked?'Automatic cloud backup enabled':'Automatic cloud backup disabled');}
 if(el.id==='compare-first'||el.id==='compare-second')updateCompare();
 if(el.id==='import-file'&&el.files?.[0])try{await importData(el.files[0]);}catch(err){console.error(err);notify(err.message||'Backup could not be imported');}
 });
+(function installGestures(){
+ function clearTaskHold(){if(taskHoldTimer!==null)clearTimeout(taskHoldTimer);taskHoldTimer=null;taskHoldPoint=null;}
+ function showTaskActions(id){
+   if(tab!=='home'||modal||!state.tasks.some(t=>t.id===id))return;
+   taskActionsId=id;suppressTaskClickUntil=Date.now()+850;navigator.vibrate?.(12);render();
+ }
+ document.addEventListener('pointerdown',event=>{
+  if(event.button!==0||modal||tab!=='home')return;
+  const row=event.target.closest('.dashboard-tasks [data-task-row]');
+  if(!row||event.target.closest('input,button'))return;
+  clearTaskHold();taskHoldPoint={x:event.clientX,y:event.clientY,id:row.dataset.taskRow};
+  taskHoldTimer=setTimeout(()=>{const id=taskHoldPoint?.id;clearTaskHold();if(id)showTaskActions(id);},560);
+ },{passive:true});
+ document.addEventListener('pointermove',event=>{if(taskHoldPoint&&Math.hypot(event.clientX-taskHoldPoint.x,event.clientY-taskHoldPoint.y)>12)clearTaskHold();},{passive:true});
+ document.addEventListener('pointerup',clearTaskHold,{passive:true});
+ document.addEventListener('pointercancel',clearTaskHold,{passive:true});
+ document.addEventListener('contextmenu',event=>{
+  const row=event.target.closest('.dashboard-tasks [data-task-row]');
+  if(!row)return;event.preventDefault();clearTaskHold();showTaskActions(row.dataset.taskRow);
+ });
+ document.addEventListener('click',event=>{
+  const row=event.target.closest('.dashboard-tasks [data-task-row]');
+  if(row&&Date.now()<suppressTaskClickUntil&&event.target.closest('.task-check-label')){
+    event.preventDefault();event.stopImmediatePropagation();return;
+  }
+  if(taskActionsId&&(!row||row.dataset.taskRow!==taskActionsId))taskActionsId=null;
+ },true);
+ document.addEventListener('keydown',event=>{
+  const row=event.target.closest?.('.dashboard-tasks [data-task-row]');
+  if(row&&((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu'||event.key==='Enter')){
+    event.preventDefault();showTaskActions(row.dataset.taskRow);
+  }
+ });
+ const swipeTabs=['home','workouts','nutrition','body'];
+ function canSwipePages(){
+  return window.matchMedia('(max-width:760px)').matches&&!modal&&!restSheet&&!(state?.session&&!state.session.minimized&&tab==='workouts')&&swipeTabs.includes(tab);
+ }
+ document.addEventListener('touchstart',event=>{
+  swipeGesture=null;
+  if(!canSwipePages()||event.touches.length!==1)return;
+  if(event.target.closest('input,textarea,select,[contenteditable="true"],.tab-row,.photo-compare,.chart-bars,.video-embed,.modal-shade,.timer-sheet,.water-stepper'))return;
+  const t=event.touches[0];if(t.clientX<22||t.clientX>window.innerWidth-22)return;
+  swipeGesture={x:t.clientX,y:t.clientY,time:Date.now(),tab};
+ },{passive:true});
+ document.addEventListener('touchend',event=>{
+  const g=swipeGesture;swipeGesture=null;
+  if(!g||!canSwipePages()||g.tab!==tab||event.changedTouches.length!==1)return;
+  const t=event.changedTouches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;
+  if(Math.abs(dx)<75||Math.abs(dx)<Math.abs(dy)*1.5||Date.now()-g.time>1300)return;
+  const index=swipeTabs.indexOf(tab),next=index+(dx<0?1:-1);
+  if(next<0||next>=swipeTabs.length)return;
+  event.preventDefault();taskActionsId=null;setTab(swipeTabs[next]);
+ },{passive:false});
+ document.addEventListener('touchcancel',()=>{swipeGesture=null;},{passive:true});
+})();
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
 async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';if(state.session){state.session.minimized=true;tab='workouts';exerciseOpen=state.session.activeIndex||0;}await loadPhotoUrls();await put('state',state);render();
