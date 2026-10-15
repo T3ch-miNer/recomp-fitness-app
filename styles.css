@@ -137,6 +137,7 @@ body{
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}::view-transition-old(root),::view-transition-new(root){animation:none}}
 /* Keep every SVG glyph outlined and legible on both themes. */
 .sm-icon,.tiny-icon,.big-icon{stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
 /* v1.2: editable daily tasks above quick actions */
 .dashboard-tasks{margin:16px 0 6px}
 .dashboard-tasks .section-head{margin:20px 0 12px}
@@ -159,8 +160,7 @@ body{
 @media(max-width:760px){.home-tools{grid-template-columns:1fr;gap:0}.dashboard-tasks{margin-top:17px}.check-task{gap:5px}.task-row-actions{gap:2px}.task-icon-btn{width:37px;height:42px}.task-text{font-size:13px}}
 @media(max-width:375px){.task-auto{font-size:9px}.task-icon-btn{width:34px}.dashboard-tasks .section-head>.row{gap:6px}.dashboard-tasks .task-add-btn{padding:7px 9px}}
 
-
-/* Recomp v1.3: distraction-free tasks and lighter floating navigation */
+/* Recomp v1.3 — quieter checklist, clearer energy metric, lighter floating navigation. */
 :root{--nav-glass:rgba(250,253,255,.34)}
 @media(prefers-color-scheme:dark){:root{--nav-glass:rgba(19,39,51,.28)}}
 @media(max-width:760px){
@@ -176,3 +176,113 @@ body{
 .task-row-actions{display:flex;align-items:center;gap:5px}
 @keyframes taskActionsReveal{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:translateX(0)}}
 @supports not ((backdrop-filter:blur(5px)) or (-webkit-backdrop-filter:blur(5px))){.bottom-nav{background:var(--panel)}}
+
+/* Recomp v1.4 — floating glass controls and calm, purposeful motion. */
+:root{
+  --flow-ease:cubic-bezier(.22,1,.36,1);
+  --nav-float:rgba(240,249,250,.62);
+  --nav-float-border:rgba(83,160,157,.22);
+}
+@media(prefers-color-scheme:dark){:root{
+  --nav-float:rgba(16,34,45,.58);
+  --nav-float-border:rgba(148,224,215,.22);
+}}
+/* Each page moves, while the dock remains visually anchored. */
+.main{view-transition-name:page-stage}
+.bottom-nav{view-transition-name:bottom-navigation}
+.floating-workout,.main.workout-focus-shell{view-transition-name:workout-morph}
+.main.workout-focus-shell{view-transition-name:workout-morph}
+::view-transition-old(root),::view-transition-new(root){animation:none!important}
+::view-transition-old(bottom-navigation),::view-transition-new(bottom-navigation){animation:none!important}
+::view-transition-old(page-stage){animation:pageGone .27s ease-in both}
+::view-transition-new(page-stage){animation:pageArrive .38s var(--flow-ease) both}
+html[data-direction="back"]::view-transition-old(page-stage){animation-name:pageGoneBack}
+html[data-direction="back"]::view-transition-new(page-stage){animation-name:pageArriveBack}
+::view-transition-group(workout-morph){animation-duration:.46s;animation-timing-function:var(--flow-ease)}
+::view-transition-old(workout-morph){animation:workoutDissolve .35s ease both}
+::view-transition-new(workout-morph){animation:workoutReveal .4s var(--flow-ease) both}
+@keyframes pageGone{to{opacity:0;transform:translate3d(-23px,0,0) scale(.99)}}
+@keyframes pageArrive{from{opacity:.25;transform:translate3d(24px,0,0) scale(.99)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes pageGoneBack{to{opacity:0;transform:translate3d(23px,0,0) scale(.99)}}
+@keyframes pageArriveBack{from{opacity:.25;transform:translate3d(-24px,0,0) scale(.99)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes workoutDissolve{to{opacity:.1;filter:blur(4px)}}
+@keyframes workoutReveal{from{opacity:.16;filter:blur(5px)}to{opacity:1;filter:blur(0)}}
+@keyframes focusAppear{from{opacity:.72;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.workout-focus-shell{animation:focusAppear .46s var(--flow-ease) both}
+.workout-card,.card{transition:border-color .22s ease,box-shadow .34s var(--flow-ease)}
+.btn,.set-done,.workout-head,.bottom-btn,.floating-workout{transition:transform .23s var(--flow-ease),background-color .24s ease,color .24s ease,border-color .24s ease,box-shadow .24s ease}
+.btn:active,.set-done:active,.workout-head:active{transform:scale(.974)}
+.floating-workout .lift-icon{transform:rotate(180deg);width:25px;height:25px}
+.floating-workout{box-shadow:0 19px 50px rgba(1,12,19,.17),inset 0 1px 0 rgba(255,255,255,.07)}
+.floating-workout:active{transform:translateX(-50%) scale(.985)}
+/* Workout plan builder */
+.template-exercise-summary{margin:14px 0;color:var(--muted);font-size:12px;line-height:1.7}
+.template-actions,.template-edit-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.template-actions>*{flex:1}
+.template-edit-tools{margin:0 0 13px}
+.template-editor-list{border:1px solid var(--line);border-radius:16px;margin-bottom:15px;padding:4px 12px}
+.template-editor-row{display:flex;align-items:center;gap:8px;padding:13px 0;border-bottom:1px solid var(--line)}
+.template-editor-row:last-child{border-bottom:0}
+.editor-exercise-num{width:29px;height:29px;display:grid;place-items:center;background:var(--accent2);border-radius:10px;color:var(--accent);font-weight:700}
+.template-editor-info{flex:1;min-width:0;display:grid;gap:2px}
+.template-editor-info b{overflow-wrap:anywhere}
+.template-editor-info .small{font-size:11px}
+.switch-workout-notice{border:1px solid var(--nav-float-border);background:var(--accent2);border-radius:15px;padding:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.switch-workout-notice .small{margin-left:auto}
+.active-session-notice{border-color:var(--accent)}
+@media(max-width:760px){
+  .bottom-nav{
+    position:fixed;
+    left:14px;right:14px;
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    width:auto;
+    padding:9px 9px 10px;
+    border:1px solid var(--nav-float-border);
+    border-radius:25px;
+    background:var(--nav-float);
+    backdrop-filter:blur(28px) saturate(155%);
+    -webkit-backdrop-filter:blur(28px) saturate(155%);
+    box-shadow:0 15px 48px rgba(0,15,29,.22),inset 0 1px 0 rgba(255,255,255,.14);
+    isolation:isolate;
+    overflow:hidden;
+  }
+  .bottom-btn{position:relative;min-height:57px;border-radius:17px;padding:8px 2px 5px;gap:4px;font-size:11px;z-index:1}
+  .bottom-btn.active{background:var(--accent2);color:var(--accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+  .bottom-btn:active{transform:scale(.92)}
+  .bottom-btn .icon{width:22px;height:22px}
+  .floating-workout{
+    left:50%;right:auto;
+    bottom:calc(106px + env(safe-area-inset-bottom));
+    width:calc(100% - 28px);
+    max-width:570px;
+    padding:15px 18px;
+    background:var(--nav-float);
+    backdrop-filter:blur(28px) saturate(155%);
+    -webkit-backdrop-filter:blur(28px) saturate(155%);
+    border:1px solid var(--nav-float-border);
+    border-radius:24px;
+    z-index:29;
+  }
+  .main{padding-bottom:calc(165px + env(safe-area-inset-bottom))}
+  .screen-mode .main{padding-bottom:70px}
+  .water-cheers{bottom:calc(125px + env(safe-area-inset-bottom))}
+  #toast{bottom:calc(122px + env(safe-area-inset-bottom))}
+  .template-actions .btn{min-width:0;white-space:normal;text-align:center}
+  .template-editor-row .btn{padding:9px;min-width:37px}
+}
+@media(prefers-reduced-motion:reduce){
+  .workout-focus-shell{animation:none!important}
+  ::view-transition-old(page-stage),::view-transition-new(page-stage),::view-transition-old(workout-morph),::view-transition-new(workout-morph){animation:none!important}
+}
+@supports not ((backdrop-filter:blur(5px)) or (-webkit-backdrop-filter:blur(5px))){
+  .bottom-nav,.floating-workout{background:var(--panel)}
+}
+
+/* Prevent the previous navigation selection from ghosting over the incoming dock. */
+::view-transition-old(bottom-navigation){opacity:0!important;animation:none!important}
+::view-transition-old(root){opacity:0!important;animation:none!important}
+.add-current-exercise{margin:6px 0 18px;border-style:dashed;border-color:var(--nav-float-border);padding:14px;transition:background-color .2s ease,transform .2s ease}
+.add-current-exercise:active{transform:scale(.98)}
+
+.hero-goal{font-size:17px;font-weight:500;display:inline-block;margin-left:8px;white-space:nowrap;letter-spacing:-.03em}
+.energy-out .metric-icon{color:#fb923c;background:rgba(251,146,60,.13)}
