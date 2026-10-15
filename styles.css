@@ -158,3 +158,21 @@ body{
 .empty-tasks{padding:15px 0;color:var(--muted);font-size:13px}
 @media(max-width:760px){.home-tools{grid-template-columns:1fr;gap:0}.dashboard-tasks{margin-top:17px}.check-task{gap:5px}.task-row-actions{gap:2px}.task-icon-btn{width:37px;height:42px}.task-text{font-size:13px}}
 @media(max-width:375px){.task-auto{font-size:9px}.task-icon-btn{width:34px}.dashboard-tasks .section-head>.row{gap:6px}.dashboard-tasks .task-add-btn{padding:7px 9px}}
+
+
+/* Recomp v1.3: distraction-free tasks and lighter floating navigation */
+:root{--nav-glass:rgba(250,253,255,.34)}
+@media(prefers-color-scheme:dark){:root{--nav-glass:rgba(19,39,51,.28)}}
+@media(max-width:760px){
+ .bottom-nav{background:var(--nav-glass);backdrop-filter:blur(22px) saturate(130%);-webkit-backdrop-filter:blur(22px) saturate(130%);border-top:1px solid var(--glass-edge);box-shadow:0 -8px 26px rgba(0,0,0,.025)}
+ .bottom-btn{min-height:49px;text-shadow:0 1px 7px rgba(8,16,24,.10)}
+ .check-task{min-height:62px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+ .task-text{font-size:14px}
+ .task-management-open{background:var(--accent2);border-radius:12px;padding-left:8px;padding-right:8px}
+ .task-management-open .task-row-actions{animation:taskActionsReveal .18s ease both}
+}
+@media(min-width:761px){.task-management-open{background:var(--accent2);border-radius:12px;padding:10px 9px}}
+.check-task:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px}
+.task-row-actions{display:flex;align-items:center;gap:5px}
+@keyframes taskActionsReveal{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:translateX(0)}}
+@supports not ((backdrop-filter:blur(5px)) or (-webkit-backdrop-filter:blur(5px))){.bottom-nav{background:var(--panel)}}
