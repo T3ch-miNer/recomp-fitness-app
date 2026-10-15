@@ -137,3 +137,24 @@ body{
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}::view-transition-old(root),::view-transition-new(root){animation:none}}
 /* Keep every SVG glyph outlined and legible on both themes. */
 .sm-icon,.tiny-icon,.big-icon{stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* v1.2: editable daily tasks above quick actions */
+.dashboard-tasks{margin:16px 0 6px}
+.dashboard-tasks .section-head{margin:20px 0 12px}
+.dashboard-tasks .section-head>.row{flex-wrap:nowrap;gap:9px}
+.dashboard-tasks .task-add-btn{font-size:12px;padding:8px 11px}
+.home-tools{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:2px}
+.home-tools>div{min-width:0}
+.home-tools .quick-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.check-task{gap:10px;min-height:58px;padding:10px 0}
+.task-check-label{display:flex;align-items:center;gap:11px;min-width:0;flex:1;cursor:pointer}
+.task-check-label .checkbox{flex:none;min-width:22px;min-height:22px}
+.task-text{font-size:14px;min-width:0;overflow-wrap:anywhere;line-height:1.4}
+.check-task.is-done .task-text{text-decoration:line-through;opacity:.65}
+.task-row-actions{display:flex;align-items:center;gap:5px;flex:none}
+.task-auto{color:var(--muted);letter-spacing:.05em}
+.task-icon-btn{display:grid;place-items:center;flex:none;width:36px;height:40px;padding:0;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--muted);cursor:pointer}
+.task-icon-btn:focus-visible,.task-icon-btn:hover{color:var(--accent);border-color:var(--line);outline-offset:2px}
+.task-icon-btn.delete-task:hover,.task-icon-btn.delete-task:focus-visible{color:var(--red)}
+.empty-tasks{padding:15px 0;color:var(--muted);font-size:13px}
+@media(max-width:760px){.home-tools{grid-template-columns:1fr;gap:0}.dashboard-tasks{margin-top:17px}.check-task{gap:5px}.task-row-actions{gap:2px}.task-icon-btn{width:37px;height:42px}.task-text{font-size:13px}}
+@media(max-width:375px){.task-auto{font-size:9px}.task-icon-btn{width:34px}.dashboard-tasks .section-head>.row{gap:6px}.dashboard-tasks .task-add-btn{padding:7px 9px}}
