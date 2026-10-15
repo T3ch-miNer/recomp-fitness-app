@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <meta name="theme-color" content="#0a111b"/>
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#081018"/>
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f7f9"/>
   <meta name="description" content="Your private, offline-first fitness tracker"/>
   <meta name="color-scheme" content="dark light"/>
   <link rel="manifest" href="./manifest.webmanifest"/>
   <link rel="icon" href="./icon.svg" type="image/svg+xml"/>
-  <link rel="stylesheet" href="./styles.css"/>
-  <title>Recomp | Personal Fitness</title>
+  <link rel="stylesheet" href="./styles.css?v=1.1"/>
+  <title>Recomp | The everyday upgrade</title>
 </head>
 <body>
   <div id="app"></div>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=1.1"></script>
 </body>
 </html>
