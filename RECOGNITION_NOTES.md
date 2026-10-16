@@ -1,0 +1,9 @@
+# Recomp v2.0 Hybrid Nutrition — free recognition
+
+- Barcode: Open Food Facts (ODbL); community-maintained and may contain errors. The barcode is sent to Open Food Facts, not the photo.
+- Local food recognition: Transformers.js 3.8.1 in a Web Worker, using `Xenova/mobileclip_s0` from Hugging Face. Uses Apple ML-MobileCLIP weights under its published licence: https://huggingface.co/Xenova/mobileclip_s0/blob/main/LICENSE. The model is not bundled with the app; downloads at first use (roughly 55 MB for quantised ONNX components, plus runtime assets). An internet connection is needed for first-time download; cache and offline availability depend on browser storage. No images go to an external inference service.
+- On-device image model uses zero-shot comparisons against Recomp food-catalogue names on the whole plate and up to two photo regions. It can miss foods or return incorrect suggestions; scores are relative and do not mean calibrated confidence. The user must add/correct the items and enter cooked weight for every food. No automatic logging or grams estimation.
+- Indian recipes are approximate sample calculations, not verified nutritional analysis. Calories and macros are derived from user-entered cooked food quantity.
+- First-load model downloads are large and may be slow/unavailable in a browser with insufficient storage or network restrictions. Manual search and food entry remain available.
+- Deployment verification: full photo recognition quality and real model download require field testing on an Android phone with network access. The included local browser test uses a deterministic mock model to verify user interface, suggestions, weight enforcement and diary persistence.
+- No API keys or photographs are committed to GitHub. This release does NOT use OpenAI API billing.
