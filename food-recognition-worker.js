@@ -5,8 +5,9 @@ let modelPromise=null;
 async function getModel(id){
  if(!modelPromise){
   modelPromise=(async()=>{
-   const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+   const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm');
    env.useBrowserCache=true;
+   env.allowLocalModels=false;
    const clf=await pipeline('zero-shot-image-classification',MODEL,{
     device:'wasm',dtype:'q8',progress_callback:p=>{
      if(p.status==='progress'&&p.total&&Number.isFinite(p.loaded)){
