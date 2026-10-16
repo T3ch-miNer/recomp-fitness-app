@@ -46,7 +46,34 @@ const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"
 <symbol id="ico-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
 <symbol id="ico-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></symbol>
 </defs></svg>`;
-const mkEx = (id,name,sets,reps,weight,rest,alts=[])=>({id,name,sets:Array.from({length:sets},()=>({id:uid(),kg:weight,reps,done:false})),restSeconds:rest,alts});
+// Each plan can remember individual set values from its last completed session.
+// Saved-set data is optional, keeping the original seven-element template format compatible.
+const mkEx = (id,name,sets,reps,weight,rest,alts=[],savedSets=[])=>({id,name,
+ sets:Array.from({length:sets},(_,i)=>({id:uid(),kg:n(savedSets?.[i]?.kg,weight),
+  reps:n(savedSets?.[i]?.reps,reps),done:false,
+  manualKg:i>0&&savedSets?.[i]?.kg!=null&&n(savedSets[i].kg)!==n(savedSets[0]?.kg,weight)})),restSeconds:rest,alts});
+function buildWorkoutExercises(template){
+ // Existing v1.8 history can prefill v1.9 without altering older records.
+ const previous=(state.workoutHistory||[]).slice().reverse().find(h=>h.name===template.name);
+ return template.items.map(item=>{
+  const fromHistory=previous?.exercises?.find(e=>e.id===item[0]&&e.name===item[1]);
+  const sets=Array.isArray(item[7])?item[7]:fromHistory?.sets?.map(set=>({kg:n(set.kg),reps:n(set.reps)}));
+  return mkEx(...item.slice(0,7),sets);
+ });
+}
+function rememberWorkoutSets(session){
+ const template=state.templates.find(t=>t.id===session.templateId);
+ if(!template)return;
+ for(const exercise of session.exercises){
+  const item=template.items.find(x=>x[0]===exercise.id&&x[1]===exercise.name);
+  if(!item)continue; // Never carry a swapped exercise's weights into a different movement.
+  const previous=Array.isArray(item[7])?item[7]:[];
+  item[7]=exercise.sets.map((set,i)=>set.done?
+   {kg:Math.max(0,n(set.kg)),reps:Math.max(0,n(set.reps))}:
+   (previous[i]||{kg:n(item[4]),reps:n(item[3])}));
+ }
+}
+
 const TEMPLATES = [
  {id:'A',name:'Full Body A',subtitle:'Foundation · 6 exercises',items:[['legpress','Leg Press',3,10,0,120,['Goblet Squat','Smith Machine Squat','Bulgarian Split Squat']],['chestpress','Machine Chest Press',3,10,0,120,['Dumbbell Bench Press','Push-ups','Barbell Bench Press']],['row','Seated Cable Row',3,10,0,90,['One-arm Dumbbell Row','Chest-supported Row']],['rdl','Dumbbell Romanian Deadlift',2,10,0,120,['Barbell Romanian Deadlift','Lying Leg Curl']],['lateral','Dumbbell Lateral Raise',2,12,0,60,['Cable Lateral Raise','Machine Lateral Raise']],['plank','Plank',2,40,0,60,['Dead Bug','Pallof Press']]]},
  {id:'B',name:'Full Body B',subtitle:'Build · 7 exercises',items:[['goblet','Goblet Squat',3,10,0,120,['Leg Press','Smith Machine Squat']],['incline','Incline Dumbbell Press',3,10,0,120,['Incline Chest Press Machine','Push-ups']],['pulldown','Lat Pulldown',3,10,0,90,['Assisted Pull-up','Band Pulldown']],['curl','Seated Leg Curl',2,12,0,90,['Lying Leg Curl','Romanian Deadlift']],['shoulders','Machine Shoulder Press',2,10,0,90,['Seated Dumbbell Press','Landmine Press']],['biceps','Dumbbell Biceps Curl',2,12,0,60,['Cable Curl','EZ-bar Curl']],['triceps','Cable Triceps Pushdown',2,12,0,60,['Overhead Dumbbell Extension','Close-grip Push-ups']]]}
@@ -91,20 +118,36 @@ function haptic(kind='tap',force=false){
   try{return navigator.vibrate(patterns[kind]||patterns.tap)===true;}catch{return false;}
 }
 function motionChange(change,kind='tab',direction=1){
- // Avoid full-document view-transition snapshots. They repaint image grids and blurred glass
- // on low-powered Android phones, causing stutter. Animate the new content only.
+ const isMorph=kind==='expand'||kind==='minimize';
+ const oldEl=isMorph?(kind==='expand'?document.querySelector('.floating-workout'):document.querySelector('.workout-focus-shell .top')):null;
+ const oldRect=oldEl?.getBoundingClientRect();
  change();
  if(reducedMotion())return;
  const target=document.querySelector('.main');
  if(!target?.animate)return;
- const isTab=kind==='tab',dx=isTab?(direction<0?-13:13):0;
- // Animate only on the compositor. Large-page opacity fades make charts and cards
- // repaint on some Android devices, which can cause a visible jump.
  for(const running of target.getAnimations())running.cancel();
+ if(isMorph&&oldRect){
+  const newEl=kind==='expand'?document.querySelector('.workout-focus-shell .top'):document.querySelector('.floating-workout');
+  const dest=newEl?.getBoundingClientRect();
+  if(dest?.width&&dest?.height){
+   const ghost=document.createElement('div');ghost.className='workout-morph-ghost';
+   ghost.style.cssText=`left:${oldRect.left}px;top:${oldRect.top}px;width:${oldRect.width}px;height:${oldRect.height}px`;
+   document.body.appendChild(ghost);
+   const dx=dest.left-oldRect.left,dy=dest.top-oldRect.top;
+   const scaleX=Math.min(3,Math.max(.3,dest.width/oldRect.width));
+   const scaleY=Math.min(3,Math.max(.3,dest.height/oldRect.height));
+   const animation=ghost.animate([
+    {transform:'translate3d(0,0,0) scale(1)',opacity:.84},
+    {transform:`translate3d(${dx}px,${dy}px,0) scale(${scaleX},${scaleY})`,opacity:0}
+   ],{duration:365,easing:'cubic-bezier(.22,1,.36,1)',fill:'forwards'});
+   animation.finished.catch(()=>{}).finally(()=>ghost.remove());
+  }
+ }
+ const isTab=kind==='tab',dx=isTab?(direction<0?-12:12):0;
  target.animate([
-  {transform:`translate3d(${dx}px,${isTab?0:10}px,0) scale(${isTab?1:.995})`},
-  {transform:'translate3d(0,0,0) scale(1)'}
- ],{duration:isTab?190:240,easing:'cubic-bezier(.2,.78,.24,1)',fill:'none'});
+  {transform:`translate3d(${dx}px,${isTab?0:9}px,0) scale(${isTab?1:.995})`,opacity:isMorph?.77:.94},
+  {transform:'translate3d(0,0,0) scale(1)',opacity:1}
+ ],{duration:isTab?190:300,easing:'cubic-bezier(.22,1,.36,1)',fill:'none'});
 }
 
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
@@ -150,8 +193,7 @@ ${heading('Make today count.',new Date().toLocaleDateString('en-GB',{weekday:'lo
 <div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','','Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','flame','metric-active','Come on, burn it ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Watch sync is coming.</b> Steps currently reflect your last manual entry.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
 ${homeTasksSection(checked)}
-<div class="home-tools"><div><div class="section-head"><h2 class="section-title">Shortcuts, not detours.</h2></div><div class="card quick-panel"><div class="quick-grid">${[['plus','Food','add-food'],['water','Water','metric-water'],['dumbbell','Workout','start-workout'],['chart','Weight','add-weight']].map(([ic,label,action])=>`<button class="quick-btn" data-action="${action}"><span>${svg(ic)}</span><span>${label}</span></button>`).join('')}</div></div></div>
-<div><div class="section-head"><div><h2 class="section-title">Hydration station</h2><div class="muted small">Sip. Repeat. Celebrate.</div></div><span class="small muted">${num(w)} / ${num(state.goals.water)} ml</span></div><div class="card water-panel"><button type="button" class="btn ghost water-settings water-settings-top" data-action="water-config" aria-label="Configure water amount and goal" title="Configure water">${svg('settings')}</button><div class="water-inline">${svg('water','big-icon')}<div><b>${num(w)} <span class="muted small">ml</span></b><p class="muted small">Your body says cheers.</p></div></div><div class="water-stepper"><button class="water-step-button" data-action="water-minus" title="Subtract configured amount" aria-label="Subtract configured water amount">−</button><span class="water-step-amount">${num(waterAmount)} <span class="muted">ml</span><small>per tap</small></span><button class="water-step-button plus" data-action="metric-water" title="Add water" aria-label="Add ${waterAmount} millilitres of water">+</button></div></div></div></div>
+<div class="home-tools"><div><div class="section-head"><div><h2 class="section-title">Hydration station</h2><div class="muted small">Sip. Repeat. Celebrate.</div></div><span class="small muted">${num(w)} / ${num(state.goals.water)} ml</span></div><div class="card water-panel"><button type="button" class="btn ghost water-settings water-settings-top" data-action="water-config" aria-label="Configure water amount and goal" title="Configure water">${svg('settings')}</button><div class="water-inline">${svg('water','big-icon')}<div><b>${num(w)} <span class="muted small">ml</span></b><p class="muted small">Your body says cheers.</p></div></div><div class="water-stepper"><button class="water-step-button" data-action="water-minus" title="Subtract configured amount" aria-label="Subtract configured water amount">−</button><span class="water-step-amount">${num(waterAmount)} <span class="muted">ml</span><small>per tap</small></span><button class="water-step-button plus" data-action="metric-water" title="Add water" aria-label="Add ${waterAmount} millilitres of water">+</button></div></div></div></div>
 ${state.session?`<div class="section-head"><h2 class="section-title">Still going strong?</h2></div><div class="card row space"><div><b>${escapeHtml(state.session.name)}</b><div class="small muted">Your session is saved and waiting for you.</div></div><button class="btn primary" data-action="resume-workout">Resume</button></div>`:''}`;}
 function mealGuideView(){
  const items=mealGuideItems();
@@ -167,14 +209,14 @@ function mealGuideView(){
      <div class="meal-guide-entry-copy"><span class="meal-guide-type">${escapeHtml(visibleLabel)}</span><p>${escapeHtml(item.description)}</p></div>
      ${open?`<div class="meal-guide-entry-actions"><button type="button" class="btn guide-item-button" data-action="edit-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Edit ${escapeHtml(visibleLabel)}">${svg('edit','tiny-icon')} Edit</button><button type="button" class="btn danger guide-item-button" data-action="delete-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Delete ${escapeHtml(visibleLabel)}">${svg('trash','tiny-icon')} Delete</button></div>`:''}
     </div>`;
-  }).join('') || `<p class="meal-guide-no-items">No options yet. Tap Add to create one.</p>`;
+  }).join('') || `<p class="meal-guide-no-items">No entries in this section.</p>`;
  };
- return `<section class="meal-guide meal-guide-compact" aria-label="Your Everyday Meal">
-  <div class="meal-guide-heading"><h3>Your Everyday Meal</h3><button type="button" class="btn meal-guide-add" data-action="add-guide-item" aria-label="Add meal guide option">${svg('plus','tiny-icon')} Add</button></div>
+ return `<section class="meal-guide meal-guide-compact" aria-label="Your Everyday Plate">
+  <div class="meal-guide-heading"><h3>Your Everyday Plate</h3></div>
   <div class="meal-guide-compact-list" aria-label="Breakfast options">${renderGroup('Breakfast')}</div>
   <div class="meal-guide-compact-subhead">Lunch / Dinner</div>
   <div class="meal-guide-compact-list" aria-label="Lunch and dinner options">${renderGroup('Lunch & Dinner')}</div>
-  <p class="meal-guide-compact-note">Portion guide · Nothing logged automatically · Hold an entry to edit</p>
+  <p class="meal-guide-compact-note">Portion guide · Hold an entry to edit</p>
  </section>`;
 }
 function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
@@ -263,7 +305,7 @@ function workoutView(){
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
 function restLeft(){let r=state.session?.rest;return r?(r.paused?Math.ceil(r.remainingMs/1000):Math.max(0,Math.ceil((r.endsAt-Date.now())/1000))):0;}
 function clock(seconds){return `${String(Math.floor(Math.max(0,seconds)/60)).padStart(2,'0')}:${String(Math.max(0,seconds)%60).padStart(2,'0')}`;}
-function activeWorkoutView(){const s=state.session;if(!s) return workoutView();const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<div class="row space" style="margin-bottom:16px"><button class="btn" data-action="minimise-workout">${svg('minimise','tiny-icon')} Minimise</button><span class="pill"><span class="status-dot" style="display:inline-block"></span> Session saved</span><button class="btn danger" data-action="discard-workout">Discard</button></div><div class="top"><div><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead">${svg('timer','tiny-icon')} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg('dumbbell')}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>Rest in progress</b><small>Tap to reopen your countdown</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.sets.length} sets · ${e.sets.filter(x=>x.done).length} complete </span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>Reps</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${escapeHtml(set.kg)}"/><input class="input set-input" aria-label="Repetitions for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${escapeHtml(set.reps)}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join('')}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Ready to finish?</b><div class="small muted">Completed sets will be saved to your workout history.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
+function activeWorkoutView(){const s=state.session;if(!s) return workoutView();const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<div class="row space" style="margin-bottom:16px"><button class="btn" data-action="minimise-workout">${svg('minimise','tiny-icon')} Minimise</button><span class="pill"><span class="status-dot" style="display:inline-block"></span> Session saved</span><button class="btn danger" data-action="discard-workout">Discard</button></div><div class="top"><div><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead">${svg('timer','tiny-icon')} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg('dumbbell')}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>Rest in progress</b><small>Tap to reopen your countdown</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.sets.length} sets · ${e.sets.filter(x=>x.done).length} complete </span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>Reps</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="Repetitions for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${escapeHtml(set.reps)}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join('')}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Ready to finish?</b><div class="small muted">Completed sets will be saved to your workout history.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
 function settingsView(){const cfg=cloud.getConfig(),ses=cloud.getSession();return `${heading('Settings','Your goals, account and data controls.')}<div class="card"><h2 class="section-title">Daily targets</h2><p class="small muted">Change any target without losing past entries.</p><form id="settings-goals"><div class="field-row">${[['calories','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbohydrates (g)'],['fat','Fat (g)'],['fibre','Fibre (g)'],['water','Water (ml)'],['steps','Steps']].map(([k,label])=>`<div class="field"><label class="label" for="goal-${k}">${label}</label><input class="input" id="goal-${k}" name="${k}" type="number" min="0" value="${escapeHtml(state.goals[k])}"/></div>`).join('')}</div><button class="btn primary" type="submit">Save goals</button></form></div>
 <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Build a routine that belongs to you.</div></div><button class="btn" data-action="add-task">${svg('plus','tiny-icon')} Add task</button></div><div class="card task-manager">${state.tasks.map(t=>`<div class="task-manage-row"><span class="task-manage-label">${escapeHtml(t.label)}${t.auto?'<small>Auto-linked to your logs, but you can tick manually</small>':'<small>Manually completed from the dashboard</small>'}</span>${t.auto?'<span class="pill">AUTO</span>':''}<button class="btn ghost" data-action="edit-task" data-id="${escapeHtml(t.id)}" aria-label="Edit ${escapeHtml(t.label)}">${svg('edit','tiny-icon')}</button><button class="btn ghost danger" data-action="delete-task" data-id="${escapeHtml(t.id)}" aria-label="Delete ${escapeHtml(t.label)}">${svg('trash','tiny-icon')}</button></div>`).join('')}</div>
 <div class="section-head"><h2 class="section-title">Galaxy Watch and activity</h2></div><div class="card"><p class="small muted">Health Connect is planned for the native Android integration phase. In this version, enter values manually on your dashboard.</p><button class="btn" data-action="activity">${svg('pencil','tiny-icon')} Update steps and active calories</button></div>
@@ -308,9 +350,9 @@ async function switchWorkoutTo(targetId,shouldSave){
  if(shouldSave){
   const done=prior.exercises.flatMap(e=>e.sets.filter(x=>x.done));
   if(!done.length){notify('Complete at least one set to save. Use Discard instead.');return;}
-  state.workoutHistory.push({id:uid(),date:today(),name:prior.name,startedAt:prior.startedAt,endedAt:Date.now(),durationMin:Math.max(1,Math.round((Date.now()-prior.startedAt)/60000)),sets:done.length,volume:done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0),exercises:prior.exercises});
+  state.workoutHistory.push({id:uid(),date:today(),name:prior.name,startedAt:prior.startedAt,endedAt:Date.now(),durationMin:Math.max(1,Math.round((Date.now()-prior.startedAt)/60000)),sets:done.length,volume:done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0),exercises:prior.exercises});rememberWorkoutSets(prior);
  }
- const next={id:uid(),name:desired.name,templateId:desired.id,startedAt:Date.now(),minimized:false,exercises:desired.items.map(args=>mkEx(...args)),activeIndex:0,rest:null};
+ const next={id:uid(),name:desired.name,templateId:desired.id,startedAt:Date.now(),minimized:false,exercises:buildWorkoutExercises(desired),activeIndex:0,rest:null};
  motionChange(()=>{state.session=next;modal=null;restSheet=false;restAlertedFor=null;tab='workouts';state.lastTab='workouts';exerciseOpen=0;render();},'expand');
  haptic('success');await persist();window.scrollTo({top:0,behavior:'instant'});
 }
@@ -357,7 +399,7 @@ function syncDock(visible){
  const pages=[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']];
  if(!dock){
   dock=document.createElement('nav');dock.id='recomp-bottom-dock';dock.className='bottom-nav premium-dock';dock.setAttribute('aria-label','Main navigation');
-  dock.innerHTML=pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button">${svg(ico)}<span>${label}</span></button>`).join('');
+  dock.innerHTML='<span class="dock-selection" aria-hidden="true"></span>'+pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button">${svg(ico)}<span>${label}</span></button>`).join('');
   dock.style.setProperty('--active-tab-index',String(Math.max(0,pages.findIndex(([id])=>id===tab))));
   document.body.appendChild(dock);
  }
@@ -369,12 +411,20 @@ function syncDock(visible){
   button.classList.toggle('active',isActive);
   if(isActive)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
  }
- if(visible){dock.style.setProperty('--active-tab-index',String(Math.max(0,pages.findIndex(([id])=>id===tab))));}
+ if(visible){
+   const selected=dock.querySelector('.bottom-btn.active');
+   const selection=dock.querySelector('.dock-selection');
+   if(selected&&selection){
+    // Use real button geometry, not percentage transforms that drift at the edges.
+    selection.style.width=`${selected.offsetWidth}px`;
+    selection.style.transform=`translate3d(${selected.offsetLeft}px,0,0)`;
+   }
+  }
 }
 function render(){applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.8</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.9 · Review</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }
@@ -389,7 +439,7 @@ function beginWorkout(id){
  const template=templateById(id);if(!template)return;
  if(state.session){pendingPlanSwitch(id);return;}
  if(!template.items.length){notify('Add an exercise to this plan first.');return;}
- motionChange(()=>{state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,exercises:template.items.map(args=>mkEx(...args)),activeIndex:0,rest:null};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
+ motionChange(()=>{state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,exercises:buildWorkoutExercises(template),activeIndex:0,rest:null};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
  haptic('success');persist().catch(console.error);
 }
 function setRest(exIndex){const s=state.session,e=s.exercises[exIndex];s.rest={exerciseIndex:exIndex,endsAt:Date.now()+e.restSeconds*1000,paused:false,remainingMs:e.restSeconds*1000,id:uid()};restAlertedFor=null;restSheet=true;}
@@ -397,7 +447,7 @@ function tickSet(exI,setI){const s=state.session,e=s?.exercises?.[exI],set=e?.se
  if(set.done){haptic('check');const all=e.sets.every(x=>x.done);if(all){s.rest=null;restSheet=false;const next=s.exercises.findIndex((x,i)=>i>exI && x.sets.some(a=>!a.done));if(next!==-1){s.activeIndex=next;exerciseOpen=next;}else{const first=s.exercises.findIndex(x=>x.sets.some(a=>!a.done));if(first!==-1){s.activeIndex=first;exerciseOpen=first;}}}else if(e.restSeconds>0){setRest(exI);}}
  persist().then(render);
 }
-function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
+function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -510,7 +560,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   exerciseOpen=s.activeIndex;haptic('check');await commit();
   break;
  }
- case 'add-set':{let e=state.session?.exercises?.[Number(el.dataset.index)];if(e){const last=e.sets.at(-1);e.sets.push({id:uid(),kg:last?.kg||0,reps:last?.reps||10,done:false});await commit();}break;}
+ case 'add-set':{let e=state.session?.exercises?.[Number(el.dataset.index)];if(e){const last=e.sets.at(-1);e.sets.push({id:uid(),kg:n(last?.kg),reps:n(last?.reps,10),done:false});await commit();}break;}
  case 'rest-setting':modal={type:'rest-setting',index:Number(el.dataset.index)};render();break;
  case 'swap-exercise':modal={type:'swap',index:Number(el.dataset.index)};render();break;
  case 'exercise-notes':modal={type:'notes',index:Number(el.dataset.index)};render();break;
@@ -578,7 +628,9 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
   const alternatives=String(data.get('alternatives')||'').split(',').map(x=>x.trim().slice(0,90)).filter(Boolean).slice(0,8);
   const eid=ix==null?'custom-ex-'+uid():t.items[ix]?.[0];
   if(!eid)throw new Error('Exercise no longer available');
-  const item=[eid,name,sets,reps,kg,rest,alternatives];
+  const previous=ix==null?null:t.items[ix];
+  const remembered=previous?.[1]===name?previous[7]:undefined;
+  const item=[eid,name,sets,reps,kg,rest,alternatives,Array.isArray(remembered)?remembered.slice(0,sets):undefined];
   if(ix==null)t.items.push(item);else t.items[ix]=item;
   modal={type:'edit-template',id:t.id};await persist();render();haptic('check');return;
  }
@@ -593,6 +645,21 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
 
 document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target)return;if(target.dataset.action==='close-modal'&&target.classList.contains('modal-shade')&&event.target!==target)return;event.preventDefault();try{await handleAction(target,event);}catch(err){console.error(err);notify(err.message||'Something went wrong');}});
 document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}});
+// Mirror the first working weight as soon as it is typed, without touching
+// separately edited sets or another exercise.
+document.addEventListener('input',event=>{
+ const el=event.target;
+ if(!el.matches('input[data-setfield="kg"][data-set="0"]'))return;
+ const i=Number(el.dataset.ex),exercise=state.session?.exercises?.[i];
+ if(!exercise)return;
+ const first=Math.max(0,n(el.value));exercise.sets[0].kg=first;
+ exercise.sets.slice(1).forEach((set,offset)=>{
+  if(set.done||set.manualKg)return;
+  set.kg=first;
+  const sibling=document.querySelector(`input[data-setfield="kg"][data-ex="${i}"][data-set="${offset+1}"]`);
+  if(sibling)sibling.value=first>0?String(first):'';
+ });
+});
 document.addEventListener('change',async event=>{const el=event.target;
 if(el.id==='appearance-mode'){
  state.preferences??={haptics:true,waterSound:true};
@@ -606,7 +673,24 @@ if(el.id==='enable-haptics'||el.id==='enable-water-sound'){
  await persist();notify(el.id==='enable-haptics'?(el.checked?'Haptics enabled':'Haptics disabled'):(el.checked?'Water sound enabled':'Water sound muted'));
  return;
 }
-if(el.matches('[data-setfield]')){let i=n(el.dataset.ex),j=n(el.dataset.set);if(!state.session?.exercises?.[i]?.sets?.[j])return;state.session.exercises[i].sets[j][el.dataset.setfield]=Math.max(0,n(el.value));await persist();}
+if(el.matches('[data-setfield]')){
+ const i=Number(el.dataset.ex),j=Number(el.dataset.set),field=el.dataset.setfield;
+ const exercise=state.session?.exercises?.[i],set=exercise?.sets?.[j];if(!set)return;
+ set[field]=Math.max(0,n(el.value));
+ if(field==='kg'){
+  set.manualKg=j!==0 && el.value.trim()!=='';
+  if(j===0){
+   // Fill untouched later sets. Never replace completed or manually adjusted weights.
+   for(let k=1;k<exercise.sets.length;k++){
+    const target=exercise.sets[k];if(target.done||target.manualKg)continue;
+    target.kg=set.kg;
+    const input=document.querySelector(`input[data-setfield="kg"][data-ex="${i}"][data-set="${k}"]`);
+    if(input)input.value=set.kg>0?String(set.kg):'';
+   }
+  }
+ }
+ await persist();
+}
 if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');await commit();}
 if(el.id==='auto-cloud-sync'){localStorage.setItem('recomp-auto-sync',el.checked?'yes':'no');notify(el.checked?'Automatic cloud backup enabled':'Automatic cloud backup disabled');}
 if(el.id==='compare-view'){compareView=el.value;const photos=state.photos.filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));const options=photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)}</option>`).join('');$('#compare-first').innerHTML=options;$('#compare-second').innerHTML=options;updateCompare();}
