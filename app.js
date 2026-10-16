@@ -18,7 +18,7 @@ const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"
 <symbol id="ico-flame" viewBox="0 0 24 24"><path d="M12 22a8 8 0 0 0 8-8c0-4-3-6-5-10 0 4-2 5-3 6C11 7 10 6 9 4 9 9 4 11 4 15a8 8 0 0 0 8 7z"/><path d="M12 22a4 4 0 0 0 4-4c0-2-2-4-4-6-1 3-4 4-4 6a4 4 0 0 0 4 4z"/></symbol>
 <symbol id="ico-bolt" viewBox="0 0 24 24"><path d="M13.5 2 5 13h6.5l-1 9L20 10h-7L13.5 2z"/></symbol>
 	<symbol id="ico-walk" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="m8 22 2-7 2-4-4-2-3 5M12 11l4 3 4 1M9 7l3 4 1 5 4 6"/></symbol>
-<symbol id="ico-protein" viewBox="0 0 24 24"><path d="M5 19a4 4 0 0 1-1-7c-1-3 2-5 5-4 2-3 7-2 8 2 4 0 5 6 1 8l-9 2z"/></symbol>
+<symbol id="ico-protein" viewBox="0 0 24 24"><path d="M15.8 3.2c3.8-.1 6.2 2.7 5.7 6.5-.5 3.3-3.2 6.3-7.2 7.7L9 19l-4-4.1 1.8-5.3c1.5-4 4.7-6.2 9-6.4z"/><path d="M6 15 3.7 17.3a2.1 2.1 0 1 0 3 3l2.4-2.4"/><path d="M3.7 17.3a2.1 2.1 0 0 0-2.2 3 2.2 2.2 0 0 0 3 .5"/></symbol>
 <symbol id="ico-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="9"/><path d="M12 8v5l4 3M9 2h6"/></symbol>
 <symbol id="ico-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
 <symbol id="ico-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
@@ -51,19 +51,32 @@ const TEMPLATES = [
  {id:'A',name:'Full Body A',subtitle:'Foundation · 6 exercises',items:[['legpress','Leg Press',3,10,0,120,['Goblet Squat','Smith Machine Squat','Bulgarian Split Squat']],['chestpress','Machine Chest Press',3,10,0,120,['Dumbbell Bench Press','Push-ups','Barbell Bench Press']],['row','Seated Cable Row',3,10,0,90,['One-arm Dumbbell Row','Chest-supported Row']],['rdl','Dumbbell Romanian Deadlift',2,10,0,120,['Barbell Romanian Deadlift','Lying Leg Curl']],['lateral','Dumbbell Lateral Raise',2,12,0,60,['Cable Lateral Raise','Machine Lateral Raise']],['plank','Plank',2,40,0,60,['Dead Bug','Pallof Press']]]},
  {id:'B',name:'Full Body B',subtitle:'Build · 7 exercises',items:[['goblet','Goblet Squat',3,10,0,120,['Leg Press','Smith Machine Squat']],['incline','Incline Dumbbell Press',3,10,0,120,['Incline Chest Press Machine','Push-ups']],['pulldown','Lat Pulldown',3,10,0,90,['Assisted Pull-up','Band Pulldown']],['curl','Seated Leg Curl',2,12,0,90,['Lying Leg Curl','Romanian Deadlift']],['shoulders','Machine Shoulder Press',2,10,0,90,['Seated Dumbbell Press','Landmine Press']],['biceps','Dumbbell Biceps Curl',2,12,0,60,['Cable Curl','EZ-bar Curl']],['triceps','Cable Triceps Pushdown',2,12,0,60,['Overhead Dumbbell Extension','Close-grip Push-ups']]]}
 ];
+// An independent quick-reference, never used for calorie or macro calculations.
+const DEFAULT_MEAL_GUIDE = [
+ {id:'guide-breakfast',group:'Breakfast',label:'Breakfast',description:'2 eggs + 1 slice of toast'},
+ {id:'guide-carbs',group:'Lunch & Dinner',label:'Carbs',description:'2 rotis or 150 g cooked rice or 150 g cooked pasta'},
+ {id:'guide-protein',group:'Lunch & Dinner',label:'Protein foods',description:'170 g meat or 90 g paneer/beans'},
+ {id:'guide-veg',group:'Lunch & Dinner',label:'Vegetables',description:'170–200 g sautéed vegetables or sabji'}
+];
+function mealGuideItems(){
+ if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);
+ return state.mealGuideItems;
+}
 const INITIAL = () => ({
  version:1, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
  waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
- taskChecks:{}, food:[],water:[],activity:[],weights:[],
+ taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
  photos:[],workoutHistory:[],session:null,templates:structuredClone(TEMPLATES),
- lastTab:'home',dirty:false,lastSync:null
+ lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
 let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
 let planActionsId=null,planHoldTimer=null,planHoldPoint=null;
+let mealGuideActionsId=null,mealGuideHoldTimer=null,mealGuideHoldPoint=null;
+let guideStream=null,guideView='Front',guideDate=today(),compareView='Front';
 const renderLater=()=>{render();};
 const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
 function themeChoice(){return ['light','dark'].includes(state?.preferences?.themeMode)?state.preferences.themeMode:'system';}
@@ -78,23 +91,17 @@ function haptic(kind='tap',force=false){
   try{return navigator.vibrate(patterns[kind]||patterns.tap)===true;}catch{return false;}
 }
 function motionChange(change,kind='tab',direction=1){
- const root=document.documentElement;
- if(!document.startViewTransition||reducedMotion()){
-  change();
-  // Fallback animation happens only on a real navigation, never on set or timer redraws.
-  if(!reducedMotion() && document.querySelector('.main')?.animate){
-   const target=document.querySelector('.main');
-   const dx=kind==='tab'?(direction<0?-12:12):0;
-   target.animate([{opacity:.45,transform:`translate3d(${dx}px,5px,0)`},{opacity:1,transform:'translate3d(0,0,0)'}],{duration:250,easing:'cubic-bezier(.22,1,.36,1)'});
-  }
-  return;
- }
- root.dataset.motion=kind;
- root.dataset.direction=direction<0?'back':'forward';
- try{
-  const vt=document.startViewTransition(change);
-  vt.finished.finally(()=>{delete root.dataset.motion;delete root.dataset.direction;}).catch(()=>{});
- }catch{change();delete root.dataset.motion;delete root.dataset.direction;}
+ // Avoid full-document view-transition snapshots. They repaint image grids and blurred glass
+ // on low-powered Android phones, causing stutter. Animate the new content only.
+ change();
+ if(reducedMotion())return;
+ const target=document.querySelector('.main');
+ if(!target?.animate)return;
+ const isTab=kind==='tab',dx=isTab?(direction<0?-24:24):0;
+ target.animate([
+  {opacity:isTab?.76:.88,transform:`translate3d(${dx}px,${isTab?0:14}px,0) scale(${isTab?1:.992})`},
+  {opacity:1,transform:'translate3d(0,0,0) scale(1)'}
+ ],{duration:isTab?215:265,easing:'cubic-bezier(.2,.75,.25,1)',fill:'none'});
 }
 
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
@@ -143,8 +150,102 @@ ${homeTasksSection(checked)}
 <div class="home-tools"><div><div class="section-head"><h2 class="section-title">Shortcuts, not detours.</h2></div><div class="card quick-panel"><div class="quick-grid">${[['plus','Food','add-food'],['water','Water','metric-water'],['dumbbell','Workout','start-workout'],['chart','Weight','add-weight']].map(([ic,label,action])=>`<button class="quick-btn" data-action="${action}"><span>${svg(ic)}</span><span>${label}</span></button>`).join('')}</div></div></div>
 <div><div class="section-head"><div><h2 class="section-title">Hydration station</h2><div class="muted small">Sip. Repeat. Celebrate.</div></div><span class="small muted">${num(w)} / ${num(state.goals.water)} ml</span></div><div class="card water-panel"><button type="button" class="btn ghost water-settings water-settings-top" data-action="water-config" aria-label="Configure water amount and goal" title="Configure water">${svg('settings')}</button><div class="water-inline">${svg('water','big-icon')}<div><b>${num(w)} <span class="muted small">ml</span></b><p class="muted small">Your body says cheers.</p></div></div><div class="water-stepper"><button class="water-step-button" data-action="water-minus" title="Subtract configured amount" aria-label="Subtract configured water amount">−</button><span class="water-step-amount">${num(waterAmount)} <span class="muted">ml</span><small>per tap</small></span><button class="water-step-button plus" data-action="metric-water" title="Add water" aria-label="Add ${waterAmount} millilitres of water">+</button></div></div></div></div>
 ${state.session?`<div class="section-head"><h2 class="section-title">Still going strong?</h2></div><div class="card row space"><div><b>${escapeHtml(state.session.name)}</b><div class="small muted">Your session is saved and waiting for you.</div></div><button class="btn primary" data-action="resume-workout">Resume</button></div>`:''}`;}
-function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="summary-hero"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
-function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Body tracker','See the changes beyond the scales.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart')}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep (relaxed)'],['leftBicep','Left bicep (relaxed)'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weights.length?`<div class="chart-bars" style="margin:15px 0">${weights.map(w=>`<div class="chart-bar" title="${escapeHtml(w.date)}: ${w.kg} kg" style="height:${Math.max(8,(w.kg-minW)/(maxW-minW)*100)}%"></div>`).join('')}</div>`:''}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weekly weigh-in goes here.</p>'}</div>`:`<div class="card"><div class="row space"><div><h2 class="section-title">Private progress photos</h2><div class="hint">Recommended: every 2 weeks</div></div><button class="btn" data-action="add-photo">${svg('camera','tiny-icon')} Add</button></div><p class="small muted">Only photos you choose are saved. Images stay on this device until you explicitly sync with your private cloud.</p><div class="photo-grid">${[...state.photos].reverse().map(p=>`<div class="photo-box">${photoUrls.has(p.id)?`<img src="${photoUrls.get(p.id)}" alt="${escapeHtml(p.view)} progress on ${escapeHtml(p.date)}"/>`:`<div style="aspect-ratio:3/4;display:grid;place-items:center">${svg('camera')}</div>`}<div class="photo-caption"><span>${dateDisplay(p.date)}<br/>${escapeHtml(p.view)}</span><button class="btn ghost" data-action="delete-photo" data-id="${p.id}" aria-label="Delete photo">${svg('trash','tiny-icon')}</button></div></div>`).join('')}</div>${state.photos.length>=2?`<div class="section-head"><h3 class="section-title">Compare photos</h3></div><div class="row"><select id="compare-first" class="input"><option value="">Choose first</option>${state.photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)} · ${escapeHtml(p.view)}</option>`).join('')}</select><select id="compare-second" class="input"><option value="">Choose second</option>${state.photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)} · ${escapeHtml(p.view)}</option>`).join('')}</select></div><div id="compare-result" class="photo-compare" style="margin-top:12px"></div>`:''}</div>`}`;}
+function mealGuideView(){
+ const items=mealGuideItems();
+ const renderGroup=(group)=>{
+  const list=items.filter(item=>item.group===group);
+  const cards=list.map(item=>{
+   const open=mealGuideActionsId===item.id;
+   return `<div class="meal-guide-entry ${group==='Breakfast'?'meal-guide-breakfast':'meal-guide-option'} ${open?'meal-guide-edit-open':''}" data-guide-item="${escapeHtml(item.id)}" tabindex="0" role="group" aria-label="${escapeHtml(item.label)}. Press and hold to edit or delete.">
+     ${group==='Breakfast'?`<div class="meal-guide-symbol">${svg('sun')}</div>`:''}
+     <div class="meal-guide-entry-copy"><${group==='Breakfast'?'b':'span'} class="${group==='Breakfast'?'':'meal-guide-type'}">${escapeHtml(item.label)}</${group==='Breakfast'?'b':'span'}><p>${escapeHtml(item.description)}</p></div>
+     ${open?`<div class="meal-guide-entry-actions"><button type="button" class="btn guide-item-button" data-action="edit-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Edit ${escapeHtml(item.label)}">${svg('edit','tiny-icon')} Edit</button><button type="button" class="btn danger guide-item-button" data-action="delete-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Delete ${escapeHtml(item.label)}">${svg('trash','tiny-icon')} Delete</button></div>`:''}
+   </div>`;
+  }).join('');
+  return cards||`<p class="meal-guide-no-items">Nothing here yet. Tap Add to create an option.</p>`;
+ };
+ return `<section class="meal-guide" aria-label="Everyday meal guide">
+  <div class="meal-guide-heading"><div><div class="eyebrow">YOUR EVERYDAY PLATE</div><h3>Meals, made simple.</h3></div><button type="button" class="btn meal-guide-add" data-action="add-guide-item" aria-label="Add meal guide option">${svg('plus','tiny-icon')} Add</button></div>
+  <p class="meal-guide-description">A quick portion reference. Hold any entry to edit or delete it. Nothing is logged automatically.</p>
+  <div class="meal-guide-section-heading">Breakfast</div>
+  <div class="meal-guide-options">${renderGroup('Breakfast')}</div>
+  <div class="meal-guide-label">Lunch <span>&</span> Dinner <small>Same choices for either meal</small></div>
+  <div class="meal-guide-options">${renderGroup('Lunch & Dinner')}</div>
+  <p class="meal-guide-note">Portion guide only. Protein and calorie values differ across these choices, and added oil changes the total.</p>
+</section>`;
+}
+function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="summary-hero"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div>${mealGuideView()}<div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
+const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
+function photoThumb(p){
+ const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
+ return `<div class="album-photo"><div class="album-frame">${url?`<img loading="lazy" src="${url}" alt="${alt}"/>`:`<div class="photo-empty">${svg('camera')}</div>`}</div><div class="album-caption"><span>${escapeHtml(p.view)}</span><button class="album-delete" data-action="delete-photo" data-id="${p.id}" aria-label="Delete ${alt}" title="Delete photo">${svg('trash','tiny-icon')}</button></div></div>`;
+}
+function photosView(){
+ const groups=new Map();
+ for(const p of [...state.photos].sort((a,b)=>b.date.localeCompare(a.date))){if(!groups.has(p.date))groups.set(p.date,[]);groups.get(p.date).push(p);}
+ const pairs=state.photos.filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));
+ const choices=pairs.map(p=>`<option value="${p.id}">${dateDisplay(p.date)}</option>`).join('');
+ return `<section class="photos-page">
+ <div class="photo-toolbar"><div><h2 class="section-title">Your photo timeline</h2><p class="hint">A consistent pose tells a clearer story.</p></div><button class="btn primary" data-action="open-photo-guide">${svg('camera','tiny-icon')} Guided camera</button></div>
+ <div class="photo-toolbar secondary"><span class="muted small">Every two weeks · Front, sides, back</span><button class="btn" data-action="add-photo">${svg('plus','tiny-icon')} Upload photos</button></div>
+ <p class="hint">Photos stay on your device unless you deliberately use your private cloud backup. The guide overlays your earlier image, not an AI-altered body.</p>
+ ${groups.size?[...groups].map(([date,photos])=>`<article class="photo-album card"><div class="photo-album-head"><div class="eyebrow">PROGRESS LOG</div><div class="album-date">${dateDisplay(date)}</div><span class="muted micro">${photos.length} view${photos.length>1?'s':''}</span></div><div class="album-grid">${photos.map(photoThumb).join('')}</div></article>`).join(''):'<div class="photo-empty-state"><span class="camera-emoji">◌</span><strong>The first frame is yours.</strong><p class="muted small">Start with front, side and back. Return in two weeks for a fair comparison.</p></div>'}
+ <section class="photo-compare-card card"><div class="row space"><div><h2 class="section-title">Compare the changes</h2><p class="hint">Same angle, same framing, different date.</p></div></div>
+ <div class="compare-controls"><label class="field"><span class="label">View</span><select id="compare-view" class="input">${PHOTO_VIEWS.map(x=>`<option value="${x}" ${x===compareView?'selected':''}>${x}</option>`).join('')}</select></label><label class="field"><span class="label">Before</span><select id="compare-first" class="input" ${pairs.length<2?'disabled':''}>${choices}</select></label><label class="field"><span class="label">After</span><select id="compare-second" class="input" ${pairs.length<2?'disabled':''}>${choices}</select></label></div>
+ <div id="compare-result" class="compare-mount"></div><p class="hint">Images are fitted to equal frames. For true like-for-like positioning, use the camera guide.</p></section></section>`;
+}
+function latestReferencePhoto(view){return [...state.photos].filter(p=>p.view===view&&photoUrls.has(p.id)).sort((a,b)=>b.date.localeCompare(a.date))[0]||null;}
+function updateGuideReference(){const ghost=$('#guide-ghost'),note=$('#guide-reference-note');if(!ghost)return;const ref=latestReferencePhoto(guideView);ghost.hidden=!ref;ghost.src=ref?photoUrls.get(ref.id):'';if(note)note.textContent=ref?`Overlay: your ${dateDisplay(ref.date)} ${guideView.toLowerCase()} photo`:'No previous photo for this angle, use the framing guides.';}
+async function stopGuideCamera(){if(guideStream){guideStream.getTracks().forEach(track=>track.stop());guideStream=null;}}
+async function startGuideCamera(){
+ if(modal?.type!=='photo-guide')return;
+ const status=$('#guide-status'),video=$('#guide-video');if(!video)return;
+ updateGuideReference();
+ if(!navigator.mediaDevices?.getUserMedia){if(status)status.textContent='Camera access is not available here. Use Upload photo instead.';return;}
+ if(status)status.textContent='Opening your camera…';
+ try{
+  await stopGuideCamera();
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:1706}},audio:false});
+  if(modal?.type!=='photo-guide'){stream.getTracks().forEach(t=>t.stop());return;}
+  guideStream=stream;video.srcObject=stream;await video.play();
+  if(status)status.textContent='Match your shoulders, feet and distance to the ghost image.';
+ }catch(err){if(status)status.textContent='Camera unavailable or permission denied. You can still upload a photograph.';console.warn('Camera guide:',err);}
+}
+async function savePhotoBlob(blob,date,view){
+ const id=uid();await putPhoto(id,blob);photoUrls.set(id,URL.createObjectURL(blob));
+ state.photos.push({id,date,view,capturedAt:new Date().toISOString(),cloudPath:null});
+ bodyPanel='photos';state.lastBodyPanel='photos';modal=null;await persist();render();notify('Photo saved privately on this device');
+}
+async function captureGuidePhoto(){
+ const video=$('#guide-video');if(!guideStream||!video?.videoWidth)throw Error('Camera not ready. Please wait or upload instead.');
+ guideDate=$('#guide-date')?.value||today();guideView=$('#guide-view')?.value||'Front';
+ const canvas=document.createElement('canvas');canvas.width=900;canvas.height=1200;
+ const w=video.videoWidth,h=video.videoHeight,ratio=Math.max(900/w,1200/h);
+ const ww=w*ratio,hh=h*ratio;canvas.getContext('2d').drawImage(video,(900-ww)/2,(1200-hh)/2,ww,hh);
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(x=>x?resolve(x):reject(Error('Camera photo failed')),'image/jpeg',.85));
+ await stopGuideCamera();await savePhotoBlob(blob,guideDate,guideView);haptic('success');
+}
+function photoGuideView(){
+ return `<div class="modal-shade" data-action="close-modal"><div class="modal photo-guide-modal"><div class="modal-title"><div><div class="eyebrow">FRAME IT RIGHT</div><h2>Guided progress photo</h2></div><button class="btn round" data-action="close-modal" aria-label="Close camera guide">${svg('x')}</button></div>
+ <div class="field-row"><label class="field"><span class="label">View</span><select class="input" id="guide-view">${PHOTO_VIEWS.map(v=>`<option ${v===guideView?'selected':''}>${v}</option>`).join('')}</select></label><label class="field"><span class="label">Date</span><input id="guide-date" type="date" class="input" value="${guideDate}"/></label></div>
+ <div class="camera-stage"><video id="guide-video" autoplay playsinline muted></video><img id="guide-ghost" class="camera-ghost" alt="Your previous pose alignment guide" hidden/><div class="camera-guidelines" aria-hidden="true"><span></span><span></span><span></span></div><div class="camera-foot-mark" aria-hidden="true">Feet on the lower line · camera at a consistent height</div></div>
+ <p id="guide-reference-note" class="hint"></p><p class="hint" id="guide-status">Checking camera access…</p>
+ <div class="row wrap"><button class="btn primary" data-action="take-guided-photo">${svg('camera','tiny-icon')} Capture</button><button class="btn" data-action="photo-upload-mode">Choose existing image</button></div>
+ <p class="hint">Camera preview stays on this device. Your older photo is an on-screen alignment guide and is not added to the captured image.</p></div></div>`;
+}
+function updateCompare(){
+ const where=$('#compare-result');if(!where)return;
+ const photos=[...state.photos].filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));
+ const before=$('#compare-first'),after=$('#compare-second');if(!before||!after)return;
+ if(photos.length<2){where.innerHTML='<p class="muted small">Add two photos from different dates with the same view to compare them.</p>';return;}
+ let a=state.photos.find(p=>p.id===before.value)||photos[0],b=state.photos.find(p=>p.id===after.value)||photos[photos.length-1];
+ if(a.id===b.id){a=photos[0];b=photos[photos.length-1];}
+ before.value=a.id;after.value=b.id;
+ const u1=photoUrls.get(a.id),u2=photoUrls.get(b.id);
+ if(!u1||!u2){where.innerHTML='<p class="muted small">One of these photos is unavailable offline.</p>';return;}
+ where.innerHTML=`<div class="compare-head"><span>${dateDisplay(a.date)}</span><span>${dateDisplay(b.date)}</span></div><div class="photo-compare-stage" aria-label="Before and after photo slider"><img class="compare-photo" src="${u2}" alt="After photograph"/><div id="compare-before-layer" class="compare-before-layer"><img class="compare-photo" src="${u1}" alt="Before photograph"/></div><div class="compare-handle" id="compare-handle"></div></div><label class="label" for="compare-range">Slide to reveal your progress</label><input id="compare-range" class="input-compare-range" type="range" min="0" max="100" value="50" aria-label="Reveal before or after photo"/>`;
+}
+function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Body tracker','See the changes beyond the scales.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart')}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep (relaxed)'],['leftBicep','Left bicep (relaxed)'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weights.length?`<div class="chart-bars" style="margin:15px 0">${weights.map(w=>`<div class="chart-bar" title="${escapeHtml(w.date)}: ${w.kg} kg" style="height:${Math.max(8,(w.kg-minW)/(maxW-minW)*100)}%"></div>`).join('')}</div>`:''}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weekly weigh-in goes here.</p>'}</div>`:photosView()}`;}
 function workoutView(){
  const activeSession=state.session;
  if(activeSession&&!activeSession.minimized)return activeWorkoutView();
@@ -183,7 +284,7 @@ function pendingPlanSwitch(targetId){
  if(!session||!desired)return;
  if(session.templateId===targetId){resumeWorkout();return;}
  state.session.minimized=false;
- tab='workouts';exerciseOpen=session.activeIndex||0;
+ tab='workouts';state.lastTab='workouts';exerciseOpen=session.activeIndex||0;
  restSheet=false;
  modal={type:'switch-workout',targetId};
  haptic('warning');
@@ -193,7 +294,7 @@ function pendingPlanSwitch(targetId){
 function resumeWorkout(){
  if(!state.session)return;
  motionChange(()=>{
-  state.session.minimized=false;tab='workouts';exerciseOpen=state.session.activeIndex||0;render();
+  state.session.minimized=false;tab='workouts';state.lastTab='workouts';exerciseOpen=state.session.activeIndex||0;render();
  },'expand');
  haptic('tap');persist().catch(console.error);
  window.scrollTo({top:0,behavior:'instant'});
@@ -207,7 +308,7 @@ async function switchWorkoutTo(targetId,shouldSave){
   state.workoutHistory.push({id:uid(),date:today(),name:prior.name,startedAt:prior.startedAt,endedAt:Date.now(),durationMin:Math.max(1,Math.round((Date.now()-prior.startedAt)/60000)),sets:done.length,volume:done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0),exercises:prior.exercises});
  }
  const next={id:uid(),name:desired.name,templateId:desired.id,startedAt:Date.now(),minimized:false,exercises:desired.items.map(args=>mkEx(...args)),activeIndex:0,rest:null};
- motionChange(()=>{state.session=next;modal=null;restSheet=false;restAlertedFor=null;tab='workouts';exerciseOpen=0;render();},'expand');
+ motionChange(()=>{state.session=next;modal=null;restSheet=false;restAlertedFor=null;tab='workouts';state.lastTab='workouts';exerciseOpen=0;render();},'expand');
  haptic('success');await persist();window.scrollTo({top:0,behavior:'instant'});
 }
 function modalView(){if(!modal)return '';
@@ -227,9 +328,15 @@ if(modal.type==='template-exercise'){
 if(modal.type==='water')return modalShell('Log water',`${modalField('amount','Water amount (ml)',250,'number','min="1" max="15000" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Use any amount. Set your preferred quick-add size with the water controls on the dashboard.</p>`,'form-water','Add water');
 if(modal.type==='water-config')return modalShell('Water controls',`${modalField('waterDefault','Amount added by + or a Water card tap (ml)',state.waterDefault||250,'number','min="1" max="5000" required')}${modalField('waterGoal','Daily water goal (ml)',state.goals.water,'number','min="1" max="15000" required')}<p class="hint">The − and + buttons subtract or add this amount. Set your usual glass size here.</p>`,'form-water-config','Save water settings');
 if(modal.type==='edit-task'){const t=state.tasks.find(t=>t.id===modal.id);return t?modalShell('Edit daily task',`${modalField('name','Task description',t.label,'text','maxlength="100" required')}`,'form-edit-task','Save task'):'';}
+if(modal.type==='meal-guide-item'){
+ const item=mealGuideItems().find(x=>x.id===modal.id);
+ const group=item?.group||'Breakfast',label=item?.label||'',description=item?.description||'';
+ return modalShell(item?'Edit guide entry':'Add guide entry',`<div class="field"><label class="label" for="guide-group">Meal</label><select class="input" id="guide-group" name="group">${['Breakfast','Lunch & Dinner'].map(g=>`<option value="${g}" ${g===group?'selected':''}>${g}</option>`).join('')}</select></div>${modalField('label','Title',label,'text','required maxlength="50" placeholder="e.g. Protein foods"')}<div class="field"><label class="label" for="guide-description">Portions / options</label><textarea class="input" id="guide-description" name="description" rows="3" maxlength="350" required placeholder="e.g. 2 rotis or 150 g cooked rice">${escapeHtml(description)}</textarea></div><p class="hint">Reference only. No food entries or calorie targets are changed.</p>`,'form-meal-guide-item',item?'Save changes':'Add to guide');
+}
 if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food or meal name','','text','required maxlength="100"')}<div class="field"><label class="label">Meal</label><select class="input" name="meal">${['Breakfast','Lunch','Dinner','Snack'].map(m=>`<option ${m===(modal.meal||'Breakfast')?'selected':''}>${m}</option>`).join('')}</select></div><div class="field-row">${modalField('calories','Calories (kcal)',0,'number','min="0" required')}${modalField('protein','Protein (g)',0,'number','min="0" step="0.1"')}${modalField('carbs','Carbs (g)',0,'number','min="0" step="0.1"')}${modalField('fat','Fat (g)',0,'number','min="0" step="0.1"')}${modalField('fibre','Fibre (g)',0,'number','min="0" step="0.1"')}${modalField('date','Date',today(),'date','required')}</div><p class="hint">Enter values from the package or a reliable recipe estimate. AI photo analysis comes in a later phase.</p>`,'form-food','Add to diary');
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
 if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
+if(modal.type==='photo-guide')return photoGuideView();
 if(modal.type==='photo')return modalShell('Add progress photo',`${modalField('date','Photo date',today(),'date','required')}<div class="field"><label class="label">View</label><select class="input" name="view"><option>Front</option><option>Left side</option><option>Right side</option><option>Back</option></select></div><div class="field"><label class="label">Choose photo</label><input class="input" type="file" name="photo" accept="image/*" required/></div><p class="hint">The photo is compressed locally and stored offline. It will only be uploaded if you connect and back up to your own cloud.</p>`,'form-photo','Save photo');
 if(modal.type==='activity'){let a=activityToday();return modalShell('Manual activity entry',`${modalField('steps','Steps today',a.steps,'number','min="0" required')}${modalField('activeCalories','Calories burnt during activity (kcal)',a.activeCalories,'number','min="0" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Samsung Health/Health Connect automatic import is planned for a native Android development phase.</p>`,'form-activity','Update activity');}
 if(modal.type==='task')return modalShell('Add a daily task',`${modalField('name','Task description','','text','maxlength="100" required')}`,'form-task','Add task');
@@ -243,22 +350,35 @@ return '';
 }
 function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
 function render(){applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
+const previousDock=$('#app .bottom-nav');
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.5</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active?`<nav class="bottom-nav" aria-label="Main navigation">${[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']].map(([id,ico,label])=>`<button class="bottom-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(ico)}${label}</button>`).join('')}</nav>`:''}${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
-if(bodyPanel==='photos')updateCompare();
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.6</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active?`<nav class="bottom-nav" aria-label="Main navigation">${[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']].map(([id,ico,label])=>`<button class="bottom-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(ico)}${label}</button>`).join('')}</nav>`:''}${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+if(previousDock){
+ const replacement=$('#app .bottom-nav');
+ if(replacement){
+  replacement.replaceWith(previousDock);
+  for(const button of previousDock.querySelectorAll('.bottom-btn')){
+   const isActive=button.dataset.tab===tab;
+   button.classList.toggle('active',isActive);
+   if(isActive)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+  }
+  requestAnimationFrame(()=>previousDock.style.setProperty('--active-tab-index',String(Math.max(0,['home','workouts','nutrition','body'].indexOf(tab)))));
+ }
 }
-function setTab(dest){
+if(bodyPanel==='photos'&&tab==='body')updateCompare();
+}
+function setTab(dest,swipeDirection=null){
  if(tab===dest)return;
  const order=['home','workouts','nutrition','body'];
- const direction=order.indexOf(dest)>=order.indexOf(tab)?1:-1;
- motionChange(()=>{tab=dest;planActionsId=null;state.lastTab=dest;render();window.scrollTo({top:0,behavior:'instant'});},'tab',direction);
+ const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
+ motionChange(()=>{tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();window.scrollTo({top:0,behavior:'instant'});},'tab',direction);
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
  const template=templateById(id);if(!template)return;
  if(state.session){pendingPlanSwitch(id);return;}
  if(!template.items.length){notify('Add an exercise to this plan first.');return;}
- motionChange(()=>{state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,exercises:template.items.map(args=>mkEx(...args)),activeIndex:0,rest:null};exerciseOpen=0;tab='workouts';render();},'expand');
+ motionChange(()=>{state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,exercises:template.items.map(args=>mkEx(...args)),activeIndex:0,rest:null};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
  haptic('success');persist().catch(console.error);
 }
 function setRest(exIndex){const s=state.session,e=s.exercises[exIndex];s.rest={exerciseIndex:exIndex,endsAt:Date.now()+e.restSeconds*1000,paused:false,remainingMs:e.restSeconds*1000,id:uid()};restAlertedFor=null;restSheet=true;}
@@ -266,7 +386,7 @@ function tickSet(exI,setI){const s=state.session,e=s?.exercises?.[exI],set=e?.se
  if(set.done){haptic('check');const all=e.sets.every(x=>x.done);if(all){s.rest=null;restSheet=false;const next=s.exercises.findIndex((x,i)=>i>exI && x.sets.some(a=>!a.done));if(next!==-1){s.activeIndex=next;exerciseOpen=next;}else{const first=s.exercises.findIndex(x=>x.sets.some(a=>!a.done));if(first!==-1){s.activeIndex=first;exerciseOpen=first;}}}else if(e.restSeconds>0){setRest(exI);}}
  persist().then(render);
 }
-function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});state.session=null;restSheet=false;tab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
+function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -293,15 +413,15 @@ function playWaterSound(force=false){
 async function chime(){try{audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();await audioContext.resume();const start=audioContext.currentTime;for(let i=0;i<3;i++){const osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type='sine';osc.frequency.value=[660,880,1046][i];gain.gain.setValueAtTime(.0001,start+i*.16);gain.gain.exponentialRampToValueAtTime(.2,start+i*.16+.015);gain.gain.exponentialRampToValueAtTime(.0001,start+i*.16+.2);osc.connect(gain).connect(audioContext.destination);osc.start(start+i*.16);osc.stop(start+i*.16+.22);}navigator.vibrate?.([150,80,150]);}catch(err){console.warn('Sound unavailable',err);}}
 function timerTick(){const s=state?.session;if(!s)return;for(const el of document.querySelectorAll('.elapsed'))el.textContent=elapsed(s.startedAt);if(s.rest){let remaining=restLeft();for(const el of document.querySelectorAll('.inline-timer,#main-timer'))el.textContent=clock(remaining);if(remaining<=0&&!s.rest.paused){let id=s.rest.id;if(restAlertedFor!==id){restAlertedFor=id;chime();notify('Rest finished. Time for your next set!');if(typeof Notification !== 'undefined' && Notification.permission==='granted' && navigator.serviceWorker?.controller){navigator.serviceWorker.ready.then(reg=>reg.showNotification('Rest complete',{body:'You’re ready for your next set.',icon:'./icon.svg',tag:'rest-complete'})).catch(()=>{});}}
 s.rest=null;restSheet=false;persist().then(render);}}}
-function updateCompare(){const a=$('#compare-first')?.value,b=$('#compare-second')?.value,where=$('#compare-result');if(!where)return;where.innerHTML=[a,b].map(id=>id && photoUrls.has(id)?`<img src="${photoUrls.get(id)}" alt="Progress photo comparison"/>`:'<div class="outline-banner">Select a photo</div>').join('');}
+
 async function loadPhotoUrls(){for(const p of state.photos){if(photoUrls.has(p.id))continue;try{let blob=await getPhoto(p.id);if(!blob && p.cloudPath && cloud.getSession() && navigator.onLine){blob=await cloud.downloadPhoto(p.cloudPath);await putPhoto(p.id,blob);}if(blob)photoUrls.set(p.id,URL.createObjectURL(blob));}catch(err){console.warn('Photo unavailable',err);}}}
 function makePhotoJpeg(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{try{const scale=Math.min(1,1400/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Could not process photo'));},'image/jpeg',.82);}catch(e){URL.revokeObjectURL(url);reject(e);}};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Unsupported photo format'));};img.src=url;});}
 async function download(name,blob){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
 function toDataUrl(blob){return new Promise((res,rej)=>{let reader=new FileReader();reader.onload=()=>res(reader.result);reader.onerror=()=>rej(reader.error);reader.readAsDataURL(blob);});}
 async function exportData(){notify('Preparing private backup…');const photos=[];for(const p of state.photos){const blob=await getPhoto(p.id);if(blob)photos.push({id:p.id,data:await toDataUrl(blob)});}const safeState=structuredClone(state);delete safeState.dirty;await download(`recomp-backup-${today()}.json`,new Blob([JSON.stringify({format:'recomp-backup-v1',exportedAt:new Date().toISOString(),state:safeState,photos})],{type:'application/json'}));notify('Backup exported. Store it privately.');}
-async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!confirm('Restore this backup? This replaces your current local fitness data.'))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';render();notify('Backup restored');}
+async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!confirm('Restore this backup? This replaces your current local fitness data.'))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
 async function pushCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const ses=await cloud.usableSession();if(!ses)throw new Error('Sign in with Google first');for(const photo of state.photos){if(photo.cloudPath)continue;const blob=await getPhoto(photo.id);if(!blob)continue;photo.cloudPath=await cloud.uploadPhoto(photo.id,blob);}const syncedAt=new Date().toISOString();await cloud.uploadSnapshot({...state,lastSync:syncedAt,dirty:false});state.lastSync=syncedAt;state.dirty=false;await put('state',state);render();notify('Private cloud backup completed');}
-async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!confirm('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.'))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';render();notify('Cloud backup restored');}
+async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!confirm('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.'))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
 async function handleAction(el,event){const a=el.dataset.action;if(a==='close-modal' && el.classList.contains('modal-shade') && event.target!==el)return;
  switch(a){
  case 'tab':setTab(el.dataset.tab);break;
@@ -321,17 +441,31 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'refresh-steps':{if(stepRefresh)break;stepRefresh=true;stepRefreshInfo=false;render();setTimeout(()=>{stepRefresh=false;stepRefreshInfo=true;render();notify('No watch connection yet. Steps are currently entered manually.');},950);break;}
  case 'metric-active':modal={type:'activity'};render();notify('Come on, burn it. Log your move!');break;
  case 'quick-water':await addQuickWater(n(el.dataset.amount));break;
+ case 'add-guide-item':mealGuideActionsId=null;modal={type:'meal-guide-item',id:null};render();break;
+ case 'edit-guide-item':{
+  const item=mealGuideItems().find(x=>x.id===el.dataset.id);
+  if(item){mealGuideActionsId=null;modal={type:'meal-guide-item',id:item.id};render();}break;
+ }
+ case 'delete-guide-item':{
+  const item=mealGuideItems().find(x=>x.id===el.dataset.id);
+  if(item&&confirm(`Delete “${item.label}” from your meal guide? This won't change your food diary.`)){
+   mealGuideActionsId=null;state.mealGuideItems=mealGuideItems().filter(x=>x.id!==item.id);await commit();haptic('check');notify('Guide entry deleted');
+  }break;
+ }
  case 'add-food':modal={type:'food',meal:el.dataset.meal||'Breakfast'};render();break;
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
  case 'add-photo':modal={type:'photo'};render();break;
+ case 'open-photo-guide':guideDate=today();guideView='Front';modal={type:'photo-guide'};render();await startGuideCamera();break;
+ case 'photo-upload-mode':await stopGuideCamera();modal={type:'photo'};render();break;
+ case 'take-guided-photo':try{await captureGuidePhoto();}catch(err){notify(err.message);}break;
  case 'activity':modal={type:'activity'};render();break;
  case 'add-task':modal={type:'task'};render();break;
  case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
  case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
- case 'close-modal':modal=null;render();break;
- case 'nutrition-panel':nutritionPanel=el.dataset.panel;render();break;
- case 'body-panel':bodyPanel=el.dataset.panel;render();break;
+ case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();modal=null;render();break;
+ case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
+ case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
  case 'delete-food':if(confirm('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-weight':if(confirm('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-photo':if(confirm('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
@@ -349,7 +483,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'switch-discard':if(confirm(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
  case 'start-workout':setTab('workouts');break;
  case 'resume-workout':if(state.session){resumeWorkout();}break;
- case 'minimise-workout':if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
+ case 'minimise-workout':if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
  case 'discard-workout':if(confirm('Discard this unfinished workout? Completed sets will not be added to history.')){state.session=null;restSheet=false;await commit();}break;
  case 'expand-exercise':exerciseOpen=Number(el.dataset.index);if(state.session)state.session.activeIndex=exerciseOpen;await put('state',state);render();break;
  case 'tick-set':tickSet(Number(el.dataset.ex),Number(el.dataset.set));break;
@@ -387,10 +521,19 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
+ else if(id==='form-meal-guide-item'){
+  const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
+  if(!label||!description||!['Breakfast','Lunch & Dinner'].includes(group))throw new Error('Enter a title, portion guide and valid meal');
+  const item=mealGuideItems().find(x=>x.id===modal?.id);
+  if(modal?.id&&!item)throw new Error('This guide entry no longer exists');
+  if(item){item.label=label;item.description=description;item.group=group;}
+  else state.mealGuideItems.push({id:uid(),group,label,description});
+  mealGuideActionsId=null;haptic('success');notify(item?'Guide entry updated':'Added to meal guide');
+ }
  else if(id==='form-food'){let item={id:uid(),date:data.get('date'),name:String(data.get('name')).trim().slice(0,100),meal:data.get('meal')};for(let k of ['calories','protein','carbs','fat','fibre']){item[k]=n(data.get(k));if(item[k]<0||item[k]>100000)throw new Error('Check the nutrition amounts');}if(!item.name)throw new Error('Enter a food name');state.food.push(item);}
  else if(id==='form-weight'){let kg=n(data.get('weight'));if(kg<20||kg>400)throw new Error('Enter a valid body weight');state.weights.push({id:uid(),date:data.get('date'),kg});}
  else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const k of ['chest','belly','below','shoulders','neck','rightBicep','leftBicep','rightThigh','leftThigh','rightCalf','leftCalf','wrist']){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
- else if(id==='form-photo'){const file=data.get('photo');if(!(file instanceof File)||!file.size)throw new Error('Choose a photograph');if(file.size>40*1024*1024)throw new Error('Photo is too large (maximum 40 MB)');if(!file.type.startsWith('image/'))throw new Error('Choose an image file');const blob=await makePhotoJpeg(file),id=uid();await putPhoto(id,blob);photoUrls.set(id,URL.createObjectURL(blob));state.photos.push({id,date:data.get('date'),view:data.get('view'),cloudPath:null});bodyPanel='photos';notify('Photo saved privately on this device');}
+ else if(id==='form-photo'){const file=data.get('photo');if(!(file instanceof File)||!file.size)throw new Error('Choose a photograph');if(file.size>40*1024*1024)throw new Error('Photo is too large (maximum 40 MB)');if(!file.type.startsWith('image/'))throw new Error('Choose an image file');const blob=await makePhotoJpeg(file);await savePhotoBlob(blob,data.get('date'),data.get('view'));return;}
  else if(id==='form-activity'){let entry={date:data.get('date'),steps:Math.max(0,n(data.get('steps'))),activeCalories:Math.max(0,n(data.get('activeCalories')))};state.activity=state.activity.filter(a=>a.date!==entry.date);state.activity.push(entry);}
  else if(id==='form-task'){let name=String(data.get('name')).trim();if(!name)throw new Error('Enter a task');state.tasks.push({id:uid(),label:name,auto:null});}
  else if(id==='form-edit-task'){let t=state.tasks.find(x=>x.id===modal.id),name=String(data.get('name')).trim();if(!t||!name)throw new Error('Enter a valid task');t.label=name.slice(0,100);}
@@ -455,7 +598,10 @@ if(el.id==='enable-haptics'||el.id==='enable-water-sound'){
 if(el.matches('[data-setfield]')){let i=n(el.dataset.ex),j=n(el.dataset.set);if(!state.session?.exercises?.[i]?.sets?.[j])return;state.session.exercises[i].sets[j][el.dataset.setfield]=Math.max(0,n(el.value));await persist();}
 if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');await commit();}
 if(el.id==='auto-cloud-sync'){localStorage.setItem('recomp-auto-sync',el.checked?'yes':'no');notify(el.checked?'Automatic cloud backup enabled':'Automatic cloud backup disabled');}
+if(el.id==='compare-view'){compareView=el.value;const photos=state.photos.filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));const options=photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)}</option>`).join('');$('#compare-first').innerHTML=options;$('#compare-second').innerHTML=options;updateCompare();}
 if(el.id==='compare-first'||el.id==='compare-second')updateCompare();
+if(el.id==='guide-view'){guideView=el.value;updateGuideReference();}
+if(el.id==='guide-date')guideDate=el.value;
 if(el.id==='import-file'&&el.files?.[0])try{await importData(el.files[0]);}catch(err){console.error(err);notify(err.message||'Backup could not be imported');}
 });
 
@@ -525,6 +671,40 @@ document.addEventListener('keydown',event=>{
   event.preventDefault();revealPlanEditor(card.dataset.planCard);
  }
 });
+// The meal guide uses press-and-hold to expose edit/delete, just like workout plans.
+function clearMealGuideHold(){if(mealGuideHoldTimer!==null)clearTimeout(mealGuideHoldTimer);mealGuideHoldTimer=null;mealGuideHoldPoint=null;}
+function showMealGuideActions(id){
+ if(tab!=='nutrition'||modal||!mealGuideItems().some(x=>x.id===id))return;
+ mealGuideActionsId=id;haptic('hold');render();
+}
+document.addEventListener('pointerdown',event=>{
+ if(event.button!==0||tab!=='nutrition'||modal)return;
+ const item=event.target.closest('[data-guide-item]');
+ if(!item||event.target.closest('button,input,textarea,select,a'))return;
+ clearMealGuideHold();mealGuideHoldPoint={x:event.clientX,y:event.clientY,id:item.dataset.guideItem};
+ mealGuideHoldTimer=setTimeout(()=>{const id=mealGuideHoldPoint?.id;clearMealGuideHold();if(id)showMealGuideActions(id);},520);
+},{passive:true});
+document.addEventListener('pointermove',event=>{
+ if(mealGuideHoldPoint&&Math.hypot(event.clientX-mealGuideHoldPoint.x,event.clientY-mealGuideHoldPoint.y)>12)clearMealGuideHold();
+},{passive:true});
+document.addEventListener('pointerup',clearMealGuideHold,{passive:true});
+document.addEventListener('pointercancel',clearMealGuideHold,{passive:true});
+document.addEventListener('contextmenu',event=>{
+ const item=event.target.closest('[data-guide-item]');if(!item)return;
+ event.preventDefault();clearMealGuideHold();showMealGuideActions(item.dataset.guideItem);
+});
+document.addEventListener('keydown',event=>{
+ const item=event.target.closest?.('[data-guide-item]');
+ if(item&&((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu'||event.key==='Enter'||event.key===' ')){
+  event.preventDefault();showMealGuideActions(item.dataset.guideItem);
+ }
+});
+document.addEventListener('click',event=>{
+ if(!mealGuideActionsId)return;
+ const item=event.target.closest?.('[data-guide-item]');
+ if(!item||item.dataset.guideItem!==mealGuideActionsId){mealGuideActionsId=null;}
+},true);
+
 // Horizontal page gestures, without hijacking vertical scroll, fields or active workouts.
 const swipeTabs=['home','workouts','nutrition','body'];
 function canSwipePages(){return window.matchMedia('(max-width:760px)').matches &&
@@ -534,25 +714,44 @@ document.addEventListener('touchstart',event=>{
  swipeGesture=null;
  if(!canSwipePages()||event.touches.length!==1)return;
  const target=event.target;
- if(target.closest('input,textarea,select,[contenteditable="true"],.tab-row,.photo-compare,.chart-bars,.video-embed,.modal-shade,.timer-sheet,.water-stepper,[data-plan-card]'))return;
+ if(target.closest('input,textarea,select,[contenteditable="true"],.tab-row,.photo-compare,.chart-bars,.video-embed,.modal-shade,.timer-sheet,.water-stepper,[role="slider"]'))return;
  const touch=event.touches[0];
  if(touch.clientX<22 || touch.clientX>window.innerWidth-22)return; // Android system back gestures
- swipeGesture={x:touch.clientX,y:touch.clientY,time:Date.now(),tab};
+ swipeGesture={x:touch.clientX,y:touch.clientY,time:Date.now(),tab,tracking:false,frame:null};
+},{passive:true});
+document.addEventListener('touchmove',event=>{
+ const g=swipeGesture;if(!g||!canSwipePages()||event.touches.length!==1)return;
+ const t=event.touches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;
+ if(Math.abs(dx)<13||Math.abs(dx)<Math.abs(dy)*1.5)return;
+ // Navigation wraps from Home to Body and Body to Home.
+ g.tracking=true;
+ if(g.frame)cancelAnimationFrame(g.frame);
+ g.frame=requestAnimationFrame(()=>{const main=$('.main');if(main){main.style.transform=`translate3d(${Math.max(-42,Math.min(42,dx*.17))}px,0,0)`;main.style.opacity=String(Math.max(.8,1-Math.abs(dx)/650));}});
 },{passive:true});
 document.addEventListener('touchend',event=>{
- const g=swipeGesture;swipeGesture=null;
+ const g=swipeGesture;swipeGesture=null;if(g?.frame)cancelAnimationFrame(g.frame);
+ const main=$('.main');if(main){main.style.transform='';main.style.opacity='';}
  if(!g||!canSwipePages()||g.tab!==tab||event.changedTouches.length!==1)return;
  const t=event.changedTouches[0],dx=t.clientX-g.x,dy=t.clientY-g.y;
  if(Math.abs(dx)<75 || Math.abs(dx)<Math.abs(dy)*1.5 || Date.now()-g.time>1300)return;
- const index=swipeTabs.indexOf(tab),next=index+(dx<0?1:-1);
- if(next<0||next>=swipeTabs.length)return;
- event.preventDefault();taskActionsId=null;setTab(swipeTabs[next]);
+ const index=swipeTabs.indexOf(tab),direction=dx<0?1:-1;
+ const next=(index+direction+swipeTabs.length)%swipeTabs.length;
+ event.preventDefault();taskActionsId=null;setTab(swipeTabs[next],direction);
 },{passive:false});
-document.addEventListener('touchcancel',()=>{swipeGesture=null;},{passive:true});
+document.addEventListener('touchcancel',()=>{if(swipeGesture?.frame)cancelAnimationFrame(swipeGesture.frame);swipeGesture=null;const main=$('.main');if(main){main.style.transform='';main.style.opacity='';}},{passive:true});
 
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
+document.addEventListener('input',event=>{if(event.target.id==='compare-range'){const pct=Number(event.target.value);const layer=$('#compare-before-layer'),handle=$('#compare-handle');if(layer)layer.style.clipPath=`inset(0 ${100-pct}% 0 0)`;if(handle)handle.style.left=pct+'%';}});
 
-async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';if(state.session){state.session.minimized=true;tab='workouts';exerciseOpen=state.session.activeIndex||0;}await loadPhotoUrls();await put('state',state);render();
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
+
+async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
+ bodyPanel=['measurements','photos','weight'].includes(state.lastBodyPanel)?state.lastBodyPanel:'measurements';
+ nutritionPanel=['diary','favourites'].includes(state.lastNutritionPanel)?state.lastNutritionPanel:'diary';
+ if(state.session){
+  exerciseOpen=state.session.activeIndex||0;
+  // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
+  if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
+ }await loadPhotoUrls();await put('state',state);render();
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
 if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('Offline install unavailable',err));
 try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogleLogin();notify('Google Sign-In connected. Open Settings to back up your data.');render();}}catch(err){notify('Google Sign-In: '+err.message);}
