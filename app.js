@@ -95,7 +95,7 @@ function mealGuideItems(){
 }
 const INITIAL = () => ({
  version:1, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
- waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true},
+ waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true,appSounds:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
@@ -105,6 +105,7 @@ const INITIAL = () => ({
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
 let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
+let wasAllTasksComplete=false,taskCelebration=null;
 let planActionsId=null,planHoldTimer=null,planHoldPoint=null;
 let mealGuideActionsId=null,mealGuideHoldTimer=null,mealGuideHoldPoint=null;
 let guideStream=null,guideView='Front',guideDate=today(),compareView='Front';
@@ -242,7 +243,17 @@ function motionChange(change,kind='tab',direction=1){
 
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
 async function persist(){state.dirty=true;await put('state',state);}
-async function commit(){await persist();render();}
+function allTasksComplete(){return state.tasks.length>0 && state.tasks.every(checkboxDone);}
+function celebrateAllTasksIfNew(){
+ const complete=allTasksComplete(),day=today();
+ if(complete&&!wasAllTasksComplete&&state.taskCelebratedOn!==day){
+  state.taskCelebratedOn=day;taskCelebration=day;
+  haptic('success');playUiSound('celebrate');
+  setTimeout(()=>{if(taskCelebration===day){taskCelebration=null;document.querySelector('.task-win-celebration')?.remove();}},5000);
+ }
+ wasAllTasksComplete=complete;
+}
+async function commit(){celebrateAllTasksIfNew();await persist();render();}
 async function addQuickWater(ml){ml=Math.round(ml);if(ml<1)return;playWaterSound();const entry={id:uid(),date:today(),ml};state.water.push(entry);waterCelebration={id:entry.id,ml};haptic('success');await commit();const id=entry.id;setTimeout(()=>{if(waterCelebration?.id===id){waterCelebration=null;if(tab==='home'&&!modal)render();}},5200);}
 async function undoCelebrationWater(){if(!waterCelebration)return;const {id}=waterCelebration;state.water=state.water.filter(x=>x.id!==id);waterCelebration=null;await commit();notify('Sip un-sipped.');}
 async function removeRecentWater(){let left=n(state.waterDefault,250)||250,removed=0;for(let i=state.water.length-1;i>=0&&left>0;i--){const entry=state.water[i];if(entry.date!==today())continue;const deduction=Math.min(left,n(entry.ml));entry.ml-=deduction;removed+=deduction;left-=deduction;if(waterCelebration?.id===entry.id)waterCelebration=null;if(entry.ml<=0)state.water.splice(i,1);}if(!removed){notify('No water logged today to subtract.');return;}await commit();notify(`−${num(removed)} ml. Adjusted your water total.`);}
@@ -255,7 +266,7 @@ function checkboxDone(task){let d=today();if(Object.prototype.hasOwnProperty.cal
 function progress(value,max){return `<div class="progress"><div style="width:${Math.min(100,Math.max(0,max?n(value)/n(max)*100:0))}%"></div></div>`;}
 function iconButton(icon,action,extra='',title=''){return `<button class="btn ${extra}" data-action="${action}" ${title?`aria-label="${escapeHtml(title)}"`:''}>${svg(icon)}</button>`;}
 // ---- Premium UI helpers (v2.2): greetings, rings, witty status lines, charts -------------
-const EYEBROWS={home:'Today',workouts:'Train',nutrition:'Fuel',body:'Progress',settings:'Under the hood'};
+const EYEBROWS={home:'Today',workouts:'Train',nutrition:'Fuel',body:'Progress',settings:'Settings'};
 const METRIC_COLOURS={protein:'var(--c-protein)',walk:'var(--c-steps)',flame:'var(--c-burn)',water:'var(--c-water)',chart:'var(--accent)'};
 function greeting(hour=new Date().getHours()){
  if(hour<5)return 'Night owl.';
@@ -322,6 +333,16 @@ function taskList(){
     ${managing?`<div class="task-row-actions" aria-label="Actions for ${name}"><button type="button" class="task-icon-btn" data-action="edit-task" data-id="${id}" aria-label="Edit ${name}" title="Edit task">${svg('edit','tiny-icon')}</button><button type="button" class="task-icon-btn delete-task" data-action="delete-task" data-id="${id}" aria-label="Delete ${name}" title="Delete task">${svg('trash','tiny-icon')}</button></div>`:''}
    </div>`;
  }).join('');
+}
+function taskWinView(){
+ const bits=Array.from({length:24},(_,i)=>{
+  const angle=i*2*Math.PI/24,dist=110+(i%4)*25;
+  return `<i style="--tx:${Math.round(Math.cos(angle)*dist)}px;--ty:${Math.round(Math.sin(angle)*dist)}px;--delay:${i%5*28}ms;--hue:${i%3===0?'156':i%3===1?'48':'192'}"></i>`;
+ }).join('');
+ return `<div class="task-win-celebration" role="status" aria-live="polite">
+  <div class="task-win-burst" aria-hidden="true">${bits}</div>
+  <div class="task-win-message"><span class="task-win-star" aria-hidden="true">✦</span><strong>Every task, done!</strong><span>You've crushed today's list. Keep that momentum.</span></div>
+ </div>`;
 }
 function homeTasksSection(checked){return `<section class="dashboard-tasks" aria-label="Daily tasks">
   <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Tap to tick · hold to edit.</div></div><div class="row"><span class="pill">${checked}/${state.tasks.length} done</span><button type="button" class="btn task-add-btn" data-action="add-task">${svg('plus','tiny-icon')} Add</button></div></div>
@@ -452,7 +473,7 @@ function settingsView(){const cfg=cloud.getConfig(),ses=cloud.getSession();retur
 <div class="section-head"><h2 class="section-title">Galaxy Watch and activity</h2></div><div class="card"><p class="small muted">Health Connect is planned for the native Android integration phase. In this version, enter values manually on your dashboard.</p><button class="btn" data-action="activity">${svg('pencil','tiny-icon')} Update steps and active calories</button></div>
 <div class="section-head"><h2 class="section-title">Cloud backup · Google Sign-In</h2></div><div class="card"><div class="row space"><span class="strong">${ses?`Signed in as ${escapeHtml(ses.user?.email||'Google user')}`:'Not signed in'}</span><span class="pill">${state.lastSync?'Last saved '+dateDisplay(state.lastSync.slice(0,10)):'Device-first'}</span></div><p class="small muted">${ses?'You can back up your data and restore it on another device. Automatic uploads can be enabled after your first manual backup.':'To enable private cloud sync, create your own Supabase project and configure Google OAuth using the provided SQL and setup guide.'}</p>${cfg?`<p class="hint">Project: ${escapeHtml(new URL(cfg.url).host)}</p>`:''}<div class="row" style="flex-wrap:wrap"><button class="btn" data-action="configure-cloud">${svg('settings','tiny-icon')} Configure</button>${ses?`<button class="btn" data-action="cloud-upload">Back up now</button><button class="btn" data-action="cloud-download">Restore</button><button class="btn ghost" data-action="cloud-logout">Sign out</button>`:`<button class="btn primary" data-action="google-login">Google Sign-In</button>`}</div>${ses?`<label class="check-task"><input type="checkbox" class="checkbox" id="auto-cloud-sync" ${localStorage.getItem('recomp-auto-sync')==='yes'?'checked':''}/> Automatically back up changes after initial sync</label>`:''}</div>
 <div class="section-head"><h2 class="section-title">Appearance</h2></div><div class="card"><label class="label" for="appearance-mode">Theme</label><select class="input" id="appearance-mode" aria-label="Theme"><option value="system" ${themeChoice()==='system'?'selected':''}>Follow phone settings</option><option value="light" ${themeChoice()==='light'?'selected':''}>Day · Light</option><option value="dark" ${themeChoice()==='dark'?'selected':''}>Night · Dark</option></select><p class="small muted" style="margin-bottom:0">Use the sun and moon beside Settings to switch instantly.</p></div>
-<div class="section-head"><h2 class="section-title">Feel and sound</h2></div><div class="card stack"><p class="small muted" style="margin:0">A tiny bit of feedback, just where it matters. Sound plays through your phone’s media volume. Vibration depends on Android and browser support.</p><label class="check-task"><input class="checkbox" type="checkbox" id="enable-haptics" ${state.preferences?.haptics===false?'':'checked'}/> Gentle haptics</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-water-sound" ${state.preferences?.waterSound===false?'':'checked'}/> Water sound effects</label><div class="row feel-test-actions"><button class="btn" data-action="test-haptics">${svg('check','tiny-icon')} Test haptics</button><button class="btn" data-action="test-water-sound">${svg('volume','tiny-icon')} Test water sound</button></div></div>
+<div class="section-head"><h2 class="section-title">Feel and sound</h2></div><div class="card stack"><p class="small muted" style="margin:0">A tiny bit of feedback, just where it matters. Sound plays through your phone’s media volume. Vibration depends on Android and browser support.</p><label class="check-task"><input class="checkbox" type="checkbox" id="enable-haptics" ${state.preferences?.haptics===false?'':'checked'}/> Gentle haptics</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-water-sound" ${state.preferences?.waterSound===false?'':'checked'}/> Water sound effects</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-app-sounds" ${state.preferences?.appSounds===false?'':'checked'}/> App sound effects <span class="small muted">· taps, tasks & saves</span></label><div class="row feel-test-actions"><button class="btn" data-action="test-haptics">${svg('check','tiny-icon')} Test haptics</button><button class="btn" data-action="test-water-sound">${svg('volume','tiny-icon')} Test water sound</button><button class="btn" data-action="test-app-sound">${svg('volume','tiny-icon')} Test app sound</button></div></div>
 <div class="section-head"><h2 class="section-title">Notifications</h2></div><div class="card"><p class="small muted">Preferred rest alert: chime + vibration, normal priority. This web prototype plays an alert while the app is running. Locked-screen alerts need native Android testing and implementation.</p><button class="btn" data-action="test-chime">${svg('volume','tiny-icon')} Test chime</button> <button class="btn" data-action="notification-permission">${svg('bell','tiny-icon')} Allow notifications</button></div>
 <div class="section-head"><h2 class="section-title">Privacy and backups</h2></div><div class="card stack"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>`;}
 const REST_CIRC=2*Math.PI*88;
@@ -611,7 +632,7 @@ function syncDock(visible){
 function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.2.1 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.2.1 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }
@@ -640,6 +661,31 @@ if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.rem
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
 persist().then(render);}
 let audioContext;
+// Small, synthesised UI sounds. Never load audio files or transmit any user data.
+function playUiSound(kind='tap',force=false){
+ if(!force && state?.preferences?.appSounds===false)return;
+ try{
+  const AudioAPI=window.AudioContext||window.webkitAudioContext;
+  if(!AudioAPI)return;
+  audioContext=audioContext||new AudioAPI();
+  if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
+  const notes={
+   tap:[[0,520,610,.065,.024]],
+   navigate:[[0,360,490,.075,.027]],
+   check:[[0,570,760,.09,.033]],
+   success:[[0,520,630,.11,.037],[.09,780,980,.13,.034]],
+   celebrate:[[0,540,660,.13,.06],[.12,680,840,.15,.055],[.24,850,1080,.22,.058]]
+  }[kind]||[[0,520,610,.065,.024]];
+  const now=audioContext.currentTime+.01;
+  for(const [offset,from,to,duration,volume] of notes){
+   const t=now+offset,osc=audioContext.createOscillator(),gain=audioContext.createGain();
+   osc.type='sine';osc.frequency.setValueAtTime(from,t);osc.frequency.exponentialRampToValueAtTime(to,t+duration);
+   gain.gain.setValueAtTime(.0001,t);gain.gain.linearRampToValueAtTime(volume,t+.012);
+   gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+   osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.015);
+  }
+ }catch(err){console.warn('App sound unavailable',err);}
+}
 function playWaterSound(force=false){
  if(!force && state?.preferences?.waterSound===false)return;
  try{
@@ -686,6 +732,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'water-config':modal={type:'water-config'};render();break;
  case 'test-haptics':{const accepted=haptic('test',true);notify(accepted?'Vibration requested. If you felt nothing, check Android vibration settings and battery saver.':'Vibration not available in this browser or device.');break;}
  case 'test-water-sound':playWaterSound(true);notify('Water sound test. Check your media volume if it is silent.');break;
+ case 'test-app-sound':playUiSound('success',true);notify('App sound test. Check your media volume if it is silent.');break;
  case 'refresh-steps':{if(stepRefresh)break;stepRefresh=true;stepRefreshInfo=false;render();setTimeout(()=>{stepRefresh=false;stepRefreshInfo=true;render();notify('No watch connection yet. Steps are currently entered manually.');},950);break;}
  case 'metric-active':modal={type:'activity'};render();notify('Come on, burn it. Log your move!');break;
  case 'quick-water':await addQuickWater(n(el.dataset.amount));break;
@@ -885,7 +932,17 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  else if(id==='form-cloud'){cloud.saveConfig(String(data.get('url')),String(data.get('key')));notify('Cloud configuration saved');}
  else if(id==='settings-goals'){for(const k of Object.keys(state.goals))state.goals[k]=Math.max(0,n(data.get(k)));await commit();notify('Targets updated. Aim high.');return;}
  else return;
- modal=null;await commit();}
+ modal=null;await commit();if(taskCelebration!==today())playUiSound('success');}
+
+// A soft tap across every view, including the modular nutrition interface.
+// A listener in capture phase keeps it working without changing screen handlers.
+document.addEventListener('click',event=>{
+ const control=event.target.closest?.('button,[role="button"],a[href]');
+ if(!control||control.matches(':disabled,[aria-disabled="true"]'))return;
+ const action=control.dataset.action||'';
+ if(['test-app-sound','test-water-sound','test-chime','test-haptics','metric-water','water-plus','water-minus','quick-water','undo-water'].includes(action))return;
+ playUiSound(action==='tab'?'navigate':'tap');
+},true);
 
 document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target){if(foodMenuOpen&&!event.target.closest('#food-fab-cluster'))toggleFoodMenu(false);return;}if(target.dataset.action==='close-modal'&&target.classList.contains('modal-shade')&&event.target!==target)return;event.preventDefault();try{await handleAction(target,event);}catch(err){console.error(err);notify(err.message||'Something went wrong');}});
 document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();if(form.dataset.submitting==='yes')return;form.dataset.submitting='yes';try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}finally{delete form.dataset.submitting;}});
@@ -927,10 +984,11 @@ if(el.id==='appearance-mode'){
  applyTheme();await persist();render();return;
 }
 
-if(el.id==='enable-haptics'||el.id==='enable-water-sound'){
+if(el.id==='enable-haptics'||el.id==='enable-water-sound'||el.id==='enable-app-sounds'){
  state.preferences??={haptics:true,waterSound:true};
- state.preferences[el.id==='enable-haptics'?'haptics':'waterSound']=el.checked;
- await persist();notify(el.id==='enable-haptics'?(el.checked?'Haptics enabled':'Haptics disabled'):(el.checked?'Water sound enabled':'Water sound muted'));
+ state.preferences[el.id==='enable-haptics'?'haptics':el.id==='enable-water-sound'?'waterSound':'appSounds']=el.checked;
+ if(el.id==='enable-app-sounds'&&el.checked)playUiSound('check');
+ await persist();notify(el.id==='enable-haptics'?(el.checked?'Haptics enabled':'Haptics disabled'):el.id==='enable-water-sound'?(el.checked?'Water sound enabled':'Water sound muted'):(el.checked?'App sounds enabled':'App sounds muted'));
  return;
 }
 if(el.matches('[data-setfield]')){
@@ -951,7 +1009,7 @@ if(el.matches('[data-setfield]')){
  }
  await persist();
 }
-if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');await commit();}
+if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');playUiSound(el.checked?'check':'tap');await commit();}
 if(el.id==='auto-cloud-sync'){localStorage.setItem('recomp-auto-sync',el.checked?'yes':'no');notify(el.checked?'Automatic cloud backup enabled':'Automatic cloud backup disabled');}
 if(el.id==='compare-view'){compareView=el.value;const photos=state.photos.filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));const options=photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)}</option>`).join('');$('#compare-first').innerHTML=options;$('#compare-second').innerHTML=options;updateCompare();}
 if(el.id==='compare-first'||el.id==='compare-second')updateCompare();
@@ -1141,6 +1199,8 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
+ // Seed completion state before first paint: opening the app never replays the celebration.
+ wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
