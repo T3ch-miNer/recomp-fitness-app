@@ -1,5 +1,7 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import * as cloud from './cloud.js';
+import {openNutrition} from './nutrition-v2.js';
+import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
 
 const $ = s => document.querySelector(s);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -45,6 +47,8 @@ const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"
 <symbol id="ico-moon" viewBox="0 0 24 24"><path d="M20.6 15.1A8.5 8.5 0 0 1 8.9 3.4a8.6 8.6 0 1 0 11.7 11.7z"/></symbol>
 <symbol id="ico-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
 <symbol id="ico-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9a5 5 0 0 1 0 6M20 6a9 9 0 0 1 0 12"/></symbol>
+<symbol id="ico-search" viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.7"/><path d="m15.8 15.8 5.2 5.2"/></symbol>
+<symbol id="ico-barcode" viewBox="0 0 24 24"><path d="M3 6V3h3m12 0h3v3M3 18v3h3m12 0h3v-3M6 8v8m3-8v8m2-8v8m3-8v8m2-8v8m2-8v8"/></symbol>
 </defs></svg>`;
 // Each plan can remember individual set values from its last completed session.
 // Saved-set data is optional, keeping the original seven-element template format compatible.
@@ -104,6 +108,91 @@ let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUn
 let planActionsId=null,planHoldTimer=null,planHoldPoint=null;
 let mealGuideActionsId=null,mealGuideHoldTimer=null,mealGuideHoldPoint=null;
 let guideStream=null,guideView='Front',guideDate=today(),compareView='Front';
+let foodMenuOpen=false;
+// Transient camera/photo state. Food photographs are never written to IndexedDB or uploaded.
+let barcodeStream=null,barcodeFrame=0,barcodeBusy=false,barcodeLastRead=0;
+let foodPhotoUrl=null,photoMealItems=[],photoSearchQuery='';
+const MEALS=['Breakfast','Lunch','Dinner','Snack'];
+function releaseFoodPhoto(){if(foodPhotoUrl){URL.revokeObjectURL(foodPhotoUrl);foodPhotoUrl=null;}photoMealItems=[];photoSearchQuery='';}
+async function stopBarcodeCamera(){if(barcodeFrame){cancelAnimationFrame(barcodeFrame);barcodeFrame=0;}if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null;}const video=document.getElementById('barcode-video');if(video)video.srcObject=null;}
+async function leaveFoodModal(){if(modal?.type==='barcode')await stopBarcodeCamera();if(modal?.type==='food-photo')releaseFoodPhoto();}
+function normaliseBarcode(code){const value=String(code||'').trim();if(!/^\d{8,14}$/.test(value))throw new Error('Enter a barcode of 8–14 digits');return value;}
+function validateOpenFoodProduct(data,code){
+ const prod=data?.product;
+ if(data?.status!==1)throw new Error('No product found. You can enter this food manually.');
+ if(!prod||typeof prod!=='object')throw new Error('Product not found');
+ const nutr=prod.nutriments||{};
+ const read=key=>{const v=Number(nutr[key]);return nutr[key]==null||!Number.isFinite(v)||v<0||v>100000?null:v;};
+ let calories=read('energy-kcal_100g');
+ if(calories==null){const kJ=read('energy-kj_100g');if(kJ!=null)calories=Math.round(kJ/4.184*10)/10;}
+ if(calories==null)throw new Error('This product has no per-100 g energy information. Use manual entry.');
+ const rawName=String(prod.product_name_en||prod.product_name||'').trim();
+ if(!rawName)throw new Error('Product name is missing. Use manual entry.');
+ const name=rawName.slice(0,100),brand=String(prod.brands||'').slice(0,75);
+ const missing=['proteins_100g','carbohydrates_100g','fat_100g','fiber_100g'].filter(key=>read(key)==null).map(key=>key.split('_')[0]);
+ const numbers={calories,protein:read('proteins_100g'),carbs:read('carbohydrates_100g'),fat:read('fat_100g'),fibre:read('fiber_100g')};
+ return {code,name,brand,source:'Open Food Facts',per100:numbers,missing,quantity:String(prod.quantity||'').slice(0,60)};
+}
+async function lookupBarcode(raw){
+ const code=normaliseBarcode(raw);
+ const cached=await get('barcode-cache-'+code).catch(()=>null);
+ if(!navigator.onLine){if(cached?.product)return {...cached.product,cached:true};throw new Error('Offline: this barcode has not been looked up before.');}
+ if(cached?.product && Date.now()-cached.savedAt<30*86400000)return {...cached.product,cached:true};
+ let response;
+ try{response=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=code,product_name,product_name_en,brands,quantity,nutriments',{
+  headers:{'X-User-Agent':'Recomp/2.0 (https://github.com/T3ch-miNer/recomp-fitness-app)'},signal:AbortSignal.timeout(12000),cache:'no-store'
+ });}catch(error){if(cached?.product)return {...cached.product,cached:true};throw new Error('Lookup unavailable. Check your connection or enter this food manually.');}
+ if(!response.ok){if(cached?.product)return {...cached.product,cached:true};throw new Error(response.status===429?'Food database is busy. Please wait and try again.':'Food database unavailable ('+response.status+').');}
+ const product=validateOpenFoodProduct(await response.json(),code);
+ await put('barcode-cache-'+code,{product,savedAt:Date.now()});
+ return product;
+}
+async function resolveBarcode(code){
+ if(barcodeBusy)return;
+ barcodeBusy=true;
+ const status=document.getElementById('barcode-status');if(status)status.textContent='Looking up packaged food…';
+ try{
+  const product=await lookupBarcode(code);
+  await stopBarcodeCamera();modal={type:'barcode-portion',product,meal:foodMeal,grams:100};render();
+ }catch(error){if(status)status.textContent=error.message;notify(error.message);}
+ finally{barcodeBusy=false;}
+}
+async function startBarcodeCamera(){
+ if(!('BarcodeDetector' in window)){notify('Camera barcode recognition is unavailable here. Enter the code manually.');return;}
+ if(!navigator.mediaDevices?.getUserMedia){notify('Camera unavailable. Enter the barcode manually.');return;}
+ await stopBarcodeCamera();
+ const video=document.getElementById('barcode-video');if(!video)return;
+ try{
+  const detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
+  barcodeStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+  video.srcObject=barcodeStream;await video.play();
+  const status=document.getElementById('barcode-status');if(status)status.textContent='Point the camera at a barcode. Scanning stays on your phone.';
+  const loop=async(t)=>{
+   if(!barcodeStream||modal?.type!=='barcode')return;
+   if(t-barcodeLastRead>650&&!barcodeBusy&&video.readyState>=2){barcodeLastRead=t;
+    try{const found=await detector.detect(video);const code=found.map(x=>x.rawValue).find(x=>/^\d{8,14}$/.test(x));if(code){await resolveBarcode(code);return;}}catch(err){console.debug('Frame scan unavailable',err);}
+   }
+   if(barcodeStream&&modal?.type==='barcode')barcodeFrame=requestAnimationFrame(loop);
+  };
+  barcodeFrame=requestAnimationFrame(loop);
+ }catch(err){await stopBarcodeCamera();notify('Camera unavailable. You can still enter the barcode manually.');}
+}
+function barcodeView(){return modalShell('Scan a barcode',`<p class="food-search-intro">Packaged products from <b>Open Food Facts</b>. Recognition happens on your device, then only the barcode is sent for lookup.</p><video id="barcode-video" class="food-barcode-video" autoplay muted playsinline aria-label="Barcode camera preview"></video><button type="button" class="btn block" data-action="barcode-camera">${svg('camera','tiny-icon')} Start camera scanner</button><p id="barcode-status" class="hint" role="status">Use the camera if supported, or type the product barcode.</p><form id="form-barcode-lookup"><div class="field"><label class="label" for="barcode-input">Barcode (8–14 digits)</label><input class="input" id="barcode-input" name="barcode" inputmode="numeric" autocomplete="off" pattern="[0-9]{8,14}" maxlength="14" placeholder="e.g. 3017620422003" required/></div><button class="btn primary block" type="submit">Find packaged food</button></form><p class="hint">Free community database. Some products or nutrition fields may be missing. Requires internet for a new barcode; previously looked-up products are cached on this device. <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener noreferrer">Open Food Facts</a> · ODbL.</p><button class="btn block" data-action="manual-food">Enter product manually</button>`);}
+function barcodePortionView(){
+ const item=modal.product,grams=n(modal.grams,100),meal=modal.meal||foodMeal;
+ const vals=barcodeNutrients(item,grams),missing=item.missing;
+ return modalShell('Review packaged food',`<form id="form-barcode-food"><div class="food-picked"><span class="eyebrow">OPEN FOOD FACTS · BARCODE ${escapeHtml(item.code)}</span><h3>${escapeHtml(item.name)}</h3><p class="hint">${escapeHtml(item.brand||'Community-submitted product')} · ${item.cached?'Saved lookup':'Live lookup'}</p></div><div class="field"><label class="label" for="barcode-grams">Quantity eaten (grams / ml)</label><input class="input" id="barcode-grams" type="number" name="grams" inputmode="decimal" step="1" min="1" max="5000" value="${grams}" required/></div><div class="field"><label class="label" for="barcode-meal">Add to</label><select class="input" name="meal" id="barcode-meal">${MEALS.map(m=>`<option ${m===meal?'selected':''}>${m}</option>`).join('')}</select></div><div class="field"><label class="label" for="barcode-date">Date</label><input class="input" id="barcode-date" type="date" name="date" value="${today()}" required/></div><div id="barcode-macros" class="food-preview-macros">${barcodePreview(item,vals)}</div><p class="hint">${missing.length?'Some macros are missing and shown as “—”. Edit missing values here before saving.':'Review package values and serving units before saving.'} Community records may contain errors.</p>${missing.map(k=>`<div class="field"><label class="label">${escapeHtml(k)} (g, total for selected portion)</label><input class="input barcode-missing-field" data-nutrient="${k==='proteins'?'protein':k==='carbohydrates'?'carbs':k==='fiber'?'fibre':k}" type="number" inputmode="decimal" min="0" max="5000" step="0.1" placeholder="Please enter from the label" required/></div>`).join('')}<button type="submit" class="btn primary block">Add to food diary</button></form>`);
+}
+function barcodeNutrients(item,grams){const vals={};for(const k of ['calories','protein','carbs','fat','fibre'])vals[k]=item.per100[k]==null?null:Math.round(item.per100[k]*grams/10)/10;return vals;}
+function barcodePreview(item,vals){const display={...vals};for(const k of Object.keys(display))if(display[k]===null)display[k]='—';return `<div class="food-calorie-head"><span>Energy from label</span><b>${num(vals.calories)} <small>kcal</small></b></div><div class="food-macro-grid">${[['protein','Protein'],['carbs','Carbs'],['fat','Fat'],['fibre','Fibre']].map(([k,name])=>`<div><b>${vals[k]==null?'—':n(vals[k]).toFixed(1)+' g'}</b><span>${name}</span></div>`).join('')}</div>`;}
+function photoMealView(){
+ const matches=searchFoods(photoSearchQuery,8);
+ const names=photoMealItems.map(x=>findFood(x.foodId)).filter(Boolean);
+ const totals={calories:0,protein:0,carbs:0,fat:0,fibre:0};
+ for(const item of photoMealItems){const food=findFood(item.foodId);if(!food)continue;const v=nutrientsForGrams(food,Math.max(1,n(item.grams,100)));for(const k of Object.keys(totals))totals[k]+=v[k];}
+ return modalShell('Photo-assisted meal',`<p class="food-search-intro">Your photo stays on your phone. Select each matching food and enter its cooked weight. For experimental free on-device suggestions, open Photo meal from the + Food menu.</p><div class="field"><label class="label" for="food-photo-input">Take or choose a meal photograph (optional)</label><input id="food-photo-input" class="input" type="file" accept="image/*" capture="environment"/></div><div class="meal-photo-preview" id="meal-photo-preview">${foodPhotoUrl?`<img src="${foodPhotoUrl}" alt="Your selected meal photograph"/>`:'<span>Food photo preview (kept on this device only)</span>'}</div><div class="field"><label class="label" for="photo-food-search">Add items from Indian food catalogue</label><input class="input" type="search" id="photo-food-search" placeholder="Try dal, rice or sabji…" value="${escapeHtml(photoSearchQuery)}" autocomplete="off"/></div><div id="photo-food-results" class="photo-food-results">${matches.map(f=>`<button type="button" class="photo-food-match" data-action="photo-food-add" data-id="${escapeHtml(f.id)}">${svg('plus','tiny-icon')} ${escapeHtml(f.name)}</button>`).join('')}</div><form id="form-photo-meal"><div id="photo-meal-lines">${photoMealItems.map(item=>{const food=findFood(item.foodId);return food?`<div class="photo-meal-line"><span>${escapeHtml(food.name)}</span><input class="input" aria-label="Cooked weight for ${escapeHtml(food.name)}" type="number" name="grams-${escapeHtml(item.id)}" data-photo-line="${escapeHtml(item.id)}" value="${n(item.grams,food.defaultGrams)}" min="1" max="5000" step="1" inputmode="decimal" required/><span>g</span><button type="button" class="btn round" data-action="photo-food-remove" data-id="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(food.name)}">${svg('x','tiny-icon')}</button></div>`:'';}).join('')||'<p class="hint">Choose each item in the photograph above.</p>'}</div><div class="field"><label class="label">Meal</label><select name="meal" class="input">${MEALS.map(m=>`<option ${m===foodMeal?'selected':''}>${m}</option>`).join('')}</select></div><div class="field"><label class="label">Date</label><input name="date" class="input" type="date" value="${today()}" required/></div><div class="food-preview-macros" id="photo-total-preview">${foodNutritionPreview(totals)}</div><p class="hint">Home-recipe estimates, not measured values. Oil, ghee and cooking method may change the totals. No original image is saved.</p><button class="btn primary block" type="submit" ${photoMealItems.length?'':'disabled'}>Review and save ${photoMealItems.length} ${photoMealItems.length===1?'food':'foods'}</button></form>`);
+}
+
 const renderLater=()=>{render();};
 const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
 function themeChoice(){return ['light','dark'].includes(state?.preferences?.themeMode)?state.preferences.themeMode:'system';}
@@ -219,7 +308,7 @@ function mealGuideView(){
   <p class="meal-guide-compact-note">Portion guide · Hold an entry to edit</p>
  </section>`;
 }
-function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
+function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcodes can be looked up free, and photo meal logging includes optional experimental on-device suggestions. Review ingredients and cooking oil before logging.</div>`;}
 const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
 function photoThumb(p){
  const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
@@ -356,6 +445,33 @@ async function switchWorkoutTo(targetId,shouldSave){
  motionChange(()=>{state.session=next;modal=null;restSheet=false;restAlertedFor=null;tab='workouts';state.lastTab='workouts';exerciseOpen=0;render();},'expand');
  haptic('success');await persist();window.scrollTo({top:0,behavior:'instant'});
 }
+// Search never makes a network request. Estimates are calculated from locally authored recipes.
+function foodSearchResults(query=''){
+ const list=searchFoods(query,24);
+ const total=query.trim()?list.length:FOOD_COUNT;
+ return `<div class="food-search-count">${query.trim()?`${list.length} ${list.length===1?'match':'matches'}`:`${total} sample foods · popular picks`}</div>${list.length?list.map(item=>`<button type="button" class="food-result" data-action="food-pick" data-id="${escapeHtml(item.id)}"><span class="food-result-symbol">${svg('food')}</span><span class="food-result-info"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.category)} · estimated per 100 g</small></span><span class="food-result-cal">${num(item.per100.calories)}<small>kcal</small></span>${svg('chevron','tiny-icon')}</button>`).join(''):`<div class="food-search-empty"><b>No matching sample food yet</b><p>Try another spelling (such as bhindi, okra or chapati), or add your own dish manually.</p></div>`}`;
+}
+function foodSearchView(){
+ const q=modal.query||'';
+ return modalShell('Search Indian foods',`<p class="food-search-intro">Offline Indian home-food estimates. Choose a dish, enter its <b>cooked weight</b>, then review before saving.</p><label class="label" for="food-search-input">Find a food</label><div class="food-search-control">${svg('search')}<input class="input" id="food-search-input" type="search" placeholder="Try dal, roti, paneer, sabji…" value="${escapeHtml(q)}" autocomplete="off" spellcheck="false" maxlength="80"/></div><div id="food-search-results" class="food-search-results" aria-live="polite">${foodSearchResults(q)}</div><div class="food-search-footer"><p class="hint">Recipe-based estimates, not laboratory-tested values. Cooking oil and portions vary by home.</p><button type="button" class="btn block" data-action="manual-food">${svg('plus','tiny-icon')} Enter my own food</button></div>`);
+}
+function foodPortionView(){
+ const food=findFood(modal.foodId);
+ if(!food)return foodSearchView();
+ const grams=Number.isFinite(Number(modal.grams))?Number(modal.grams):food.defaultGrams;
+ const vals=nutrientsForGrams(food,grams||food.defaultGrams);
+ const meal=modal.meal||'Breakfast';
+ return modalShell('Log a food',`<form id="form-catalogue-food"><button type="button" class="food-back" data-action="food-back">${svg('chevron','tiny-icon')} Back to search</button><div class="food-picked"><span class="eyebrow">RECOMP INDIAN FOODS</span><h3>${escapeHtml(food.name)}</h3><p class="hint">Home-recipe estimate · ${escapeHtml(food.category)}</p></div><div class="field"><label class="label" for="food-grams">Cooked portion (grams)</label><div class="food-grams-row"><input class="input" id="food-grams" name="grams" type="number" inputmode="decimal" step="1" min="1" max="5000" required value="${grams}"/><span>g</span></div></div><div class="field"><label class="label" for="food-meal">Add to</label><select id="food-meal" name="meal" class="input">${['Breakfast','Lunch','Dinner','Snack'].map(name=>`<option value="${name}" ${name===meal?'selected':''}>${name}</option>`).join('')}</select></div><div class="field"><label class="label" for="food-date">Date</label><input class="input" id="food-date" name="date" type="date" value="${today()}" required/></div><div class="food-preview-macros" id="food-preview-macros">${foodNutritionPreview(vals)}</div><p class="hint">Estimates use representative ingredients. Some dishes include oil or ghee. Actual portions and cooking methods vary; you can use manual entry instead.</p><button class="btn primary block" type="submit">Add to food diary</button></form>`);
+}
+function foodNutritionPreview(values){return `<div class="food-calorie-head"><span>Estimated energy</span><b>${num(values.calories)} <small>kcal</small></b></div><div class="food-macro-grid">${[['protein','Protein'],['carbs','Carbs'],['fat','Fat'],['fibre','Fibre']].map(([key,label])=>`<div><b>${n(values[key]).toFixed(1)} g</b><span>${label}</span></div>`).join('')}</div>`;}
+function toggleFoodMenu(open){
+ foodMenuOpen=Boolean(open);const cluster=document.getElementById('food-fab-cluster');
+ const button=document.getElementById('food-fab-button');if(!cluster||!button)return;
+ cluster.classList.toggle('is-open',foodMenuOpen);
+ button.setAttribute('aria-expanded',String(foodMenuOpen));
+ const menu=document.getElementById('food-fab-menu');if(menu)menu.setAttribute('aria-hidden',String(!foodMenuOpen));
+ for(const action of cluster.querySelectorAll('.food-fab-option'))action.tabIndex=foodMenuOpen?0:-1;
+}
 function modalView(){if(!modal)return '';
 if(modal.type==='switch-workout'){
  const current=state.session,next=templateById(modal.targetId),done=current?.exercises.flatMap(e=>e.sets.filter(x=>x.done)).length||0;
@@ -378,6 +494,11 @@ if(modal.type==='meal-guide-item'){
  const group=item?.group||'Breakfast',label=item?.label||'',description=item?.description||'';
  return modalShell(item?'Edit guide entry':'Add guide entry',`<div class="field"><label class="label" for="guide-group">Meal</label><select class="input" id="guide-group" name="group">${['Breakfast','Lunch & Dinner'].map(g=>`<option value="${g}" ${g===group?'selected':''}>${g}</option>`).join('')}</select></div>${modalField('label','Title',label,'text','required maxlength="50" placeholder="e.g. Protein foods"')}<div class="field"><label class="label" for="guide-description">Portions / options</label><textarea class="input" id="guide-description" name="description" rows="3" maxlength="350" required placeholder="e.g. 2 rotis or 150 g cooked rice">${escapeHtml(description)}</textarea></div><p class="hint">Reference only. No food entries or calorie targets are changed.</p>`,'form-meal-guide-item',item?'Save changes':'Add to guide');
 }
+if(modal.type==='barcode')return barcodeView();
+if(modal.type==='barcode-portion')return barcodePortionView();
+if(modal.type==='food-photo')return photoMealView();
+if(modal.type==='food-search')return foodSearchView();
+if(modal.type==='food-portion')return foodPortionView();
 if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food or meal name','','text','required maxlength="100"')}<div class="field"><label class="label">Meal</label><select class="input" name="meal">${['Breakfast','Lunch','Dinner','Snack'].map(m=>`<option ${m===(modal.meal||'Breakfast')?'selected':''}>${m}</option>`).join('')}</select></div><div class="field-row">${modalField('calories','Calories (kcal)',0,'number','min="0" required')}${modalField('protein','Protein (g)',0,'number','min="0" step="0.1"')}${modalField('carbs','Carbs (g)',0,'number','min="0" step="0.1"')}${modalField('fat','Fat (g)',0,'number','min="0" step="0.1"')}${modalField('fibre','Fibre (g)',0,'number','min="0" step="0.1"')}${modalField('date','Date',today(),'date','required')}</div><p class="hint">Enter values from the package or a reliable recipe estimate. AI photo analysis comes in a later phase.</p>`,'form-food','Add to diary');
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
 if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
@@ -421,14 +542,14 @@ function syncDock(visible){
    }
   }
 }
-function render(){applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
+function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.9 · Review</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.0 · Hybrid nutrition</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><div id="food-fab-menu" class="food-fab-menu" aria-hidden="true"><button type="button" class="food-fab-option" data-action="food-search" tabindex="-1"><span>Search food</span><span class="food-fab-icon">${svg('search')}</span></button><button type="button" class="food-fab-option" data-action="food-photo" tabindex="-1"><span>Photo meal <small>Local suggestions · experimental</small></span><span class="food-fab-icon">${svg('camera')}</span></button><button type="button" class="food-fab-option" data-action="food-barcode" tabindex="-1"><span>Scan barcode <small>Free packaged-food lookup</small></span><span class="food-fab-icon">${svg('barcode')}</span></button></div><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-controls="food-fab-menu" aria-expanded="false" aria-label="Choose how to add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }
-function setTab(dest,swipeDirection=null){
+function setTab(dest,swipeDirection=null){toggleFoodMenu(false);
  if(tab===dest)return;
  const order=['home','workouts','nutrition','body'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
@@ -513,7 +634,26 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
    mealGuideActionsId=null;state.mealGuideItems=mealGuideItems().filter(x=>x.id!==item.id);await commit();haptic('check');notify('Guide entry deleted');
   }break;
  }
- case 'add-food':modal={type:'food',meal:el.dataset.meal||'Breakfast'};render();break;
+ case 'toggle-food-menu':toggleFoodMenu(!foodMenuOpen);haptic('tap');break;
+ case 'food-search':toggleFoodMenu(false);modal={type:'food-search',meal:el.dataset.meal||foodMeal,query:''};render();break;
+ case 'food-photo':toggleFoodMenu(false);openNutrition({meal:foodMeal,save:async entries=>{state.food.push(...entries.map(item=>({...item,id:uid(),date:today(),foodSource:item.source==='Open Food Facts'?'openfoodfacts':'recomp-estimate-v1'})));await commit();notify('Photo meal added to diary');},manual:meal=>{modal={type:'food',meal};render();},notify});break;
+ case 'food-barcode':toggleFoodMenu(false);modal={type:'barcode'};render();break;
+ case 'barcode-camera':await startBarcodeCamera();break;
+ case 'photo-food-add':{
+  const item=findFood(el.dataset.id);if(!item)throw new Error('Food not found');
+  if(photoMealItems.length>=12)throw new Error('Maximum 12 foods in one meal');
+  photoMealItems.push({id:uid(),foodId:item.id,grams:item.defaultGrams});
+  render();break;
+ }
+ case 'photo-food-remove':photoMealItems=photoMealItems.filter(x=>x.id!==el.dataset.id);render();break;
+ case 'food-pick':{
+  const food=findFood(el.dataset.id);if(!food)throw new Error('Food unavailable');
+  const meal=modal?.meal||foodMeal,query=modal?.query||'';
+  modal={type:'food-portion',foodId:food.id,meal,grams:food.defaultGrams,query};render();break;
+ }
+ case 'food-back':{const meal=modal?.meal||foodMeal,query=modal?.query||'';modal={type:'food-search',meal,query};render();break;}
+ case 'manual-food':{const meal=modal?.meal||foodMeal;await leaveFoodModal();modal={type:'food',meal};render();break;}
+ case 'add-food':modal={type:'food-search',meal:el.dataset.meal||foodMeal,query:''};render();break;
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
  case 'add-photo':modal={type:'photo'};render();break;
@@ -524,7 +664,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'add-task':modal={type:'task'};render();break;
  case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
  case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
- case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();modal=null;render();break;
+ case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
  case 'delete-food':if(confirm('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
@@ -591,6 +731,44 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
   else state.mealGuideItems.push({id:uid(),group,label,description});
   mealGuideActionsId=null;haptic('success');notify(item?'Guide entry updated':'Added to meal guide');
  }
+ else if(id==='form-barcode-lookup'){
+  await resolveBarcode(String(data.get('barcode')||''));return;
+ }
+ else if(id==='form-barcode-food'){
+  const item=modal?.product,grams=Number(data.get('grams')),meal=String(data.get('meal')||''),date=String(data.get('date')||'');
+  if(!item||!Number.isFinite(grams)||grams<1||grams>5000)throw new Error('Enter a valid portion');
+  if(!MEALS.includes(meal)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw new Error('Choose a meal and valid date');
+  const totals=barcodeNutrients(item,grams);
+  for(const field of form.querySelectorAll('.barcode-missing-field')){
+   const value=Number(field.value);if(field.value===''||!Number.isFinite(value)||value<0||value>5000)throw new Error('Enter each missing nutritional value from the label');
+   totals[field.dataset.nutrient]=value;
+  }
+  if(Object.values(totals).some(v=>v==null))throw new Error('Please enter missing nutritional values');
+  state.food.push({id:uid(),date,name:item.name,meal,grams,foodSource:'openfoodfacts',barcode:item.code,...totals});
+  foodMeal=meal;notify('Added '+item.name+' · '+grams+' g');
+ }
+ else if(id==='form-photo-meal'){
+  if(!photoMealItems.length)throw new Error('Choose at least one food');
+  const meal=String(data.get('meal')||''),date=String(data.get('date')||'');
+  if(!MEALS.includes(meal)||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw new Error('Choose a valid date and meal');
+  const batch=uid(),entries=[];
+  for(const line of photoMealItems){
+   const food=findFood(line.foodId),grams=Number(data.get('grams-'+line.id));
+   if(!food||!Number.isFinite(grams)||grams<1||grams>5000)throw new Error('Please check every food weight');
+   entries.push({id:uid(),date,meal,name:food.name,grams,foodId:food.id,foodSource:'photo-guided-estimate',photoBatch:batch,...nutrientsForGrams(food,grams)});
+  }
+  state.food.push(...entries);foodMeal=meal;notify('Added '+entries.length+' foods');releaseFoodPhoto();
+ }
+ else if(id==='form-catalogue-food'){
+  const food=findFood(modal?.foodId);if(!food)throw new Error('Choose a food');
+  const grams=Number(data.get('grams')),meal=String(data.get('meal')||''),date=String(data.get('date')||'');
+  if(!Number.isFinite(grams)||grams<1||grams>5000)throw new Error('Enter a portion from 1 to 5,000 g');
+  if(!['Breakfast','Lunch','Dinner','Snack'].includes(meal))throw new Error('Choose a meal');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw new Error('Choose a valid date');
+  const values=nutrientsForGrams(food,grams);
+  state.food.push({id:uid(),date,name:food.name,meal,grams,foodId:food.id,foodSource:'recomp-estimate-v1',...values});
+  foodMeal=meal;notify(`Added ${food.name} · ${grams} g`);
+ }
  else if(id==='form-food'){let item={id:uid(),date:data.get('date'),name:String(data.get('name')).trim().slice(0,100),meal:data.get('meal')};for(let k of ['calories','protein','carbs','fat','fibre']){item[k]=n(data.get(k));if(item[k]<0||item[k]>100000)throw new Error('Check the nutrition amounts');}if(!item.name)throw new Error('Enter a food name');state.food.push(item);}
  else if(id==='form-weight'){let kg=n(data.get('weight'));if(kg<20||kg>400)throw new Error('Enter a valid body weight');state.weights.push({id:uid(),date:data.get('date'),kg});}
  else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const k of ['chest','belly','below','shoulders','neck','rightBicep','leftBicep','rightThigh','leftThigh','rightCalf','leftCalf','wrist']){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
@@ -643,8 +821,8 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  else return;
  modal=null;await commit();}
 
-document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target)return;if(target.dataset.action==='close-modal'&&target.classList.contains('modal-shade')&&event.target!==target)return;event.preventDefault();try{await handleAction(target,event);}catch(err){console.error(err);notify(err.message||'Something went wrong');}});
-document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}});
+document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target){if(foodMenuOpen&&!event.target.closest('#food-fab-cluster'))toggleFoodMenu(false);return;}if(target.dataset.action==='close-modal'&&target.classList.contains('modal-shade')&&event.target!==target)return;event.preventDefault();try{await handleAction(target,event);}catch(err){console.error(err);notify(err.message||'Something went wrong');}});
+document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();if(form.dataset.submitting==='yes')return;form.dataset.submitting='yes';try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}finally{delete form.dataset.submitting;}});
 // Mirror the first working weight as soon as it is typed, without touching
 // separately edited sets or another exercise.
 document.addEventListener('input',event=>{
@@ -659,6 +837,22 @@ document.addEventListener('input',event=>{
   const sibling=document.querySelector(`input[data-setfield="kg"][data-ex="${i}"][data-set="${offset+1}"]`);
   if(sibling)sibling.value=first>0?String(first):'';
  });
+});
+document.addEventListener('change',async event=>{
+ const el=event.target;
+ if(el.id==='food-photo-input'&&modal?.type==='food-photo'){
+  const file=el.files?.[0];if(!file)return;
+  if(!file.type.startsWith('image/')||file.size>15*1024*1024){notify('Choose an image smaller than 15 MB');el.value='';return;}
+  if(foodPhotoUrl)URL.revokeObjectURL(foodPhotoUrl);
+  foodPhotoUrl=URL.createObjectURL(file);
+  const preview=document.getElementById('meal-photo-preview');if(preview)preview.innerHTML=`<img src="${foodPhotoUrl}" alt="Your selected meal photograph"/>`;
+  return;
+ }
+ if(el.matches('[data-photo-line]')&&modal?.type==='food-photo'){
+  const line=photoMealItems.find(item=>item.id===el.dataset.photoLine);
+  if(line&&Number.isFinite(Number(el.value))&&Number(el.value)>=1&&Number(el.value)<=5000)line.grams=Number(el.value);
+  const total=document.getElementById('photo-total-preview');if(total){const vals={calories:0,protein:0,carbs:0,fat:0,fibre:0};for(const f of photoMealItems){const item=findFood(f.foodId);if(!item)continue;const v=nutrientsForGrams(item,f.grams);for(const k of Object.keys(vals))vals[k]+=v[k];}total.innerHTML=foodNutritionPreview(vals);}return;
+ }
 });
 document.addEventListener('change',async event=>{const el=event.target;
 if(el.id==='appearance-mode'){
@@ -835,9 +1029,29 @@ document.addEventListener('touchend',event=>{
 },{passive:false});
 document.addEventListener('touchcancel',()=>{if(swipeGesture?.frame)cancelAnimationFrame(swipeGesture.frame);swipeGesture=null;const main=$('.main');if(main){main.style.transform='';main.style.opacity='';}},{passive:true});
 
-document.addEventListener('input',event=>{if(event.target.id==='compare-range'){const pct=Number(event.target.value);const layer=$('#compare-before-layer'),handle=$('#compare-handle');if(layer)layer.style.clipPath=`inset(0 ${100-pct}% 0 0)`;if(handle)handle.style.left=pct+'%';}});
+ document.addEventListener('input',event=>{
+  const el=event.target;
+  if(el.id==='barcode-grams'&&modal?.type==='barcode-portion'){
+   const amount=Number(el.value);if(Number.isFinite(amount)&&amount>=1&&amount<=5000){modal.grams=amount;const preview=document.getElementById('barcode-macros');if(preview)preview.innerHTML=barcodePreview(modal.product,barcodeNutrients(modal.product,amount));}
+  }
+  if(el.id==='photo-food-search'&&modal?.type==='food-photo'){
+   photoSearchQuery=el.value;const results=document.getElementById('photo-food-results');if(results)results.innerHTML=searchFoods(el.value,8).map(f=>`<button type="button" class="photo-food-match" data-action="photo-food-add" data-id="${escapeHtml(f.id)}">${svg('plus','tiny-icon')} ${escapeHtml(f.name)}</button>`).join('');
+  }
+  if(el.id==='food-search-input'&&modal?.type==='food-search'){
+   modal.query=el.value;
+   const results=$('#food-search-results');if(results)results.innerHTML=foodSearchResults(el.value);
+  }
+  if(el.id==='food-grams'&&modal?.type==='food-portion'){
+   const food=findFood(modal.foodId),preview=$('#food-preview-macros');
+   if(!food||!preview)return;
+   const grams=Number(el.value);
+   if(Number.isFinite(grams)&&grams>0&&grams<=5000){modal.grams=grams;preview.innerHTML=foodNutritionPreview(nutrientsForGrams(food,grams));}
+   else preview.innerHTML='<p class="hint">Enter a portion between 1 and 5,000 g.</p>';
+  }
+ });
+ document.addEventListener('input',event=>{if(event.target.id==='compare-range'){const pct=Number(event.target.value);const layer=$('#compare-before-layer'),handle=$('#compare-handle');if(layer)layer.style.clipPath=`inset(0 ${100-pct}% 0 0)`;if(handle)handle.style.left=pct+'%';}});
 
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
 async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);const defaultBreakfast=state.mealGuideItems.find(item=>item.id==='guide-breakfast');if(defaultBreakfast?.label==='Breakfast'&&defaultBreakfast.description==='2 eggs + 1 slice of toast')defaultBreakfast.label='Eggs & toast';tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
  bodyPanel=['measurements','photos','weight'].includes(state.lastBodyPanel)?state.lastBodyPanel:'measurements';
