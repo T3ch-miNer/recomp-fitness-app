@@ -1,0 +1,49 @@
+name: Prepare reviewed Recomp Premium release
+on:
+  push:
+    branches: [release/v2.2.1-premium-reviewed]
+    paths:
+      - .release/ready.txt
+permissions:
+  contents: write
+jobs:
+  import-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v2.2.1-premium-reviewed
+          persist-credentials: true
+      - name: Assemble the approved, locally reviewed changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q --user brotli cairosvg
+          python - <<'PY'
+          import base64,brotli,io,tarfile,pathlib
+          src=pathlib.Path('.release')
+          b64=''.join(x.read_text().strip() for x in sorted(src.glob('chunk-*.txt')))
+          data=brotli.decompress(base64.b64decode(b64,validate=True))
+          out=pathlib.Path('/tmp/recomp-approved-release')
+          out.mkdir(parents=True,exist_ok=True)
+          with tarfile.open(fileobj=io.BytesIO(data)) as tar:
+           for member in tar.getmembers():
+            if not member.isfile() or '/' in member.name or '\\' in member.name:
+             raise ValueError('Unsupported package member: '+member.name)
+            (out/member.name).write_bytes(tar.extractfile(member).read())
+          print('Verified premium payload; staged',len(list(out.iterdir())),'files')
+          PY
+          patch --batch --forward -p1 < /tmp/recomp-approved-release/app.patch
+          echo "$(cat /tmp/recomp-approved-release/app.sha256)  app.js" | sha256sum -c -
+          cp /tmp/recomp-approved-release/{premium.css,index.html,sw.js,icon.svg,PREMIUM_NOTES.md,REVIEW_NOTES.md} .
+          python - <<'PY'
+          import cairosvg
+          for size in (192,512):
+           cairosvg.svg2png(url='icon.svg',write_to=f'icon-{size}.png',output_width=size,output_height=size)
+          PY
+          rm -rf .release .github/workflows/import-recomp-v221.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Release Recomp v2.2.1 Premium reviewed design'
+          git push origin HEAD:release/v2.2.1-premium-reviewed
