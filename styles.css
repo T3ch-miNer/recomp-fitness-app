@@ -474,3 +474,60 @@ html[data-direction="back"]::view-transition-new(page-stage){animation-name:page
 .meal-guide-entry-actions .guide-item-button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 13px}
 .meal-guide-no-items{padding:15px 10px;color:var(--muted);font-size:13px;margin:0}
 @media(max-width:390px){.meal-guide-add{padding:9px 11px}.meal-guide-entry-actions .guide-item-button{flex:1}}
+
+/* Recomp v1.7 review: unified guide cards, stable premium glass navigation. */
+.nutrition-guide-first .meal-guide{margin:0 0 22px}
+.nutrition-intake-card{margin-top:0;margin-bottom:22px}
+.meal-guide .meal-guide-entry.meal-guide-option{display:flex;align-items:flex-start;padding:15px 16px;min-height:93px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;gap:12px}
+.meal-guide .meal-guide-entry-copy{min-width:0;flex:1}
+.meal-guide .meal-guide-type{font-size:11px;line-height:1.4;color:var(--accent);letter-spacing:.07em;text-transform:none;font-weight:780}
+.meal-guide .meal-guide-entry-copy p{font-size:13px;margin-top:8px;line-height:1.6}
+.meal-guide .meal-guide-section-heading{margin-top:20px}
+.meal-guide .meal-guide-heading+.meal-guide-description{margin-bottom:21px}
+@media(max-width:760px){
+  /* The dock lives outside #app to avoid destruction and recreation on every tab change. */
+  .bottom-nav.premium-dock{
+    overflow:hidden;
+    background:linear-gradient(155deg,rgba(136,238,216,.11),rgba(35,91,105,.035) 55%,rgba(21,52,65,.075)),var(--nav-float);
+    border:1px solid color-mix(in srgb,var(--accent) 24%,var(--glass-edge));
+    box-shadow:0 10px 28px rgba(0,15,29,.17),0 2px 7px rgba(0,10,22,.06),inset 0 1px 0 rgba(255,255,255,.15);
+    backdrop-filter:blur(12px) saturate(120%);
+    -webkit-backdrop-filter:blur(12px) saturate(120%);
+    padding:9px;
+    border-radius:26px;
+    isolation:isolate;
+    transform:translateZ(0);
+  }
+  .bottom-nav.premium-dock::before{
+    background:linear-gradient(155deg,color-mix(in srgb,var(--accent) 20%,transparent),color-mix(in srgb,var(--accent) 6%,transparent));
+    border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+    border-radius:18px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 3px 12px rgba(38,200,163,.07);
+    transition:transform 280ms cubic-bezier(.18,.82,.24,1);
+    will-change:transform;
+  }
+  .bottom-nav.premium-dock::after{
+    content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+    background:linear-gradient(to bottom,rgba(255,255,255,.095),transparent 42%);
+  }
+  .bottom-nav.premium-dock .bottom-btn{position:relative;z-index:1;min-height:57px;transition:color 190ms ease,transform 150ms ease}
+  .bottom-nav.premium-dock .bottom-btn .icon{transition:transform 190ms cubic-bezier(.2,.7,.2,1)}
+  .bottom-nav.premium-dock .bottom-btn.active .icon{transform:translateY(-1px)}
+  .bottom-nav.premium-dock .bottom-btn.active{background:none;box-shadow:none}
+  .main{overscroll-behavior-y:contain}
+}
+@media(prefers-reduced-motion:reduce){.bottom-nav.premium-dock::before,.bottom-nav.premium-dock .bottom-btn .icon{transition:none!important}}
+
+/* Mobile performance: let the glass dock be the single actively blurred surface.
+   Large cards remain translucent but no longer force oversized backdrop repaints. */
+@media(max-width:760px){
+ .card,.summary-hero,.workout-card,.meal-guide{
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+ }
+ .floating-workout{
+  -webkit-backdrop-filter:blur(12px) saturate(118%);
+  backdrop-filter:blur(12px) saturate(118%);
+ }
+ body{background-attachment:scroll}
+}
