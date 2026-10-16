@@ -33,7 +33,12 @@ jobs:
             (out/member.name).write_bytes(tar.extractfile(member).read())
           print('Verified premium payload; staged',len(list(out.iterdir())),'files')
           PY
-          patch --batch --forward -p1 < /tmp/recomp-approved-release/app.patch
+          # Install the complete reviewed source instead of patching a potentially different base.
+          python - <<'PY'
+          import base64,brotli,pathlib
+          payload=pathlib.Path('.release/app-full.b64').read_text().strip()
+          pathlib.Path('app.js').write_bytes(brotli.decompress(base64.b64decode(payload,validate=True)))
+          PY
           echo "$(cat /tmp/recomp-approved-release/app.sha256)  app.js" | sha256sum -c -
           cp /tmp/recomp-approved-release/{premium.css,index.html,sw.js,icon.svg,PREMIUM_NOTES.md,REVIEW_NOTES.md} .
           python - <<'PY'
