@@ -1,4 +1,4 @@
-import {searchFoods,findFood,nutrientsForGrams} from './food-db.js';
+import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -14,7 +14,6 @@ const glyphs={
  camera:'<path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/>'
 };
 const ico=name=>`<svg class="nf-svg" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${glyphs[name]||''}</svg>`;
-let localClassifier;
 const amount=(food,grams)=>nutrientsForGrams(food,Number(grams));
 const fmt=(value)=>Math.round(Number(value)||0).toLocaleString('en-GB');
 const mealOptions=current=>meals.map(m=>`<option ${current===m?'selected':''} value="${m}">${m}</option>`).join('');
@@ -25,13 +24,20 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
  let date=localDate(),query='',selected=null,grams=100,priorPage='search';
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoFoods=[],suggestions=[],recognising=false;
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,saving=false,notice='';
- let disposed=false,requestNumber=0;
+ let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
  document.body.classList.add('nf-open');
  function stopCamera(){if(scanInterval)clearInterval(scanInterval);scanInterval=null;if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}}
- function close(){if(disposed)return;disposed=true;requestNumber++;stopCamera();if(imageURL)URL.revokeObjectURL(imageURL);host.remove();document.body.classList.remove('nf-open');document.removeEventListener('keydown',escapeKey);if(focusWas?.isConnected)focusWas.focus({preventScroll:true});}
+ function stopRecognition(){
+  requestNumber++;
+  if(recognitionTimeout)clearTimeout(recognitionTimeout);
+  recognitionTimeout=null;
+  if(recognitionWorker){recognitionWorker.terminate();recognitionWorker=null;}
+  recognising=false;
+ }
+ function close(){if(disposed)return;disposed=true;stopRecognition();stopCamera();if(imageURL)URL.revokeObjectURL(imageURL);host.remove();document.body.classList.remove('nf-open');document.removeEventListener('keydown',escapeKey);if(focusWas?.isConnected)focusWas.focus({preventScroll:true});}
  function escapeKey(e){if(e.key==='Escape'){e.preventDefault();close();}}
  document.addEventListener('keydown',escapeKey);
  function title(){return ({home:'Add food',search:'Search foods',portion:'Review food',photo:'Photo meal',barcode:'Scan barcode'})[page]||'Add food';}
@@ -54,8 +60,8 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
  <p class="nf-muted-note">Your image stays on this device. Packaged food? Barcode scanning is usually more reliable.</p>`;}
  function photoTotals(){let t=Object.fromEntries(nutrients.map(k=>[k,0]));for(const entry of photoFoods){const food=findFood(entry.id);if(!food||!(Number(entry.grams)>0))continue;try{const a=amount(food,entry.grams);nutrients.forEach(k=>t[k]+=a[k]);}catch{}}return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated meal total</span><strong>${fmt(t.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(t.protein)}g</b><small>Protein</small></span><span><b>${fmt(t.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(t.fat)}g</b><small>Fat</small></span><span><b>${fmt(t.fibre)}g</b><small>Fibre</small></span></div></div>`;}
  function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
- <div class="nf-ai-action"><div><b>Recognise foods</b><small>Optional · local, first use downloads a model</small></div><button class="nf-outlined" data-nf="recognise" ${recognising?'disabled':''}>${recognising?'Analysing…':'Identify'}</button></div>
- ${recognising?'<p class="nf-status">Preparing the food model. First use may take a few minutes.</p>':''}
+ <div class="nf-ai-action"><div><b>Recognise foods</b><small>Optional · local, first use downloads a model</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify'}</button></div>
+ ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
  ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
  ${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
@@ -74,22 +80,59 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
   host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"></div>`;
  }
  function go(mode){stopCamera();page=mode;notice='';render();}
- function back(){if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
+ function back(){if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
- function setImage(file){if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
+ function setImage(file){if(recognising)stopRecognition();if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
   if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();}
- async function recognise(){if(!imageFile||recognising)return;const token=++requestNumber;recognising=true;notice='';render();
-  try{if(!localClassifier){localClassifier=import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm').then(m=>m.pipeline('image-classification','onnx-community/swin-finetuned-food101-ONNX',{dtype:'q8'}).then(p=>({m,p}))).catch(err=>{localClassifier=null;throw err;});}
-   const {m,p}=await localClassifier;if(disposed||token!==requestNumber)return;
-   const raw=await m.RawImage.fromBlob(imageFile),data=await p(raw,{top_k:5});if(disposed||token!==requestNumber)return;
-   const mappings={'omelette':'omelette','chicken curry':'chicken-curry','fried rice':'jeera-rice','pancakes':'besan-chilla','bread pudding':'wheatBread','hummus':'chole','samosa':'aloo-paratha'};
-   suggestions=[];
-   for(const r of data){const label=String(r.label||'').replaceAll('_',' ').toLowerCase();const exact=mappings[label]&&findFood(mappings[label]);const matches=searchFoods(label,3);const candidate=exact||matches.find(f=>f.name.toLowerCase().includes(label)||f.aliases.toLowerCase().includes(label));if(candidate&&Number(r.score)>.12&&!suggestions.some(x=>x.id===candidate.id)&&!photoFoods.some(x=>x.id===candidate.id))suggestions.push(candidate);}
-   if(!suggestions.length)notice='No reliable match found. Add the foods you recognise using + Add food.';
-  }catch(err){if(!disposed&&token===requestNumber)notice='Automatic recognition is unavailable on this phone or connection. You can still add foods manually.';}
-  finally{if(!disposed&&token===requestNumber){recognising=false;render();}}
+ async function recognise(){
+  if(!imageFile||recognising||disposed)return;
+  if(!('Worker' in window)||!('createImageBitmap' in window)){
+   notice='On-device recognition is unavailable in this browser. Add foods using search below.';render();return;
+  }
+  stopRecognition();const token=requestNumber;
+  recognising=true;notice='Preparing the photograph on this phone…';render();
+  try{
+   // Keep model inference out of the main browser thread, and send one resized frame.
+   const bitmap=await createImageBitmap(imageFile);
+   if(disposed||token!==requestNumber){bitmap.close();return;}
+   const scale=Math.min(1,384/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+   const frame=canvas.toDataURL('image/jpeg',.68);
+   if(disposed||token!==requestNumber)return;
+   const worker=new Worker('./food-recognition-worker.js',{type:'module'});
+   recognitionWorker=worker;
+   const matched=await new Promise((resolve,reject)=>{
+    recognitionTimeout=setTimeout(()=>reject(Error('Recognition took too long on this phone. Choose your foods manually.')),90000);
+    worker.onmessage=event=>{
+     if(disposed||token!==requestNumber)return;
+     const data=event.data||{};
+     if(data.id!==token)return;
+     if(data.type==='status'){
+      notice=String(data.message||'Analysing locally…').slice(0,180);
+      const status=host.querySelector('.nf-status');if(status)status.textContent=notice;
+     }else if(data.type==='result')resolve(data.suggestions||[]);
+     else if(data.type==='error')reject(Error(data.message||'Recognition is unavailable.'));
+    };
+    worker.onerror=()=>reject(Error('Recognition could not run on this phone.'));
+    worker.postMessage({type:'recognise',id:token,regions:[frame],labels:FOOD_ITEMS.map(f=>({id:f.id,label:f.name}))});
+   });
+   if(disposed||token!==requestNumber)return;
+   suggestions=matched.map(x=>findFood(x.id)).filter(Boolean).filter(x=>!photoFoods.some(p=>p.id===x.id));
+   notice=suggestions.length?'Choose only foods that really appear in your photo.':'No confident match. Search and add the foods yourself.';
+  }catch(err){
+   if(!disposed&&token===requestNumber)notice='Recognition is unavailable or too demanding on this phone. Search and add foods below.';
+  }finally{
+   if(token===requestNumber){
+    if(recognitionTimeout)clearTimeout(recognitionTimeout);recognitionTimeout=null;
+    recognitionWorker?.terminate();recognitionWorker=null;
+    recognising=false;
+    if(!disposed)render();
+   }
+  }
  }
+
  async function lookup(){barcode=barcode.trim();if(!/^\d{8,14}$/.test(barcode)){barcodeStatus='Enter an 8–14 digit barcode.';render();return;}
   looking=true;barcodeStatus='Looking up packaged food…';render();
   try{const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);let response;try{response=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,brands,nutriments`,{signal:controller.signal});}finally{clearTimeout(timeout);}
@@ -115,7 +158,7 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
   if(a==='save-portion'){validate();if(!Number.isFinite(Number(grams))||Number(grams)<1||Number(grams)>5000){notice='Enter a portion between 1 and 5,000 g.';render();return;}await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id}]);return;}
   if(a==='change-photo'){photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
-  if(a==='recognise'){await recognise();return;}if(a==='save-photo'){
+  if(a==='recognise'){await recognise();return;}if(a==='cancel-recognition'){stopRecognition();notice='Recognition stopped. Add foods manually below.';render();return;}if(a==='save-photo'){
    validate();const entries=photoFoods.map(item=>{const food=findFood(item.id);if(!food)throw Error('Food no longer available.');if(!(Number(item.grams)>0&&Number(item.grams)<=5000))throw Error('Check the grams for '+food.name+'.');return {...amount(food,item.grams),date,meal:selectedMeal,name:food.name,grams:Number(item.grams),source:'Recomp sample recipe estimate',foodId:food.id};});await saveEntries(entries);return;
   }if(a==='scan'){await scan();return;}if(a==='lookup'){await lookup();return;}
  }
