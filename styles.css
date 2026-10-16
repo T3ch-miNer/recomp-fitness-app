@@ -373,3 +373,104 @@ html[data-direction="back"]::view-transition-new(page-stage){animation-name:page
 .workout-template-card{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 /* Give the nutrition calorie target its own breathing room. */
 .summary-hero>.hero-number>.muted.small{display:inline-block;margin-left:10px;font-size:16px;font-weight:500;letter-spacing:normal;white-space:nowrap;vertical-align:baseline}
+
+/* Recomp v1.6 preview: efficient transitions and a consistent photo timeline. */
+/* The old page/blur snapshot animations are superseded by lightweight compositor animation. */
+.main,.main.workout-focus-shell{view-transition-name:none;animation:none!important}
+.floating-workout{view-transition-name:none}
+.bottom-nav{view-transition-name:none}
+::view-transition-old(page-stage),::view-transition-new(page-stage),::view-transition-old(workout-morph),::view-transition-new(workout-morph){animation:none!important}
+@media(max-width:760px){
+ .workout-template-card{margin-bottom:22px!important}
+ .workout-template-card + .workout-template-card{margin-top:20px}
+ .workout-template-card{box-shadow:0 12px 29px rgba(0,0,0,.08)}
+ .bottom-nav{backdrop-filter:blur(14px) saturate(115%);-webkit-backdrop-filter:blur(14px) saturate(115%)}
+ .main{contain:layout style}
+}
+@media(min-width:761px){.workout-template-card{margin-bottom:23px}}
+.photo-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0 10px;flex-wrap:wrap}
+.photo-toolbar.secondary{margin-top:0;margin-bottom:18px}
+.photo-album{margin:16px 0 20px;padding:17px 15px}
+.photo-album-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.photo-album-head .eyebrow{flex-basis:100%}
+.album-date{font-size:20px;font-weight:750;letter-spacing:-.04em}
+.album-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.album-photo{min-width:0}
+.album-frame{border:1px solid var(--line);border-radius:13px;aspect-ratio:3/4;background:var(--panel2);overflow:hidden}
+.album-frame img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.album-caption{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:11px;color:var(--muted);padding:7px 2px}
+.album-delete{border:0;background:transparent;color:var(--muted);padding:7px;display:grid;place-items:center;border-radius:9px}
+.album-delete:hover{color:var(--red);background:var(--panel2)}
+.photo-empty{display:grid;place-items:center;height:100%;color:var(--muted)}
+.photo-empty-state{text-align:center;padding:35px 24px;border:1px dashed var(--line);border-radius:20px;margin:18px 0}
+.photo-empty-state strong{display:block;margin-top:9px}
+.camera-emoji{font-size:40px;color:var(--accent)}
+.photo-compare-card{margin-top:18px}
+.photo-compare-card .field{margin:0}
+.compare-controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}
+.compare-controls .field:first-child{grid-column:1/-1}
+.compare-mount{margin-top:16px}
+.compare-head{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:8px}
+.photo-compare-stage{position:relative;aspect-ratio:3/4;overflow:hidden;border-radius:18px;background:var(--panel2);width:min(100%,380px);margin:auto;isolation:isolate}
+.photo-compare-stage .compare-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.compare-before-layer{position:absolute;inset:0;clip-path:inset(0 50% 0 0);pointer-events:none}
+.compare-handle{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--accent);box-shadow:0 0 0 1px rgba(0,0,0,.2);pointer-events:none}
+.compare-handle:after{content:'↔';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--accent);color:#062521;border-radius:50%;width:36px;height:36px;display:grid;place-items:center;font-size:19px}
+.input-compare-range{width:100%;accent-color:var(--accent);height:33px;display:block;margin:12px 0 0}
+.photo-guide-modal{max-width:440px;padding:18px}
+.photo-guide-modal h2{margin:4px 0 0;font-size:21px}
+.camera-stage{position:relative;aspect-ratio:3/4;max-height:55vh;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:#06151c}
+.camera-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.camera-ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.32;pointer-events:none}
+.camera-ghost[hidden]{display:none}
+.camera-guidelines{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(131,245,211,.32)}
+.camera-guidelines span{position:absolute;left:0;right:0;border-top:1px solid rgba(131,245,211,.29)}
+.camera-guidelines span:nth-child(1){top:23%}.camera-guidelines span:nth-child(2){top:52%}.camera-guidelines span:nth-child(3){top:85%}
+.camera-guidelines:after{content:'';position:absolute;top:0;bottom:0;left:50%;border-left:1px solid rgba(131,245,211,.26)}
+.camera-foot-mark{position:absolute;bottom:8px;left:9px;right:9px;text-align:center;background:rgba(0,0,0,.48);border-radius:8px;color:white;font-size:10px;padding:6px;pointer-events:none}
+@media(max-width:385px){.album-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.photo-toolbar .btn{padding:9px 10px}}
+@media(prefers-reduced-motion:reduce){.main,.main.workout-focus-shell{animation:none!important}}
+
+/* Stable, springy selection pill: the dock survives page redraws. */
+@media(max-width:760px){
+ .bottom-nav::before{content:'';position:absolute;top:9px;bottom:10px;left:9px;width:calc((100% - 18px)/4);border-radius:17px;background:var(--accent2);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);transform:translate3d(calc(var(--active-tab-index,0)*100%),0,0);transition:transform 265ms cubic-bezier(.2,.8,.22,1);pointer-events:none;z-index:0}
+ .bottom-btn.active{background:transparent!important;box-shadow:none!important}
+ .bottom-btn{position:relative;z-index:1}
+}
+@media(prefers-reduced-motion:reduce){.bottom-nav::before{transition:none!important}}
+
+/* v1.6 meal overview: read-only guidance, separate from the logged food diary */
+.meal-guide{margin:18px 0 22px;padding:20px;border:1px solid var(--glass-edge);border-radius:24px;background:linear-gradient(155deg,rgba(68,199,170,.09),transparent 58%),var(--panel);box-shadow:var(--shadow)}
+.meal-guide-heading{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.meal-guide-heading h3{margin:7px 0 0;font-size:21px;font-weight:650;letter-spacing:-.04em}
+.meal-guide-heading .eyebrow{color:var(--accent)}
+.meal-guide-tag{font-size:10px;color:var(--accent);padding:7px 9px;border-radius:99px;background:var(--accent2);white-space:nowrap}
+.meal-guide-description,.meal-guide-note{font-size:12px;color:var(--muted);line-height:1.55}
+.meal-guide-description{margin:10px 0 19px}
+.meal-guide-breakfast{display:flex;gap:13px;align-items:center;padding:15px 14px;border-radius:16px;background:var(--panel2)}
+.meal-guide-symbol{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--accent2);color:var(--accent)}
+.meal-guide-breakfast p,.meal-guide-option p{margin:5px 0 0;line-height:1.5}
+.meal-guide-plus{color:var(--accent);font-weight:750;padding:0 3px}
+.meal-guide-label{font-size:14px;font-weight:700;margin:21px 0 11px}
+.meal-guide-label>span{color:var(--accent)}
+.meal-guide-label small{font-weight:400;font-size:11px;color:var(--muted);display:block;margin-top:5px}
+.meal-guide-options{display:grid;gap:9px}
+.meal-guide-option{padding:12px 14px;border-radius:15px;background:var(--panel2);border:1px solid var(--line)}
+.meal-guide-type{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--accent)}
+.meal-guide-option p{font-size:13px}
+.meal-guide-or{font-size:11px;color:var(--muted);font-weight:600}
+.meal-guide-note{margin:13px 0 0}
+@media(max-width:370px){.meal-guide{padding:15px}.meal-guide-tag{font-size:9px}.meal-guide-heading h3{font-size:19px}}
+
+/* v1.6: editable quick-reference meal guide, with long-press-only actions. */
+.meal-guide-section-heading{font-size:14px;font-weight:720;margin:0 0 10px}
+.meal-guide-add{display:inline-flex;gap:6px;align-items:center;font-weight:700;white-space:nowrap;flex-shrink:0}
+.meal-guide-entry{position:relative;display:flex;gap:13px;align-items:flex-start;flex-wrap:wrap;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:border-color .18s ease,background-color .18s ease}
+.meal-guide-entry-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.meal-guide-entry-copy p{white-space:pre-line;font-size:13px}
+.meal-guide-entry:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.meal-guide-entry.meal-guide-edit-open{border-color:var(--accent);background:var(--accent2)}
+.meal-guide-entry-actions{display:flex;flex-wrap:wrap;gap:7px;width:100%;padding-top:5px}
+.meal-guide-entry-actions .guide-item-button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 13px}
+.meal-guide-no-items{padding:15px 10px;color:var(--muted);font-size:13px;margin:0}
+@media(max-width:390px){.meal-guide-add{padding:9px 11px}.meal-guide-entry-actions .guide-item-button{flex:1}}
