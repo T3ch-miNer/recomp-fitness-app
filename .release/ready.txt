@@ -1,0 +1,1 @@
+Reviewed v2.2.1 premium payload complete: 9 ordered chunks. Import and validate SHA-256 before merge.
