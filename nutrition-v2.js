@@ -5,7 +5,47 @@ import { searchFoods, findFood, nutrientsForGrams } from './food-db.js';
 const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const keys = ['calories','protein','carbs','fat','fibre'];
 const opts = ['Breakfast','Lunch','Dinner','Snack'];
-let classifierPromise;
+let recognitionWorker=null,recognitionCounter=0;
+async function foodImageRegions(file){
+ let bitmap;
+ try {
+  bitmap=await createImageBitmap(file);
+  const w=bitmap.width,h=bitmap.height;
+  if(w<10||h<10)throw Error('Choose a clearer meal photograph.');
+  const regions=[[0,0,w,h]];
+  if(w>=380)regions.push([0,0,Math.round(w*.62),h],[Math.round(w*.38),0,Math.round(w*.62),h]);
+  else if(h>=380)regions.push([0,0,w,Math.round(h*.62)],[0,Math.round(h*.38),w,Math.round(h*.62)]);
+  return regions.slice(0,3).map(([x,y,rw,rh])=>{
+   const scale=Math.min(448/rw,448/rh,1),canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(rw*scale));
+   canvas.height=Math.max(1,Math.round(rh*scale));
+   canvas.getContext('2d',{alpha:false}).drawImage(bitmap,x,y,rw,rh,0,0,canvas.width,canvas.height);
+   return canvas.toDataURL('image/jpeg',.79);
+  });
+ } finally {bitmap?.close?.();}
+}
+async function recogniseFoodLocally(file,onStatus){
+ if(typeof Worker==='undefined')throw Error('This browser does not support on-device recognition.');
+ const id=++recognitionCounter;
+ if(!recognitionWorker)recognitionWorker=new Worker(new URL('./food-recognition-worker.js',import.meta.url),{type:'module'});
+ const regions=await foodImageRegions(file);
+ const labels=searchFoods('',100).map(food=>({id:food.id,label:food.name}));
+ return new Promise((resolve,reject)=>{
+  const finish=()=>{recognitionWorker.removeEventListener('message',onMessage);recognitionWorker.removeEventListener('error',onError);};
+  const onMessage=e=>{
+   if(e.data?.id!==id)return;
+   if(e.data.type==='status'){onStatus(String(e.data.message||'Recognising foods…'));return;}
+   finish();
+   if(e.data.type==='result')resolve(e.data.suggestions||[]);
+   else reject(Error(e.data.message||'Local recognition failed'));
+  };
+  const onError=()=>{finish();recognitionWorker?.terminate();recognitionWorker=null;reject(Error('The model could not load. Use search instead.'));};
+  recognitionWorker.addEventListener('message',onMessage);
+  recognitionWorker.addEventListener('error',onError);
+  recognitionWorker.postMessage({type:'recognise',id,regions,labels});
+ });
+}
+
 
 export function openNutrition({meal='Breakfast', save, manual, notify}) {
  let mode='menu', chosen=[], query='', selectedMeal=opts.includes(meal)?meal:'Breakfast';
@@ -49,9 +89,9 @@ export function openNutrition({meal='Breakfast', save, manual, notify}) {
   return '<label class="nv-label">Take or upload a meal photograph<input id="nv-photo" class="nv-input" type="file" accept="image/*" capture="environment"></label>'+
   (photoURL?'<img class="nv-preview" src="'+esc(photoURL)+'" alt="Selected meal photograph">':'')+
   '<p class="nv-help">For a mixed Indian thali, add each food and its cooked weight below. The image stays on your device.</p>'+
-  (photoFile?'<button type="button" data-nv="recognise" class="nv-button" '+(finding?'disabled':'')+'>'+(finding?'Analysing on your device…':'Try free on-device food suggestions')+'</button>':'')+
-  '<p class="nv-help">Experimental: first use downloads a large Food-101 model, which recognises only a limited range of Indian dishes. Requires internet for the initial download. No OpenAI API key needed.</p>'+
-  (suggestions.length?'<div class="nv-suggestions"><b>Model suggestions (confirm before adding)</b>'+suggestions.map(f=>'<button type="button" class="nv-result" data-nv="add" data-id="'+esc(f.id)+'"><b>'+esc(f.name)+'</b><small>Possible match · '+Math.round(f.score*100)+'% model confidence</small><span>+</span></button>').join('')+'</div>':'')+searchPanel();
+  (photoFile?'<button type="button" data-nv="recognise" class="nv-button" '+(finding?'disabled':'')+'>'+(finding?'Recognising on your device…':'Recognise Indian foods free')+'</button>':'')+
+  '<p class="nv-help">First use downloads a free local model (roughly 55 MB). It compares photos with Indian dish names; it may miss items on a mixed plate. No image upload or API key.</p>'+
+  (suggestions.length?'<div class="nv-suggestions"><b>Possible foods · tap to add</b>'+suggestions.map(f=>'<button type="button" class="nv-result" data-nv="add-suggested" data-id="'+esc(f.id)+'"><b>'+esc(f.name)+'</b><small>Unverified photo suggestion · confirm identity and cooked weight</small><span>+</span></button>').join('')+'</div>':'')+searchPanel();
  }
  function barcodePanel(){
   const details=product ? '<div class="nv-product"><b>'+esc(product.name)+'</b><p class="nv-help">Open Food Facts · '+Math.round(product.per100.calories)+' kcal per 100 g. Check the label before saving.</p><button type="button" class="nv-button" data-nv="add-product">Add product to meal</button></div>':'';
@@ -106,19 +146,15 @@ export function openNutrition({meal='Breakfast', save, manual, notify}) {
  }
  async function recognise(){
   if(!photoFile||finding)return;
-  finding=true;msg='Downloading or loading the local model. On first use this may take several minutes.';render();
+  finding=true;msg='Loading local recognition model. First download may take several minutes.';render();
   try{
-   if(!classifierPromise)classifierPromise=import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm').then(m=>m.pipeline('image-classification','onnx-community/swin-finetuned-food101-ONNX',{dtype:'q8'}).then(p=>({m,p}))).catch(e=>{classifierPromise=null;throw e;});
-   const {m,p}=await classifierPromise, image=await m.RawImage.fromBlob(photoFile), result=await p(image,{top_k:5});
-   suggestions=[];
-   for(const r of result){
-    const label=String(r.label||'').replace(/_/g,' ').toLowerCase();
-    const match=searchFoods(label,1)[0];
-    if(match && !suggestions.some(x=>x.id===match.id) && (match.name.toLowerCase().includes(label)||match.aliases.toLowerCase().includes(label)))suggestions.push({...match,score:r.score});
-   }
-   msg=suggestions.length?'Suggested foods found. Confirm each result and enter cooked weight.':'No reliable match to the Indian catalogue. Add the dishes manually below.';
-  }catch(e){msg='Local recognition could not load on this device or connection. You can still log the photo meal manually.';}
-  finding=false;render();
+   const result=await recogniseFoodLocally(photoFile,status=>{
+    msg=status;const text=root.querySelector('.nv-message');if(text)text.textContent=status;
+   });
+   suggestions=result.map(s=>{const f=findFood(s.id);return f?{...f,score:s.score}:null;}).filter(Boolean);
+   msg=suggestions.length?'Review suggestions, then enter the cooked weight of every food. Add any missing foods manually.':'No reliable food match. Please search the dishes manually.';
+  }catch(e){msg='Local recognition unavailable: '+String(e.message||e).slice(0,160)+'. Search foods manually instead.';}
+  finding=false;if(root.isConnected)render();
  }
  async function act(e){
   const btn=e.target.closest('[data-nv]');if(!btn)return;
@@ -127,7 +163,7 @@ export function openNutrition({meal='Breakfast', save, manual, notify}) {
   if(a==='back'){stopCamera();mode='menu';msg='';render();return;}
   if(a==='mode'){mode=btn.dataset.mode;query='';msg='';render();return;}
   if(a==='manual'){close();manual(selectedMeal);return;}
-  if(a==='add'){const food=findFood(btn.dataset.id);if(food){chosen.push({food,grams:food.defaultGrams});msg='Added. Check the cooked weight below.';render();}return;}
+  if(a==='add-suggested'){const food=findFood(btn.dataset.id);if(food&&!chosen.some(x=>x.food.id===food.id)){chosen.push({food,grams:''});msg='Suggested food added. Enter its cooked weight before saving.';render();}return;}\n  if(a==='add'){const food=findFood(btn.dataset.id);if(food){chosen.push({food,grams:food.defaultGrams});msg='Added. Check the cooked weight below.';render();}return;}
   if(a==='remove'){chosen.splice(Number(btn.dataset.index),1);render();return;}
   if(a==='lookup'){await lookup();return;}
   if(a==='camera'){await camera();return;}
