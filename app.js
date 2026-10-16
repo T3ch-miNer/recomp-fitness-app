@@ -316,7 +316,7 @@ function weightChart(points){
   <text class="wc-label" x="${padX}" y="${H-5}">${escapeHtml(dateDisplay(points[0].date).replace(/ \d{4}$/,''))}</text>
   <text class="wc-label" x="${W-padX}" y="${H-5}" text-anchor="end">${escapeHtml(dateDisplay(points.at(-1).date).replace(/ \d{4}$/,''))}</text></svg></div>`;
 }
-function heading(title,desc='',action=''){const isDark=effectiveTheme()==='dark';return `<header class="top"><div><div class="eyebrow">${EYEBROWS[tab]||'Recomp'}</div><h1 class="page-title">${title}</h1>${desc?`<div class="subhead">${desc}</div>`:''}</div><div class="right-actions">${action}<button type="button" class="btn round theme-trigger" title="Switch to ${isDark?'day':'night'} mode" aria-label="Switch to ${isDark?'light':'dark'} mode" data-action="toggle-theme">${svg(isDark?'sun':'moon')}</button><button class="btn round settings-trigger" title="Open settings" aria-label="Open settings" data-action="settings">${svg('settings')}</button></div></header>`;}
+function heading(title,desc='',action=''){const isDark=effectiveTheme()==='dark';return `<header class="top"><div>${tab==='settings'?'':`<div class="eyebrow">${EYEBROWS[tab]||'Recomp'}</div>`}<h1 class="page-title">${title}</h1>${desc?`<div class="subhead">${desc}</div>`:''}</div><div class="right-actions">${action}<button type="button" class="btn round theme-trigger" title="Switch to ${isDark?'day':'night'} mode" aria-label="Switch to ${isDark?'light':'dark'} mode" data-action="toggle-theme">${svg(isDark?'sun':'moon')}</button><button class="btn round settings-trigger" title="Open settings" aria-label="Open settings" data-action="settings">${svg('settings')}</button></div></header>`;}
 function metric(title,value,goal,unit,iconName,action='',quip=''){
  const logged=value!==null&&value!==undefined&&value!=='';
  const tag=action?'button':'div';
@@ -335,8 +335,8 @@ function taskList(){
  }).join('');
 }
 function taskWinView(){
- const bits=Array.from({length:24},(_,i)=>{
-  const angle=i*2*Math.PI/24,dist=110+(i%4)*25;
+ const bits=Array.from({length:32},(_,i)=>{
+  const angle=i*2*Math.PI/32,dist=125+(i%5)*25;
   return `<i style="--tx:${Math.round(Math.cos(angle)*dist)}px;--ty:${Math.round(Math.sin(angle)*dist)}px;--delay:${i%5*28}ms;--hue:${i%3===0?'156':i%3===1?'48':'192'}"></i>`;
  }).join('');
  return `<div class="task-win-celebration" role="status" aria-live="polite">
@@ -632,7 +632,7 @@ function syncDock(visible){
 function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.2.2 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.2.3 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }
@@ -673,6 +673,7 @@ function playUiSound(kind='tap',force=false){
    tap:[[0,520,610,.065,.024]],
    navigate:[[0,360,490,.075,.027]],
    check:[[0,570,760,.09,.033]],
+   uncheck:[[0,590,420,.09,.024]],
    success:[[0,520,630,.11,.037],[.09,780,980,.13,.034]],
    celebrate:[[0,540,660,.13,.06],[.12,680,840,.15,.055],[.24,850,1080,.22,.058]]
   }[kind]||[[0,520,610,.065,.024]];
@@ -1009,7 +1010,7 @@ if(el.matches('[data-setfield]')){
  }
  await persist();
 }
-if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');playUiSound(el.checked?'check':'tap');await commit();}
+if(el.matches('[data-task-id]')){const date=today(),id=el.dataset.taskId;taskActionsId=null;state.taskChecks[date]??={};state.taskChecks[date][id]=el.checked;haptic('check');playUiSound(el.checked?'check':'uncheck');await commit();}
 if(el.id==='auto-cloud-sync'){localStorage.setItem('recomp-auto-sync',el.checked?'yes':'no');notify(el.checked?'Automatic cloud backup enabled':'Automatic cloud backup disabled');}
 if(el.id==='compare-view'){compareView=el.value;const photos=state.photos.filter(p=>p.view===compareView).sort((a,b)=>a.date.localeCompare(b.date));const options=photos.map(p=>`<option value="${p.id}">${dateDisplay(p.date)}</option>`).join('');$('#compare-first').innerHTML=options;$('#compare-second').innerHTML=options;updateCompare();}
 if(el.id==='compare-first'||el.id==='compare-second')updateCompare();
@@ -1177,6 +1178,20 @@ document.addEventListener('touchcancel',()=>{if(swipeGesture?.frame)cancelAnimat
 
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
+// Do not interrupt a workout when an updated service worker becomes active.
+function showUpdateNotice(){
+ if(document.querySelector('.recomp-update-notice'))return;
+ const banner=document.createElement('aside');
+ banner.className='recomp-update-notice';
+ banner.setAttribute('role','status');
+ const message=document.createElement('span');
+ message.textContent='Recomp update ready. Your saved records are safe.';
+ const button=document.createElement('button');
+ button.type='button';button.textContent='Reload';
+ button.addEventListener('click',()=>window.location.reload());
+ banner.append(message,button);
+ document.body.appendChild(banner);
+}
 async function init(){try{
  const saved=await get('state');
  state=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:INITIAL();
@@ -1206,7 +1221,25 @@ async function init(){try{
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
-if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('Offline install unavailable',err));
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  const previouslyControlled=Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(previouslyControlled)showUpdateNotice();});
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+   if(reg.waiting && navigator.serviceWorker.controller)showUpdateNotice();
+   reg.addEventListener('updatefound',()=>{
+    const worker=reg.installing;
+    worker?.addEventListener('statechange',()=>{
+     if(worker.state==='installed' && navigator.serviceWorker.controller)showUpdateNotice();
+    });
+   });
+   let lastChecked=Date.now();
+   document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden && Date.now()-lastChecked>5*60*1000){
+     lastChecked=Date.now();reg.update().catch(()=>{});
+    }
+   });
+  }).catch(err=>console.warn('Offline install unavailable',err));
+ }
 try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogleLogin();notify('Google Sign-In connected. Open Settings to back up your data.');render();}}catch(err){notify('Google Sign-In: '+err.message);}
 setInterval(timerTick,500);
 setInterval(async()=>{if(!state.dirty||localStorage.getItem('recomp-auto-sync')!=='yes'||!navigator.onLine||!cloud.getSession())return;try{await pushCloud();}catch(e){console.warn('Auto-sync waiting:',e.message);}},60000);
