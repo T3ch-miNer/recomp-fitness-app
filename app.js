@@ -53,7 +53,7 @@ const TEMPLATES = [
 ];
 // An independent quick-reference, never used for calorie or macro calculations.
 const DEFAULT_MEAL_GUIDE = [
- {id:'guide-breakfast',group:'Breakfast',label:'Breakfast',description:'2 eggs + 1 slice of toast'},
+ {id:'guide-breakfast',group:'Breakfast',label:'Eggs & toast',description:'2 eggs + 1 slice of toast'},
  {id:'guide-carbs',group:'Lunch & Dinner',label:'Carbs',description:'2 rotis or 150 g cooked rice or 150 g cooked pasta'},
  {id:'guide-protein',group:'Lunch & Dinner',label:'Protein foods',description:'170 g meat or 90 g paneer/beans'},
  {id:'guide-veg',group:'Lunch & Dinner',label:'Vegetables',description:'170–200 g sautéed vegetables or sabji'}
@@ -97,11 +97,14 @@ function motionChange(change,kind='tab',direction=1){
  if(reducedMotion())return;
  const target=document.querySelector('.main');
  if(!target?.animate)return;
- const isTab=kind==='tab',dx=isTab?(direction<0?-24:24):0;
+ const isTab=kind==='tab',dx=isTab?(direction<0?-13:13):0;
+ // Animate only on the compositor. Large-page opacity fades make charts and cards
+ // repaint on some Android devices, which can cause a visible jump.
+ for(const running of target.getAnimations())running.cancel();
  target.animate([
-  {opacity:isTab?.76:.88,transform:`translate3d(${dx}px,${isTab?0:14}px,0) scale(${isTab?1:.992})`},
-  {opacity:1,transform:'translate3d(0,0,0) scale(1)'}
- ],{duration:isTab?215:265,easing:'cubic-bezier(.2,.75,.25,1)',fill:'none'});
+  {transform:`translate3d(${dx}px,${isTab?0:10}px,0) scale(${isTab?1:.995})`},
+  {transform:'translate3d(0,0,0) scale(1)'}
+ ],{duration:isTab?190:240,easing:'cubic-bezier(.2,.78,.24,1)',fill:'none'});
 }
 
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
@@ -156,10 +159,10 @@ function mealGuideView(){
   const list=items.filter(item=>item.group===group);
   const cards=list.map(item=>{
    const open=mealGuideActionsId===item.id;
-   return `<div class="meal-guide-entry ${group==='Breakfast'?'meal-guide-breakfast':'meal-guide-option'} ${open?'meal-guide-edit-open':''}" data-guide-item="${escapeHtml(item.id)}" tabindex="0" role="group" aria-label="${escapeHtml(item.label)}. Press and hold to edit or delete.">
-     ${group==='Breakfast'?`<div class="meal-guide-symbol">${svg('sun')}</div>`:''}
-     <div class="meal-guide-entry-copy"><${group==='Breakfast'?'b':'span'} class="${group==='Breakfast'?'':'meal-guide-type'}">${escapeHtml(item.label)}</${group==='Breakfast'?'b':'span'}><p>${escapeHtml(item.description)}</p></div>
-     ${open?`<div class="meal-guide-entry-actions"><button type="button" class="btn guide-item-button" data-action="edit-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Edit ${escapeHtml(item.label)}">${svg('edit','tiny-icon')} Edit</button><button type="button" class="btn danger guide-item-button" data-action="delete-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Delete ${escapeHtml(item.label)}">${svg('trash','tiny-icon')} Delete</button></div>`:''}
+   const visibleLabel=item.id==='guide-breakfast'&&item.label==='Breakfast'?'Eggs & toast':item.label;
+   return `<div class="meal-guide-entry meal-guide-option ${open?'meal-guide-edit-open':''}" data-guide-item="${escapeHtml(item.id)}" tabindex="0" role="group" aria-label="${escapeHtml(visibleLabel)}. Press and hold to edit or delete.">
+     <div class="meal-guide-entry-copy"><span class="meal-guide-type">${escapeHtml(visibleLabel)}</span><p>${escapeHtml(item.description)}</p></div>
+     ${open?`<div class="meal-guide-entry-actions"><button type="button" class="btn guide-item-button" data-action="edit-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Edit ${escapeHtml(visibleLabel)}">${svg('edit','tiny-icon')} Edit</button><button type="button" class="btn danger guide-item-button" data-action="delete-guide-item" data-id="${escapeHtml(item.id)}" aria-label="Delete ${escapeHtml(visibleLabel)}">${svg('trash','tiny-icon')} Delete</button></div>`:''}
    </div>`;
   }).join('');
   return cards||`<p class="meal-guide-no-items">Nothing here yet. Tap Add to create an option.</p>`;
@@ -174,7 +177,7 @@ function mealGuideView(){
   <p class="meal-guide-note">Portion guide only. Protein and calorie values differ across these choices, and added oil changes the total.</p>
 </section>`;
 }
-function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="summary-hero"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div>${mealGuideView()}<div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
+function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="row space small" style="margin-bottom:6px"><span class="strong">${k[0].toUpperCase()+k.slice(1)}</span><span>${Math.round(t[k])} / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}`).join('<div style="height:11px"></div>');return `${heading('Nutrition','Keep your food logging simple and consistent.')}<div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">TODAY'S INTAKE</div><div class="hero-number">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:14px 0">${progress(t.calories,state.goals.calories)}</div><div class="small muted">Protein, carbohydrates, fat and fibre goals</div><div style="margin-top:15px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${num(f.protein)} g protein · ${num(f.carbs)} g carbs</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">No foods logged yet.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a meal to make it available here.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>Coming in later phases:</b> AI food photographs, label scanning, recipes, meal planning and reminder notifications. Your diary works fully offline today.</div>`;}
 const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
 function photoThumb(p){
  const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
@@ -349,29 +352,37 @@ if(modal.type==='workout-summary')return modalShell('Workout complete',`<div cla
 return '';
 }
 function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
-function render(){applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
-const previousDock=$('#app .bottom-nav');
-let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.6</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active?`<nav class="bottom-nav" aria-label="Main navigation">${[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']].map(([id,ico,label])=>`<button class="bottom-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(ico)}${label}</button>`).join('')}</nav>`:''}${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
-if(previousDock){
- const replacement=$('#app .bottom-nav');
- if(replacement){
-  replacement.replaceWith(previousDock);
-  for(const button of previousDock.querySelectorAll('.bottom-btn')){
-   const isActive=button.dataset.tab===tab;
-   button.classList.toggle('active',isActive);
-   if(isActive)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
-  }
-  requestAnimationFrame(()=>previousDock.style.setProperty('--active-tab-index',String(Math.max(0,['home','workouts','nutrition','body'].indexOf(tab)))));
+function syncDock(visible){
+ let dock=document.getElementById('recomp-bottom-dock');
+ const pages=[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']];
+ if(!dock){
+  dock=document.createElement('nav');dock.id='recomp-bottom-dock';dock.className='bottom-nav premium-dock';dock.setAttribute('aria-label','Main navigation');
+  dock.innerHTML=pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button">${svg(ico)}<span>${label}</span></button>`).join('');
+  dock.style.setProperty('--active-tab-index',String(Math.max(0,pages.findIndex(([id])=>id===tab))));
+  document.body.appendChild(dock);
  }
+ dock.hidden=!visible;
+ dock.style.display=visible?'':'none';
+ dock.setAttribute('aria-hidden',visible?'false':'true');
+ for(const button of dock.querySelectorAll('.bottom-btn')){
+  const isActive=button.dataset.tab===tab;
+  button.classList.toggle('active',isActive);
+  if(isActive)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+ }
+ if(visible){dock.style.setProperty('--active-tab-index',String(Math.max(0,pages.findIndex(([id])=>id===tab))));}
 }
+function render(){applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
+// The bottom dock is mounted once on document.body and never rebuilt with page content.
+let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${svg('chart','big-icon')}</span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 1.7</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="${tab==='nutrition'?'add-food':'add-weight'}" aria-label="${tab==='nutrition'?'Log food':'Log weight'}" title="${tab==='nutrition'?'Log food':'Log weight'}">${svg('plus')}<span class="quick-fab-label">${tab==='nutrition'?'Food':'Weight'}</span></button>`:''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted small">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${restOverlay()}${modalView()}`;
+syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }
 function setTab(dest,swipeDirection=null){
  if(tab===dest)return;
  const order=['home','workouts','nutrition','body'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
- motionChange(()=>{tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();window.scrollTo({top:0,behavior:'instant'});},'tab',direction);
+ motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
@@ -744,7 +755,7 @@ document.addEventListener('input',event=>{if(event.target.id==='compare-range'){
 
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
-async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
+async function init(){try{state=await get('state')||INITIAL();if(!state.goals||!state.templates)state=INITIAL();if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);const defaultBreakfast=state.mealGuideItems.find(item=>item.id==='guide-breakfast');if(defaultBreakfast?.label==='Breakfast'&&defaultBreakfast.description==='2 eggs + 1 slice of toast')defaultBreakfast.label='Eggs & toast';tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
  bodyPanel=['measurements','photos','weight'].includes(state.lastBodyPanel)?state.lastBodyPanel:'measurements';
  nutritionPanel=['diary','favourites'].includes(state.lastNutritionPanel)?state.lastNutritionPanel:'diary';
  if(state.session){
