@@ -1,1 +1,1 @@
-Reviewed v2.2.1 premium payload complete: 9 ordered chunks. Import and validate SHA-256 before merge.
+Reviewed v2.2.1 premium payload complete. Import full app.js from app-full.b64, verify SHA256 89d56f8827445db43251e00e69c925bf0e0a505820de05df2e44d6336e8b0466.
