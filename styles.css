@@ -531,3 +531,130 @@ html[data-direction="back"]::view-transition-new(page-stage){animation-name:page
  }
  body{background-attachment:scroll}
 }
+
+
+/* Recomp v1.8: compact nutrition reference. Keep the saved guide model and hold actions. */
+.meal-guide.meal-guide-compact{
+ margin:0 0 17px;
+ padding:15px 16px 12px;
+ border-radius:19px;
+ background:linear-gradient(145deg,rgba(59,187,162,.065),transparent 70%),var(--panel);
+}
+.meal-guide-compact .meal-guide-heading{gap:9px;align-items:center;padding-bottom:8px}
+.meal-guide-compact .meal-guide-heading h3{
+ margin:0;font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
+ font-size:17px;line-height:1.3;letter-spacing:-.035em;font-weight:700;
+}
+.meal-guide-compact .meal-guide-add{
+ min-height:37px;padding:7px 11px;gap:5px;font-size:11px;border-radius:12px;
+}
+.meal-guide-compact .meal-guide-compact-list{display:grid;gap:0;min-width:0}
+.meal-guide-compact .meal-guide-entry.meal-guide-option{
+ display:flex;flex-wrap:wrap;align-items:stretch;min-height:0;
+ padding:9px 2px;border:0;border-bottom:1px solid var(--line);
+ border-radius:0;background:transparent;box-shadow:none;
+}
+.meal-guide-compact .meal-guide-compact-list .meal-guide-entry:last-child{border-bottom:0}
+.meal-guide-compact .meal-guide-entry-copy{
+ display:grid;grid-template-columns:minmax(66px,23%) minmax(0,1fr);
+ gap:9px;align-items:start;min-width:0;width:100%;
+}
+.meal-guide-compact .meal-guide-type{
+ font-size:11px;line-height:1.45;letter-spacing:0;text-transform:none;
+ color:var(--accent);font-weight:700;overflow-wrap:break-word;
+}
+.meal-guide-compact .meal-guide-entry-copy p{
+ font-size:12px;line-height:1.5;margin:0;color:var(--text);white-space:pre-line;
+ overflow-wrap:anywhere;
+}
+.meal-guide-compact .meal-guide-compact-subhead{
+ font-size:11px;font-weight:760;letter-spacing:.035em;color:var(--accent);
+ margin:5px 0 0;padding:7px 0 2px;border-top:1px solid var(--line);
+}
+.meal-guide-compact .meal-guide-compact-note{
+ margin:10px 0 0;font-size:10px;line-height:1.4;color:var(--muted);
+}
+.meal-guide-compact .meal-guide-entry.meal-guide-edit-open{
+ padding:10px;border-radius:11px;border:1px solid var(--accent);
+ background:var(--accent2);margin:4px 0;
+}
+.meal-guide-compact .meal-guide-entry-actions{
+ width:100%;padding-top:8px;gap:8px;
+}
+.meal-guide-compact .meal-guide-entry-actions .btn{
+ min-height:35px;padding:7px 10px;font-size:11px;
+}
+.meal-guide-compact .meal-guide-no-items{padding:7px 0;font-size:11px}
+.nutrition-guide-first .meal-guide.meal-guide-compact{margin:0 0 18px}
+
+/* Recomp v1.8: one fixed, viewport-anchored dock; only the indicator moves. */
+@media(max-width:760px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{
+  position:fixed !important;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:stretch;
+  left:50% !important;
+  right:auto !important;
+  bottom:calc(12px + env(safe-area-inset-bottom)) !important;
+  width:calc(100vw - 28px) !important;
+  max-width:570px;
+  height:78px;
+  min-height:78px;
+  max-height:78px;
+  box-sizing:border-box;
+  transform:translate3d(-50%,0,0) !important;
+  margin:0 !important;
+  padding:8px;
+  border-radius:25px;
+  overflow:hidden;
+  contain:layout paint style;
+  view-transition-name:none !important;
+  transition:none !important;
+  will-change:auto;
+  -webkit-backdrop-filter:blur(10px) saturate(118%);
+  backdrop-filter:blur(10px) saturate(118%);
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock[hidden]{display:none !important}
+ #recomp-bottom-dock.bottom-nav.premium-dock::before{
+  left:8px;right:auto;top:8px;bottom:8px;
+  width:calc((100% - 16px)/4);
+  border-radius:16px;
+  transform:translate3d(calc(var(--active-tab-index,0)*100%),0,0);
+  transition:transform 245ms cubic-bezier(.2,.8,.2,1);
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{
+  position:relative;z-index:1;
+  width:100%;height:100%;min-height:0;
+  min-width:0;
+  display:grid;
+  grid-template-rows:25px 16px;
+  align-content:center;
+  justify-items:center;
+  gap:3px;
+  padding:4px 1px;
+  font-size:10px;
+  line-height:1.1;
+  border-radius:16px;
+  box-sizing:border-box;
+  view-transition-name:none !important;
+  transition:color 160ms ease;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:active{transform:none}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon{
+  width:22px;height:22px;
+ }
+ .main{padding-bottom:calc(159px + env(safe-area-inset-bottom))}
+ .floating-workout{bottom:calc(109px + env(safe-area-inset-bottom))}
+ .quick-fab{bottom:calc(108px + env(safe-area-inset-bottom))}
+ .quick-fab.above-workout{bottom:calc(203px + env(safe-area-inset-bottom))}
+}
+@media(prefers-reduced-motion:reduce){
+ #recomp-bottom-dock.bottom-nav.premium-dock::before{
+  transition:none!important;
+ }
+}
+/* Prevent an oversized child on another tab from changing Android's layout viewport
+   and shifting every viewport-fixed element. */
+html,body{max-width:100%;overflow-x:clip}
+#app,.layout,.main{min-width:0;max-width:100%}
