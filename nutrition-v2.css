@@ -46,3 +46,4 @@ body.nf-open{overflow:hidden}
 @media(max-width:370px){.food-fab-cluster .quick-fab{width:58px;min-width:58px}.food-fab-cluster .quick-fab-label{display:none}}
 .nf-quantity:focus-within,.nf-inline-quantity:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent2)}
 .nf-quantity input:focus-visible,.nf-inline-quantity input:focus-visible{outline:0!important}
+.nf-svg{width:23px;height:23px;display:block}.nf-photo-illustration .nf-svg{width:34px;height:34px}.nf-photo-pick .nf-svg{width:26px;height:26px}.nf-barcode-visual .nf-svg{width:57px;height:57px}
