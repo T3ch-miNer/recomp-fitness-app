@@ -125,14 +125,15 @@ function validateOpenFoodProduct(data,code){
  const nutr=prod.nutriments||{};
  const read=key=>{const v=Number(nutr[key]);return nutr[key]==null||!Number.isFinite(v)||v<0||v>100000?null:v;};
  let calories=read('energy-kcal_100g');
- if(calories==null){const kJ=read('energy-kj_100g');if(kJ!=null)calories=Math.round(kJ/4.184*10)/10;}
+ if(calories==null)calories=read('energy-kcal');
+ if(calories==null){const kJ=read('energy-kj_100g')??read('energy_100g');if(kJ!=null)calories=Math.round(kJ/4.184*10)/10;}
  if(calories==null)throw new Error('This product has no per-100 g energy information. Use manual entry.');
- const rawName=String(prod.product_name_en||prod.product_name||'').trim();
+ const rawName=String(prod.product_name_de||prod.product_name||prod.product_name_en||prod.generic_name_de||'').trim();
  if(!rawName)throw new Error('Product name is missing. Use manual entry.');
  const name=rawName.slice(0,100),brand=String(prod.brands||'').slice(0,75);
- const missing=['proteins_100g','carbohydrates_100g','fat_100g','fiber_100g'].filter(key=>read(key)==null).map(key=>key.split('_')[0]);
+ const missing=['protein','carbs','fat','fibre'].filter(k=>({protein:read('proteins_100g'),carbs:read('carbohydrates_100g'),fat:read('fat_100g'),fibre:read('fiber_100g')})[k]===null);
  const numbers={calories,protein:read('proteins_100g'),carbs:read('carbohydrates_100g'),fat:read('fat_100g'),fibre:read('fiber_100g')};
- return {code,name,brand,source:'Open Food Facts',per100:numbers,missing,quantity:String(prod.quantity||'').slice(0,60)};
+ return {code,name,brand,source:'Open Food Facts',per100:numbers,missing,quantity:String(prod.quantity||'').slice(0,60),defaultGrams:100,cached:false};
 }
 async function lookupBarcode(raw){
  const code=normaliseBarcode(raw);
@@ -140,8 +141,8 @@ async function lookupBarcode(raw){
  if(!navigator.onLine){if(cached?.product)return {...cached.product,cached:true};throw new Error('Offline: this barcode has not been looked up before.');}
  if(cached?.product && Date.now()-cached.savedAt<30*86400000)return {...cached.product,cached:true};
  let response;
- try{response=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=code,product_name,product_name_en,brands,quantity,nutriments',{
-  headers:{'X-User-Agent':'Recomp/2.0 (https://github.com/T3ch-miNer/recomp-fitness-app)'},signal:AbortSignal.timeout(12000),cache:'no-store'
+ try{response=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json?fields=code,product_name_de,product_name,product_name_en,generic_name_de,brands,quantity,nutriments&lc=de&cc=de',{
+  signal:AbortSignal.timeout(15000),cache:'no-store'
  });}catch(error){if(cached?.product)return {...cached.product,cached:true};throw new Error('Lookup unavailable. Check your connection or enter this food manually.');}
  if(!response.ok){if(cached?.product)return {...cached.product,cached:true};throw new Error(response.status===429?'Food database is busy. Please wait and try again.':'Food database unavailable ('+response.status+').');}
  const product=validateOpenFoodProduct(await response.json(),code);
@@ -541,7 +542,7 @@ function foodPortionView(){
 function foodNutritionPreview(values){return `<div class="food-calorie-head"><span>Estimated energy</span><b>${num(values.calories)} <small>kcal</small></b></div><div class="food-macro-grid">${[['protein','Protein'],['carbs','Carbs'],['fat','Fat'],['fibre','Fibre']].map(([key,label])=>`<div><b>${n(values[key]).toFixed(1)} g</b><span>${label}</span></div>`).join('')}</div>`;}
 function launchNutrition(mode='home', meal=null){
  toggleFoodMenu(false);
- openNutrition({mode,meal:meal||mealForHour(),
+ openNutrition({mode,meal:meal||mealForHour(),lookupProduct:lookupBarcode,
   save:async entries=>{
    // Save chosen dates, never replace existing diary rows.
    state.food.push(...entries.map(item=>({...item,id:uid(),foodSource:item.source==='Open Food Facts'?'openfoodfacts':'recomp-estimate-v1'})));
@@ -632,7 +633,7 @@ function syncDock(visible){
 function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.2.3 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.3.0 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 }

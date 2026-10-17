@@ -1,4 +1,4 @@
-const CACHE='recomp-shell-v2.2.3-task-polish';
+const CACHE='recomp-shell-v2.3.0-german-foods';
 const CORE=['./','./index.html','./styles.css','./app.js','./food-db.js','./nutrition-v2.js','./nutrition-v2.css','./premium.css','./db.js','./cloud.js'];
 const FONT_CACHE='recomp-fonts-v1';
 const OPTIONAL=['./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./food-recognition-worker.js'];
