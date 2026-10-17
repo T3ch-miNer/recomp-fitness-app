@@ -29,7 +29,7 @@ const INGREDIENTS = {
  greenMoongSprouted:[30,3,5.9,0.2,1.8],wholeMoongCooked:[105,7,19.1,0.4,7.6],cowpeasCooked:[116,7.7,20.8,0.5,6.5],chanaDalCooked:[164,8.9,27,2.6,7.6],
  fishCooked:[128,24,0,3.3,0],prawnsCooked:[99,24,0.2,0.3,0],eggWhite:[52,10.9,0.7,0.2,0],butter:[717,0.9,0.1,81.1,0],
  mango:[60,0.8,15,0.4,1.6],apple:[52,0.3,13.8,0.2,2.4],orange:[47,0.9,11.8,0.1,2.4],papaya:[43,0.5,10.8,0.3,1.7],
- raisins:[299,3.1,79.2,0.5,3.7],coconutWater:[19,0.7,3.7,0.2,1.1]
+ raisins:[299,3.1,79.2,0.5,3.7],coconutWater:[19,0.7,3.7,0.2,1.1],roastedGram:[390,20.8,59.5,6.2,17]
 };
 // [id, English name, synonyms, category, yield grams, ingredient recipe, typical cooked quantity]
 const RECIPES = [
@@ -174,7 +174,7 @@ const RECIPES = [
  ["samosa","Vegetable Samosa","aloo samosa pastry","Snacks",190,[["atta",85],["potatoCooked",100],["peas",35],["oil",20],["spices",3]],95],
  ["onion-pakora","Onion Pakora","pyaz bhaji pakoda","Snacks",215,[["gramFlour",90],["onion",165],["oil",20],["spices",3]],100],
  ["vegetable-cutlet","Vegetable Cutlet","veg tikki patties","Snacks",310,[["potatoCooked",160],["carrot",55],["peas",50],["wheatBread",35],["oil",11],["spices",3]],155],
- ["roasted-chana","Roasted Chana","bhuna chana chickpeas","Snacks",100,[["chanaCooked",100]],100],
+ ["roasted-chana","Roasted Chana","bhuna chana chickpeas","Snacks",100,[["roastedGram",100]],100],
  ["boiled-sweetcorn","Boiled Sweetcorn","steamed corn","Snacks",150,[["sweetCorn",150]],150],
  ["peanut-chaat","Peanut Chaat","masala peanut salad","Snacks",200,[["peanuts",105],["onion",35],["tomato",45],["spices",2]],100],
  ["sprouts-chaat","Sprouts Chaat","mixed sprouts chaat","Snacks",260,[["greenMoongSprouted",175],["onion",50],["tomato",55],["spices",3]],150],
