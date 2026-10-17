@@ -10,7 +10,7 @@ const db=readFileSync(new URL('../db.js',import.meta.url),'utf8');
 
 // Exercise the repository's real pure lookup functions with a mocked API and store.
 function extract(name,next){
- const start=app.indexOf('function '+name+'(');
+ const start=app.indexOf((name==='lookupBarcode'?'async function ':'function ')+name+'(');
  const end=app.indexOf('\n'+next,start);
  assert.ok(start>=0 && end>start,'Cannot extract '+name);
  return app.slice(start,end).trim();
