@@ -5,6 +5,7 @@
 // Cooked yields and oil vary between households, so users must review the totals.
 // Format for ingredients: [key, grams used in entire recipe batch].
 const INGREDIENTS = {
+  radish:[16,0.7,3.4,0.1,1.6], rawMango:[60,0.5,14,0.4,1.6],
   atta:[340,12,72,2.0,10], rice:[365,7.1,80,0.7,1.3], riceCooked:[130,2.7,28.2,0.3,0.4],
   poha:[350,7,76,1.2,1], rava:[360,12.5,73,1.1,3.9], oats:[389,16.9,66.3,6.9,10.6],
   vermicelli:[360,12,74,1.5,3], gramFlour:[387,22,58,6.7,10.8], idliBatter:[180,6,35,1.2,1.8],
@@ -211,7 +212,7 @@ const RECIPES = [
  ["shrikhand","Shrikhand","sweet saffron hung curd","Desserts",210,[["curd",190],["sugar",35],["spices",1]],110],
  ["besan-ladoo","Besan Ladoo","gram flour sweet ladoo","Desserts",240,[["gramFlour",115],["ghee",65],["sugar",65]],40],
  // v2.3.1 additional regional home dishes. All are estimates, not measured foods.
- ["mooli-paratha","Mooli Paratha","radish stuffed flatbread","Breads",165,[["atta",80],["cabbage",65],["oil",8],["spices",3],["water",20]],160],
+ ["mooli-paratha","Mooli Paratha","radish stuffed flatbread","Breads",165,[["atta",80],["radish",65],["oil",8],["spices",3],["water",20]],160],
  ["palak-paratha","Palak Paratha","spinach chapati saag paratha","Breads",160,[["atta",85],["spinach",85],["oil",6],["spices",3]],160],
  ["beetroot-paratha","Beetroot Paratha","chukandar stuffed roti","Breads",170,[["atta",85],["beetroot",85],["oil",7],["spices",3]],160],
  ["oats-roti","Oats Roti","oat flour chapati","Breads",135,[["oats",65],["atta",25],["water",50]],65],
@@ -232,7 +233,7 @@ const RECIPES = [
  ["tomato-dal-rice","Tomato Dal Rice","one pot pappu annam","Rice",400,[["riceCooked",220],["toorDalCooked",150],["tomato",95],["ghee",7],["spices",3]],200],
  ["kala-chana-rice","Kala Chana Rice Bowl","black chickpea rice","Rice",380,[["riceCooked",205],["blackChanaCooked",145],["tomato",50],["onion",45],["oil",7],["spices",3]],190],
  ["paneer-peas-rice","Paneer Matar Rice","paneer peas pulao","Rice",345,[["riceCooked",220],["paneer",90],["peas",55],["onion",35],["oil",5],["spices",3]],175],
- ["mango-rice","Raw Style Mango Rice","aam rice tangy rice","Rice",300,[["riceCooked",245],["mango",35],["peanuts",20],["oil",8],["spices",3]],150],
+ ["mango-rice","Raw Style Mango Rice","aam rice tangy rice","Rice",300,[["riceCooked",245],["rawMango",35],["peanuts",20],["oil",8],["spices",3]],150],
  ["vegetable-ragi-pongal","Ragi Vegetable Pongal","millet pongal ragi khichdi","Rice",340,[["ragiFlour",65],["moongDalCooked",165],["carrot",40],["peas",35],["ghee",7],["water",70],["spices",3]],170],
  ["moong-dal-rice","Moong Dal Rice","moong chawal easy rice","Rice",365,[["riceCooked",205],["moongDalCooked",165],["onion",25],["ghee",6],["spices",2]],185],
  ["cholar-dal","Bengali Cholar Dal","chana dal coconut bengali","Dal & Beans",385,[["chanaDalCooked",285],["coconut",35],["tomato",25],["ghee",8],["spices",3],["water",45]],170],
