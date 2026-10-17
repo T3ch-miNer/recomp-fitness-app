@@ -24,7 +24,7 @@ self.onmessage=async event=>{
  const {type,id,regions,labels}=event.data||{};
  if(type!=='recognise')return;
  try{
-  if(!Array.isArray(regions)||!regions.length||regions.length>3||!Array.isArray(labels)||labels.length>120)throw Error('Invalid photograph or food list.');
+  if(!Array.isArray(regions)||!regions.length||regions.length>3||!Array.isArray(labels)||labels.length>250)throw Error('Invalid photograph or food list.');
   self.postMessage({type:'status',id,message:'Loading local model (one-time download may take a while)…'});
   const classifier=await getModel(id);
   const labelMap=new Map(labels.map(item=>['Indian food '+item.label,item.id]));
