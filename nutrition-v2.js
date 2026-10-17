@@ -18,18 +18,18 @@ const amount=(food,grams)=>nutrientsForGrams(food,Number(grams));
 const fmt=(value)=>Math.round(Number(value)||0).toLocaleString('en-GB');
 const mealOptions=current=>meals.map(m=>`<option ${current===m?'selected':''} value="${m}">${m}</option>`).join('');
 
-export function openNutrition({mode='home',meal,save,manual,notify}={}) {
+export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct}={}) {
  let page=['home','search','photo','barcode'].includes(mode)?mode:'home';
  let selectedMeal=meals.includes(meal)?meal:mealForHour();
  let date=localDate(),query='',selected=null,grams=100,priorPage='search';
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoFoods=[],suggestions=[],recognising=false;
- let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,saving=false,notice='';
+ let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
  document.body.classList.add('nf-open');
- function stopCamera(){if(scanInterval)clearInterval(scanInterval);scanInterval=null;if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}}
+ function stopCamera(){scannerToken++;if(scanInterval)clearInterval(scanInterval);scanInterval=null;try{scannerControls?.stop();}catch{}scannerControls=null;if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}}
  function stopRecognition(){
   requestNumber++;
   if(recognitionTimeout)clearTimeout(recognitionTimeout);
@@ -43,9 +43,12 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
  function title(){return ({home:'Add food',search:'Search foods',portion:'Review food',photo:'Photo meal',barcode:'Scan barcode'})[page]||'Add food';}
  function field(label,id,type='text',value='',attrs=''){return `<label class="nf-field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(value)}" ${attrs}></label>`;}
  function mealDateFields(){return `<div class="nf-detail-fields">${field('Date','nf-date','date',date,'required')}<label class="nf-field"><span>Meal</span><select id="nf-meal">${mealOptions(selectedMeal)}</select></label></div>`;}
- function macros(food,qty){if(!food||!(Number(qty)>0))return '';
+ function macros(food,qty){
+  if(!food||!(Number(qty)>0))return '';
   let v;try{v=amount(food,qty);}catch{return '';}
-  return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated nutrition</span><strong>${fmt(v.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(v.protein)}g</b><small>Protein</small></span><span><b>${fmt(v.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(v.fat)}g</b><small>Fat</small></span><span><b>${fmt(v.fibre)}g</b><small>Fibre</small></span></div></div>`;
+  const value=k=>food?.per100?.[k]==null?'—':fmt(v[k])+'g';
+  const missing=food.source==='Open Food Facts'?nutrients.filter(k=>food.per100?.[k]==null):[];
+  return `<div class="nf-macros"><div class="nf-kcal"><span>${food.source==='Open Food Facts'?'Packaged nutrition':'Estimated nutrition'}</span><strong>${fmt(v.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${value('protein')}</b><small>Protein</small></span><span><b>${value('carbs')}</b><small>Carbs</small></span><span><b>${value('fat')}</b><small>Fat</small></span><span><b>${value('fibre')}</b><small>Fibre</small></span></div>${missing.length?`<p class="nf-missing-note">Not listed: ${missing.map(esc).join(', ')}. You can fill in these values from the packet. Unfilled values are logged as 0 and labelled incomplete.</p>`:''}</div>`;
  }
  function results(q,limit=12){return searchFoods(q,limit).map(food=>`<button class="nf-food-result" type="button" data-nf="pick" data-id="${esc(food.id)}"><span><b>${esc(food.name)}</b><small>${esc(food.category)} · ≈${fmt(food.per100.calories)} kcal/100g</small></span><span class="nf-result-arrow" aria-hidden="true">+</span></button>`).join('')||'<p class="nf-empty">No matching food. Try another name or enter it manually.</p>';}
  function home(){return `<p class="nf-intro">How would you like to log your food?</p><div class="nf-choice-list">
@@ -53,8 +56,12 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
  <button class="nf-choice" data-nf="go" data-mode="photo"><span class="nf-choice-icon">${ico('photo')}</span><span><b>Photo meal</b><small>Take a photo or choose from your gallery</small></span><span class="nf-chevron">›</span></button>
  <button class="nf-choice" data-nf="go" data-mode="barcode"><span class="nf-choice-icon">${ico('barcode')}</span><span><b>Scan barcode</b><small>Look up packaged foods</small></span><span class="nf-chevron">›</span></button></div><button class="nf-text-action nf-home-manual" data-nf="manual">Enter nutrition manually</button>`;}
  function search(){return `<p class="nf-subtle">Find a dish, then confirm its portion.</p><label class="nf-field nf-search-field"><span class="nf-sr">Find a food</span><input id="nf-search" type="search" value="${esc(query)}" placeholder="Search roti, dal, paneer…" autocomplete="off" spellcheck="false"></label><div id="nf-results" class="nf-food-results">${results(query)}</div><button class="nf-text-action" data-nf="manual">Can't find it? Enter manually</button>`;}
- function portion(){return `<div class="nf-picked"><span class="nf-overline">${selected?.source==='Open Food Facts'?'PACKAGED FOOD':'INDIAN HOME-FOOD ESTIMATE'}</span><h3>${esc(selected?.name)}</h3><p>${selected?.source==='Open Food Facts'?'Check the label and serving size.':'Values vary with ingredients and cooking oil.'}</p></div>
- ${mealDateFields()}<label class="nf-field nf-portion"><span>Portion eaten <em>(grams)</em></span><div class="nf-quantity"><input id="nf-grams" type="number" inputmode="decimal" min="1" max="5000" step="1" value="${esc(grams)}" required><span>g</span></div></label><div id="nf-macros">${macros(selected,grams)}</div>${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}`;}
+ function portion(){
+  const packaged=selected?.source==='Open Food Facts';
+  const edit=packaged?`<div class="nf-product-edit"><h4>Nutrition per 100 g / 100 ml</h4><p>Confirm the German package label or correct incomplete community data.</p><div class="nf-product-fields">${nutrients.map(k=>`<label class="nf-field"><span>${esc({calories:'Energy (kcal)',protein:'Protein (g)',carbs:'Carbohydrates (g)',fat:'Fat (g)',fibre:'Fibre (g)'}[k])}</span><input type="number" min="0" max="100000" step="0.1" inputmode="decimal" data-nf-per100="${k}" value="${selected.per100?.[k]==null?'':esc(selected.per100[k])}" placeholder="Not listed"></label>`).join('')}</div></div>`:'';
+  return `<div class="nf-picked"><span class="nf-overline">${packaged?'PACKAGED FOOD · GERMAN LABEL':'INDIAN HOME-FOOD ESTIMATE'}</span><h3>${esc(selected?.name)}</h3><p>${packaged?`Open Food Facts · ${esc(selected?.brand||'Community product')} ${selected?.cached?'· Cached':''}. Always check the packet.`:'Ingredients and cooking oil change the values.'}</p></div>
+  ${mealDateFields()}<label class="nf-field nf-portion"><span>Portion eaten <em>(grams / ml)</em></span><div class="nf-quantity"><input id="nf-grams" type="number" inputmode="decimal" min="1" max="5000" step="1" value="${esc(grams)}" required><span>g / ml</span></div></label>${edit}<div id="nf-macros">${macros(selected,grams)}</div>${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}`;
+ }
  function photoChoose(){return `<div class="nf-photo-lead"><span class="nf-photo-illustration" aria-hidden="true">${ico('photo')}</span><h3>Log a meal from a photo</h3><p>Start with a picture. We'll help you identify the foods, then you can review the portions.</p></div>
  <div class="nf-photo-pickers"><button type="button" class="nf-photo-pick" data-nf="gallery"><span>${ico('photo')}</span><b>Choose from gallery</b></button><button type="button" class="nf-photo-pick" data-nf="take"><span>${ico('camera')}</span><b>Take photo</b></button></div>
  <p class="nf-muted-note">Your image stays on this device. Packaged food? Barcode scanning is usually more reliable.</p>`;}
@@ -69,9 +76,10 @@ export function openNutrition({mode='home',meal,save,manual,notify}={}) {
  ${photoSearchVisible?`<div class="nf-photo-search"><label class="nf-field"><span>Find a food</span><input id="nf-photo-search" type="search" value="${esc(photoQuery)}" placeholder="Roti, rice, curry…" autocomplete="off"></label><div class="nf-food-results nf-small-results" id="nf-photo-results">${results(photoQuery,7)}</div></div>`:''}
  ${mealDateFields()}<div id="nf-photo-total">${photoTotals()}</div><p class="nf-muted-note nf-final-note">Nutrition is estimated from the foods and weights you confirm, not measured from the photo.</p>`;}
  function photo(){return photoStep==='choose'?photoChoose():photoReview();}
- function barcodeView(){return `<div class="nf-barcode-visual" aria-hidden="true">${ico('barcode')}</div><p class="nf-subtle">Scan a packaged-food barcode, or type its digits below.</p>
- <button class="nf-secondary-block" data-nf="scan">Start camera scanner</button><p class="nf-status">${esc(barcodeStatus||'Camera scanning depends on browser support. Manual entry always works.')}</p><div id="nf-camera" class="nf-camera"></div>
- <label class="nf-field"><span>Barcode number</span><input id="nf-barcode" inputmode="numeric" type="text" pattern="[0-9]*" value="${esc(barcode)}" maxlength="14" placeholder="8–14 digits"></label><button class="nf-primary nf-barcode-submit" data-nf="lookup" ${looking?'disabled':''}>${looking?'Searching…':'Find product'}</button><p class="nf-muted-note">Nutrition provided by Open Food Facts · Internet needed for new lookups.</p>`;}
+ function barcodeView(){return `<div class="nf-barcode-visual" aria-hidden="true">${ico('barcode')}</div><p class="nf-subtle">Scan EAN / UPC barcodes from Lidl, Aldi, REWE, EDEKA, Penny, Kaufland and other German supermarkets.</p>
+  <button class="nf-secondary-block" data-nf="scan">Start camera scanner</button><p class="nf-status" role="status">${esc(barcodeStatus||'On unsupported Android browsers, a free ZXing scanner will be loaded on first use.')}</p><div id="nf-camera" class="nf-camera"></div><button class="nf-text-action" data-nf="barcode-image">Or select a barcode photograph</button>
+  <label class="nf-field"><span>EAN / GTIN barcode number</span><input id="nf-barcode" inputmode="numeric" type="text" pattern="[0-9]*" value="${esc(barcode)}" maxlength="14" placeholder="8–14 digits"></label><button class="nf-primary nf-barcode-submit" data-nf="lookup" ${looking?'disabled':''}>${looking?'Searching…':'Find German supermarket product'}</button>
+  <button class="nf-text-action" data-nf="manual">Not found? Enter nutrition manually</button><p class="nf-muted-note">Open Food Facts is a community database and does not contain every supermarket own-brand product. German names are preferred. Data may be incomplete; check the package. Photos are decoded on your device.</p>`;}
  function footer(){if(page==='portion')return `<button type="button" class="nf-primary" data-nf="save-portion" ${saving?'disabled':''}>${saving?'Saving…':'Add to food diary'}</button>`;
  if(page==='photo'&&photoStep==='review')return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||photoFoods.length===0?'disabled':''}>${saving?'Saving…':`Add ${photoFoods.length} ${photoFoods.length===1?'food':'foods'} to diary`}</button>`;
  return '';
