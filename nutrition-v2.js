@@ -85,7 +85,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  return '';
  }
  function render(){if(disposed)return;
-  host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"></div>`;
+  host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"><input class="nf-sr" id="nf-barcode-image" type="file" accept="image/*" aria-label="Select a barcode photograph"></div>`;
  }
  function go(mode){stopCamera();page=mode;notice='';render();}
  function back(){if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
@@ -224,9 +224,14 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  async function saveEntries(entries){if(saving||!entries.length)return;saving=true;render();try{await save(entries);close();}catch(err){saving=false;notice=err?.message||'Could not save your food.';render();}}
  async function action(e){const target=e.target.closest('[data-nf]');if(!target)return;const a=target.dataset.nf;e.preventDefault();
   if(a==='close'){close();return;}if(a==='back'){back();return;}if(a==='go'){go(target.dataset.mode);return;}if(a==='gallery'||a==='take'){host.querySelector(a==='gallery'?'#nf-gallery-input':'#nf-camera-input').click();return;}
-  if(a==='manual'){close();manual(selectedMeal);return;}
+  if(a==='manual'){close();manual(selectedMeal);return;}if(a==='barcode-image'){host.querySelector('#nf-barcode-image')?.click();return;}
   if(a==='pick'){const food=findFood(target.dataset.id);if(!food)return;if(page==='photo'){addPhotoFood(food.id);return;}selectFood(food,'search');return;}
-  if(a==='save-portion'){validate();if(!Number.isFinite(Number(grams))||Number(grams)<1||Number(grams)>5000){notice='Enter a portion between 1 and 5,000 g.';render();return;}await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id}]);return;}
+  if(a==='save-portion'){
+    validate();
+    if(!Number.isFinite(Number(grams))||Number(grams)<1||Number(grams)>5000){notice='Enter a portion between 1 and 5,000 g.';render();return;}
+    const missing=selected.source==='Open Food Facts'?nutrients.filter(k=>selected.per100?.[k]==null):[];
+    await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id,missingNutrition:missing}]);return;
+   }
   if(a==='change-photo'){photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
   if(a==='recognise'){await recognise();return;}if(a==='cancel-recognition'){stopRecognition();notice='Recognition stopped. Add foods manually below.';render();return;}if(a==='save-photo'){
@@ -237,10 +242,15 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  host.addEventListener('input',e=>{const el=e.target;if(el.id==='nf-search'){query=el.value;const container=host.querySelector('#nf-results');if(container)container.innerHTML=results(query);}
   if(el.id==='nf-photo-search'){photoQuery=el.value;const container=host.querySelector('#nf-photo-results');if(container)container.innerHTML=results(photoQuery,7);}
   if(el.id==='nf-grams'){grams=Number(el.value);const c=host.querySelector('#nf-macros');if(c)c.innerHTML=macros(selected,grams);}
+   if(el.hasAttribute('data-nf-per100')&&selected?.source==='Open Food Facts'){
+    const key=el.dataset.nfPer100,value=el.value.trim(),number=Number(value);
+    if(nutrients.includes(key))selected.per100[key]=value!==''&&Number.isFinite(number)&&number>=0&&number<=100000?number:null;
+    const target=host.querySelector('#nf-macros');if(target)target.innerHTML=macros(selected,grams);
+   }
   if(el.id==='nf-barcode')barcode=el.value.replace(/\D/g,'');
   if(el.hasAttribute('data-nf-grams')){const index=Number(el.dataset.nfGrams);if(photoFoods[index])photoFoods[index].grams=Number(el.value);const c=host.querySelector('#nf-photo-total');if(c)c.innerHTML=photoTotals();}
  });
- host.addEventListener('change',e=>{const el=e.target;if(el.id==='nf-date')date=el.value;if(el.id==='nf-meal')selectedMeal=el.value;if(el.id==='nf-gallery-input'||el.id==='nf-camera-input')setImage(el.files?.[0]);});
+ host.addEventListener('change',e=>{const el=e.target;if(el.id==='nf-date')date=el.value;if(el.id==='nf-meal')selectedMeal=el.value;if(el.id==='nf-gallery-input'||el.id==='nf-camera-input')setImage(el.files?.[0]);if(el.id==='nf-barcode-image')scanBarcodeImage(el.files?.[0]);});
  render();
  return {close};
 }
