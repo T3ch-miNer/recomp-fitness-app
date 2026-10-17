@@ -141,21 +141,84 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   }
  }
 
- async function lookup(){barcode=barcode.trim();if(!/^\d{8,14}$/.test(barcode)){barcodeStatus='Enter an 8–14 digit barcode.';render();return;}
-  looking=true;barcodeStatus='Looking up packaged food…';render();
-  try{const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);let response;try{response=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,brands,nutriments`,{signal:controller.signal});}finally{clearTimeout(timeout);}
-   if(!response.ok)throw Error('Product database unavailable. Try again later.');const data=await response.json();if(data.status!==1)throw Error('Product not found. You can enter it manually.');
-   const p=data.product||{},nut=p.nutriments||{};
-   let kcal=nut['energy-kcal_100g'];if(kcal==null&&Number.isFinite(Number(nut['energy-kj_100g'])))kcal=Number(nut['energy-kj_100g'])/4.184;
-   const per100={calories:Number(kcal),protein:Number(nut.proteins_100g),carbs:Number(nut.carbohydrates_100g),fat:Number(nut.fat_100g),fibre:Number(nut.fiber_100g)};
-   if(!Object.values(per100).every(v=>Number.isFinite(v)&&v>=0)){throw Error('This listing has incomplete nutrition. Please enter it manually from the label.');}
-   stopCamera();selectFood({id:barcode,name:(p.product_name||p.brands||'Packaged food').slice(0,100),defaultGrams:100,per100,source:'Open Food Facts'},'barcode');
-  }catch(err){barcodeStatus=err?.message||'Could not look up the product.';render();}finally{looking=false;}
+ async function lookup(){
+  barcode=barcode.trim();
+  if(!/^\d{8,14}$/.test(barcode)){barcodeStatus='Enter an 8–14 digit EAN or UPC barcode.';render();return;}
+  stopCamera();looking=true;barcodeStatus='Searching German product names in Open Food Facts…';render();
+  try{
+   if(typeof lookupProduct!=='function')throw Error('Barcode lookup is unavailable. Try manual entry.');
+   const product=await lookupProduct(barcode);
+   if(disposed)return;
+   if(!product?.per100||!Number.isFinite(product.per100.calories))throw Error('No usable calorie data for this product. Enter nutrition manually from the label.');
+   selectFood({id:barcode,name:product.name,brand:product.brand,quantity:product.quantity,defaultGrams:100,per100:{...product.per100},source:'Open Food Facts',cached:product.cached},'barcode');
+  }catch(err){barcodeStatus=String(err?.message||'Could not look up the product.').slice(0,240);if(!disposed)render();}
+  finally{looking=false;}
  }
- async function scan(){if(!('BarcodeDetector' in window)||!navigator.mediaDevices?.getUserMedia){barcodeStatus='Camera barcode scanning is unsupported here. Type the digits instead.';render();return;}
-  try{stopCamera();cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});if(disposed||page!=='barcode'){stopCamera();return;}
-   barcodeStatus='Point the camera at a barcode.';render();const video=document.createElement('video');video.autoplay=true;video.muted=true;video.playsInline=true;video.srcObject=cameraStream;host.querySelector('#nf-camera').append(video);await video.play();const detector=new BarcodeDetector({formats:['ean_8','ean_13','upc_a','upc_e','code_128']});let busy=false;scanInterval=setInterval(async()=>{if(busy||video.readyState<2)return;busy=true;try{const codes=await detector.detect(video);const found=codes.find(c=>/^\d{8,14}$/.test(c.rawValue));if(found){barcode=found.rawValue;stopCamera();await lookup();}}catch{}finally{busy=false;}},700);
-  }catch{stopCamera();barcodeStatus='Camera access failed. Type the barcode instead.';render();}
+ // ZXing is a free MIT-licensed decoder downloaded on demand. Frames stay on the phone.
+ async function loadZxing(){return import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm');}
+ function foundBarcode(value){
+  const code=String(value||'').trim();
+  if(!/^\d{8,14}$/.test(code)||looking||disposed||page!=='barcode')return;
+  barcode=code;stopCamera();lookup().catch(err=>{barcodeStatus=String(err.message);render();});
+ }
+ async function scan(){
+  if(!navigator.mediaDevices?.getUserMedia){barcodeStatus='Camera is not available. Enter the EAN digits or choose a photograph.';render();return;}
+  stopCamera();barcodeStatus='Opening rear camera…';render();
+  const token=scannerToken,video=document.createElement('video');
+  video.autoplay=true;video.muted=true;video.playsInline=true;
+  host.querySelector('#nf-camera')?.appendChild(video);
+  try{
+   cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}},audio:false});
+   if(disposed||page!=='barcode'||token!==scannerToken){stopCamera();return;}
+   video.srcObject=cameraStream;await video.play();
+   barcodeStatus='Hold the barcode steady inside the camera view.';
+   const status=host.querySelector('.nf-status');if(status)status.textContent=barcodeStatus;
+   if('BarcodeDetector' in window){
+    try{
+     const detector=new BarcodeDetector({formats:['ean_8','ean_13','upc_a','upc_e','code_128']});
+     let busy=false;
+     scanInterval=setInterval(async()=>{
+      if(busy||video.readyState<2||disposed)return;
+      busy=true;
+      try{const found=await detector.detect(video);for(const x of found){if(/^\d{8,14}$/.test(String(x.rawValue))){foundBarcode(x.rawValue);break;}}}
+      catch{ /* Native detector may fail on difficult frames. */ }
+      finally{busy=false;}
+     },480);
+     return;
+    }catch{ /* Native barcode API may exist but not support these formats. */ }
+   }
+   barcodeStatus='Loading free ZXing barcode scanner…';
+   if(status)status.textContent=barcodeStatus;
+   const {BrowserMultiFormatOneDReader}=await loadZxing();
+   if(disposed||token!==scannerToken){stopCamera();return;}
+   const reader=new BrowserMultiFormatOneDReader();
+   scannerControls=await reader.decodeFromVideoElement(video,result=>{
+    const code=result?.getText?.()||result?.text;
+    if(code)foundBarcode(code);
+   });
+   if(disposed||token!==scannerToken)stopCamera();
+   else if(status)status.textContent='ZXing ready. Centre the barcode in the camera view.';
+  }catch(err){
+   stopCamera();
+   barcodeStatus=err?.name==='NotAllowedError'?'Camera permission denied. Enable camera access in your Android browser, or type the barcode.':'Scanner unavailable. You can enter digits or use a barcode photograph.';
+   if(!disposed)render();
+  }
+ }
+ async function scanBarcodeImage(file){
+  if(!file)return;
+  if(!file.type.startsWith('image/')||file.size>12*1024*1024){barcodeStatus='Choose a barcode photograph under 12 MB.';render();return;}
+  stopCamera();barcodeStatus='Reading barcode from image on this device…';render();
+  const url=URL.createObjectURL(file);
+  try{
+   const {BrowserMultiFormatOneDReader}=await loadZxing();
+   if(disposed)return;
+   const img=document.createElement('img');img.src=url;await img.decode();
+   const result=await new BrowserMultiFormatOneDReader().decodeFromImageElement(img);
+   const code=String(result?.getText?.()||result?.text||'').trim();
+   if(!/^\d{8,14}$/.test(code))throw Error('Could not recognise EAN / UPC barcode.');
+   barcode=code;await lookup();
+  }catch{barcodeStatus='Could not read that photograph. Try a sharper image, the live camera, or enter the numbers.';if(!disposed)render();}
+  finally{URL.revokeObjectURL(url);}
  }
  function validate(){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T12:00:00')))throw Error('Choose a valid date.');if(!meals.includes(selectedMeal))throw Error('Choose a meal.');}
  async function saveEntries(entries){if(saving||!entries.length)return;saving=true;render();try{await save(entries);close();}catch(err){saving=false;notice=err?.message||'Could not save your food.';render();}}
