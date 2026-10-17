@@ -35,7 +35,9 @@ self.onmessage=async event=>{
    const result=await classifier(regions[i],phrases,{hypothesis_template:'A photograph of {} served on a plate.'});
    for(const item of result.slice(0,3)){
     const foodId=labelMap.get(item.label),score=Number(item.score)||0;
-    if(foodId&&score>=.11)found.push({id:foodId,score,region:i});
+    // With 176 possible dishes the model's scores are spread across more labels.
+    // Suggestions are unverified relative matches; users must confirm before logging.
+    if(foodId&&score>=.015)found.push({id:foodId,score,region:i});
    }
   }
   const best=new Map();
