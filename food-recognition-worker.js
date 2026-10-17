@@ -24,7 +24,7 @@ self.onmessage=async event=>{
  const {type,id,regions,labels}=event.data||{};
  if(type!=='recognise')return;
  try{
-  if(!Array.isArray(regions)||!regions.length||regions.length>3||!Array.isArray(labels)||labels.length>250)throw Error('Invalid photograph or food list.');
+  if(!Array.isArray(regions)||!regions.length||regions.length>3||!Array.isArray(labels)||labels.length>400)throw Error('Invalid photograph or food list.');
   self.postMessage({type:'status',id,message:'Loading local model (one-time download may take a while)…'});
   const classifier=await getModel(id);
   const labelMap=new Map(labels.map(item=>['Indian food '+item.label,item.id]));
@@ -35,9 +35,9 @@ self.onmessage=async event=>{
    const result=await classifier(regions[i],phrases,{hypothesis_template:'A photograph of {} served on a plate.'});
    for(const item of result.slice(0,3)){
     const foodId=labelMap.get(item.label),score=Number(item.score)||0;
-    // With 176 possible dishes the model's scores are spread across more labels.
+    // With an expanded catalogue of possible dishes the model's scores are spread across more labels.
     // Suggestions are unverified relative matches; users must confirm before logging.
-    if(foodId&&score>=.015)found.push({id:foodId,score,region:i});
+    if(foodId&&score>=.01)found.push({id:foodId,score,region:i});
    }
   }
   const best=new Map();

@@ -1,0 +1,33 @@
+name: Recomp nutrition regression tests
+on:
+  push:
+    branches:
+      - recomp-v2.3.1-recipes-german-barcode-20261018
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'db.js'
+      - 'food-db.js'
+      - 'nutrition-v2.js'
+      - 'food-recognition-worker.js'
+      - 'tests/**'
+      - '.github/workflows/recomp-nutrition-tests.yml'
+permissions:
+  contents: read
+jobs:
+  nutrition-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check browser module syntax
+        run: |
+          for file in app.js db.js food-db.js nutrition-v2.js food-recognition-worker.js cloud.js sw.js; do
+            node --input-type=module --check < "$file"
+          done
+      - name: Test recipes, barcode handling and local data preservation
+        run: node --test tests/*.test.mjs
