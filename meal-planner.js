@@ -10,13 +10,13 @@ export function monday(value) { const d = typeof value === 'string' ? dateAt(val
 export function addDays(value,count) { const d=dateAt(value);d.setDate(d.getDate()+count);return localISO(d); }
 const shortDate = value => dateAt(value).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const SEEDS = [
- {name:'Chicken vegetable pulao',base:'Rice',mins:35,ingredients:'700 g chicken breast\n260 g dry rice\n350 g carrots\n300 g courgette\n15 g cooking oil\n10 g ginger',steps:'Rinse rice. Gently fry grated ginger and cumin in oil, then add chicken and chopped vegetables. Add rice and water, cover and simmer until the rice and chicken are cooked. Portion into four containers and cool lunch servings promptly.',kcal:2100,protein:187},
- {name:'Chicken vegetable pasta',base:'Pasta',mins:30,ingredients:'700 g chicken breast\n260 g dry pasta\n400 g carrots\n300 g courgette\n15 g cooking oil\n10 g ginger',steps:'Boil pasta separately. Cook the chicken through with ginger and a little oil. Simmer carrot and courgette until soft, then blend part with cooking water to make a tomato-free sauce. Combine and portion into four servings.',kcal:2090,protein:191},
- {name:'Moong dal palak, eggs and chapati',base:'Chapati',mins:35,ingredients:'220 g dry yellow moong dal\n8 pcs eggs\n400 g spinach\n8 pcs whole-wheat tortillas\n15 g cooking oil\n10 g ginger',steps:'Simmer moong dal until very soft, then add spinach, ginger and cumin. Boil the eggs until fully cooked and heat the chapatis. Divide dal and eggs with chapatis into dinner and next-day lunch portions.',kcal:2540,protein:141},
- {name:'Mild coconut fish curry and rice',base:'Rice',mins:30,ingredients:'700 g white fish\n260 g dry rice\n50 g grated coconut\n350 g courgette\n250 g carrots\n15 g cooking oil\n10 g ginger',steps:'Cook rice. Simmer finely chopped vegetables with ginger, cumin, water and grated coconut. Add fish and cook through until opaque and flaky. Serve with rice, refrigerating lunch portions promptly.',kcal:1900,protein:152},
- {name:'Tomato-free palak paneer and chapati',base:'Chapati',mins:30,ingredients:'500 g paneer\n450 g spinach\n8 pcs whole-wheat tortillas\n15 g cooking oil\n10 g ginger',steps:'Wilt spinach with ginger, cumin and a little water, then blend for a smooth tomato-free sauce. Stir in cubed paneer and warm through. Serve with heated chapatis.',kcal:2590,protein:132},
- {name:'Air-fryer chicken and chapati',base:'Chapati',mins:40,ingredients:'700 g chicken breast\n8 pcs whole-wheat tortillas\n600 g frozen wok vegetables\n15 g cooking oil\n10 g ginger',steps:'Coat chicken lightly with oil, ginger and mild spices. Air-fry in batches until its centre reaches 74°C. Cook frozen vegetables thoroughly in a pan and warm the chapatis. Check the vegetable pack for onion or any other personal trigger.',kcal:2070,protein:195},
- {name:'Masoor dal rice with eggs',base:'Rice',mins:35,ingredients:'200 g dry masoor dal\n220 g dry rice\n8 pcs eggs\n350 g carrots\n250 g courgette\n15 g cooking oil',steps:'Cook rice and red lentils with chopped vegetables, cumin and turmeric until very soft. Boil eggs until cooked. Divide between dinner and next-day lunch, cooling the rice quickly.',kcal:2100,protein:128}
+ {name:'Chicken vegetable pulao',base:'Rice',mins:35,ingredients:'700 g chicken breast\n260 g dry rice\n350 g carrots\n300 g courgette\n15 g cooking oil\n10 g ginger',steps:'Rinse rice. Gently fry grated ginger and cumin in oil, then add chicken and chopped vegetables. Add rice and water, cover and simmer until the rice and chicken are cooked. Portion into four containers and cool lunch servings promptly.',kcal:2100,protein:187,carbs:260,fat:40,fibre:17},
+ {name:'Chicken vegetable pasta',base:'Pasta',mins:30,ingredients:'700 g chicken breast\n260 g dry pasta\n400 g carrots\n300 g courgette\n15 g cooking oil\n10 g ginger',steps:'Boil pasta separately. Cook the chicken through with ginger and a little oil. Simmer carrot and courgette until soft, then blend part with cooking water to make a tomato-free sauce. Combine and portion into four servings.',kcal:2090,protein:191,carbs:260,fat:42,fibre:25},
+ {name:'Moong dal palak, eggs and chapati',base:'Chapati',mins:35,ingredients:'220 g dry yellow moong dal\n8 pcs eggs\n400 g spinach\n8 pcs whole-wheat tortillas\n15 g cooking oil\n10 g ginger',steps:'Simmer moong dal until very soft, then add spinach, ginger and cumin. Boil the eggs until fully cooked and heat the chapatis. Divide dal and eggs with chapatis into dinner and next-day lunch portions.',kcal:2540,protein:141,carbs:330,fat:86,fibre:34},
+ {name:'Mild coconut fish curry and rice',base:'Rice',mins:30,ingredients:'700 g white fish\n260 g dry rice\n50 g grated coconut\n350 g courgette\n250 g carrots\n15 g cooking oil\n10 g ginger',steps:'Cook rice. Simmer finely chopped vegetables with ginger, cumin, water and grated coconut. Add fish and cook through until opaque and flaky. Serve with rice, refrigerating lunch portions promptly.',kcal:1900,protein:152,carbs:260,fat:52,fibre:16},
+ {name:'Tomato-free palak paneer and chapati',base:'Chapati',mins:30,ingredients:'500 g paneer\n450 g spinach\n8 pcs whole-wheat tortillas\n15 g cooking oil\n10 g ginger',steps:'Wilt spinach with ginger, cumin and a little water, then blend for a smooth tomato-free sauce. Stir in cubed paneer and warm through. Serve with heated chapatis.',kcal:2590,protein:132,carbs:235,fat:160,fibre:27},
+ {name:'Air-fryer chicken and chapati',base:'Chapati',mins:40,ingredients:'700 g chicken breast\n8 pcs whole-wheat tortillas\n600 g frozen wok vegetables\n15 g cooking oil\n10 g ginger',steps:'Coat chicken lightly with oil, ginger and mild spices. Air-fry in batches until its centre reaches 74°C. Cook frozen vegetables thoroughly in a pan and warm the chapatis. Check the vegetable pack for onion or any other personal trigger.',kcal:2070,protein:195,carbs:250,fat:66,fibre:26},
+ {name:'Masoor dal rice with eggs',base:'Rice',mins:35,ingredients:'200 g dry masoor dal\n220 g dry rice\n8 pcs eggs\n350 g carrots\n250 g courgette\n15 g cooking oil',steps:'Cook rice and red lentils with chopped vegetables, cumin and turmeric until very soft. Boil eggs until cooked. Divide between dinner and next-day lunch, cooling the rice quickly.',kcal:2100,protein:128,carbs:350,fat:55,fibre:32}
 ];
 const units=['g','kg','ml','l','pcs','tbsp','tsp'];
 export function parseIngredients(input) {
@@ -32,7 +32,7 @@ export function parseIngredients(input) {
 }
 const ingredientLines = ingredients => ingredients.map(x=>x.amount+' '+x.unit+' '+x.name).join('\n');
 function starter() {
- const recipes=SEEDS.map((s,i)=>({id:'starter-'+(i+1),name:s.name,base:s.base,mins:s.mins,ingredients:parseIngredients(s.ingredients),steps:s.steps,kcal:s.kcal,protein:s.protein}));
+ const recipes=SEEDS.map((s,i)=>({id:'starter-'+(i+1),name:s.name,base:s.base,mins:s.mins,ingredients:parseIngredients(s.ingredients),steps:s.steps,kcal:s.kcal,protein:s.protein,carbs:s.carbs,fat:s.fat,fibre:s.fibre}));
  const now=monday(new Date());
  return {recipes,weeks:{[now]:recipes.map(x=>x.id)},stock:{},exclusions:defaultExclusions,rahulShare:57,diaryPerson:'Rahul'};
 }
@@ -81,9 +81,10 @@ const shoppingText=(p,week)=>{
  const skipped=p.stock[week]||[];
  return 'Recomp groceries · '+shortDate(week)+'–'+shortDate(addDays(week,6))+'\n'+groceryItems(p,week).filter(item=>!skipped.includes(stockKey(item))).map(i=>'☐ '+amountText(i.amount)+' '+i.unit+' '+i.name).join('\n')+'\n\nQuantities cover all planned four-serving dinner batches. Check what is already at home.';
 };
+const completeNutrition=r=>['kcal','protein','carbs','fat','fibre'].every(k=>Number.isFinite(r[k])&&r[k]>=0)&&r.kcal>0&&r.protein>0;
 const estimate=(r,p,person)=>{
  const share=person==='Rahul'?p.rahulShare/100:(100-p.rahulShare)/100;
- return {kcal:Math.round(Number(r.kcal||0)*share/2),protein:Math.round(Number(r.protein||0)*share/2*10)/10};
+ return Object.fromEntries(['kcal','protein','carbs','fat','fibre'].map(k=>[k,k==='kcal'?Math.round(r[k]*share/2):Math.round(r[k]*share/2*10)/10]));
 };
 export function openMealPlanner({state,save,log,notify}) {
  const p=ensure(state);
@@ -94,7 +95,7 @@ export function openMealPlanner({state,save,log,notify}) {
  function close(){document.removeEventListener('keydown',keys);overlay.remove();focusBefore?.focus?.();}
  function keys(event){if(event.key==='Escape'){event.preventDefault();close();}}
  document.addEventListener('keydown',keys);
- const button=(action,label,props='')=>'<button type="button" class="mp-button" data-mp="'+action+'" '+props+'>'+label+'</button>';
+ const button=(action,label,props='')=>'<button type="button" '+(props.includes('class=')?props:'class="mp-button" '+props)+' data-mp="'+action+'">'+label+'</button>';
  const activePlan=()=>p.weeks[week]||Array(7).fill('');
  const card=r=>'<article class="mp-card"><div class="mp-between"><div><b>'+e(r.name)+'</b><div class="mp-muted">'+e(r.base)+' · '+Number(r.mins||30)+' min · 4 servings</div></div><div class="mp-actions">'+button('edit','Edit','data-id="'+e(r.id)+'"')+button('remove','Delete','data-id="'+e(r.id)+'"')+'</div></div><div class="mp-muted">'+r.ingredients.length+' ingredients'+(r.kcal?' · approx. '+r.kcal+' kcal per batch':'')+'</div>'+(avoidedIngredients(r,p.exclusions).length?'<div class="mp-alert">Contains: '+e(avoidedIngredients(r,p.exclusions).join(', '))+'</div>':'')+'</article>';
  function weekView(){
@@ -109,7 +110,7 @@ export function openMealPlanner({state,save,log,notify}) {
     .map(r=>'<option value="'+e(r.id)+'" '+(r.id===plan[i]?'selected':'')+'>'+e(r.name)+(avoidedIngredients(r,p.exclusions).length?' ⚠':'')+'</option>').join('');
    const date=addDays(week,i);
    const key=week+'-'+i+'-'+p.diaryPerson,logged=state.food.some(f=>f.plannerKey===key);
-   const servings=chosen&&chosen.kcal>0&&chosen.protein>0?estimate(chosen,p,p.diaryPerson):null;
+   const servings=chosen&&completeNutrition(chosen)?estimate(chosen,p,p.diaryPerson):null;
    return '<article class="mp-card"><div class="mp-between"><b>'+day+' · '+shortDate(date)+'</b><span class="mp-muted">Dinner + next lunch</span></div>'+
     '<label class="mp-field">Cook dinner <select data-mp-select="assign" data-day="'+i+'"><option value="">Choose a recipe</option>'+options+'</select></label>'+
     '<p class="mp-muted">Lunch: '+(lunch?e(lunch.name):'Not planned (previous dinner missing)')+'</p>'+
@@ -134,11 +135,11 @@ export function openMealPlanner({state,save,log,notify}) {
   (avoidedIngredients(r,p.exclusions).length?'<p class="mp-alert">Avoided ingredients: '+e(avoidedIngredients(r,p.exclusions).join(', '))+'</p>':'')+
   '<div class="mp-card"><h3>Ingredients for four servings</h3><ul>'+r.ingredients.map(i=>'<li>'+amountText(i.amount)+' '+e(i.unit)+' '+e(i.name)+'</li>').join('')+'</ul>'+
   '<h3>Method</h3><p class="mp-method">'+e(r.steps||'No cooking method recorded yet.')+'</p>'+
-  '<p class="mp-muted">Illustrative batch estimate: '+(r.kcal?Math.round(r.kcal)+' kcal, '+Number(r.protein||0)+' g protein':'Not entered')+'. Check brands, oil and actual cooking yields.</p></div>';
+  '<p class="mp-muted">Illustrative batch estimate: '+(completeNutrition(r)?Math.round(r.kcal)+' kcal, '+Number(r.protein)+' g protein, '+Number(r.carbs)+' g carbs, '+Number(r.fat)+' g fat, '+Number(r.fibre)+' g fibre':'Incomplete / not entered')+'. Check brands, oil and actual cooking yields.</p></div>';
  }
  function editorView(){
   const r=editing?recipeById(p,editing):null;
-  const item=r||{name:'',base:'Rice',mins:30,ingredients:[],steps:'',kcal:'',protein:''};
+  const item=r||{name:'',base:'Rice',mins:30,ingredients:[],steps:'',kcal:'',protein:'',carbs:'',fat:'',fibre:''};
   return '<div class="mp-actions">'+button('back','← Recipes')+'</div><h2>'+(r?'Edit recipe':'New recipe')+'</h2>'+
   '<form id="mp-form" class="mp-card">'+
   '<label class="mp-field">Recipe name<input name="name" required maxlength="90" value="'+e(item.name)+'"></label>'+
@@ -148,7 +149,7 @@ export function openMealPlanner({state,save,log,notify}) {
   '<label class="mp-field">Cooking instructions<textarea name="steps" rows="7" required maxlength="4000" placeholder="Describe your steps, air fryer timings and storage advice.">'+e(item.steps)+'</textarea></label>'+
   '<div class="mp-two"><label class="mp-field">Estimated kcal per full batch (optional)<input name="kcal" type="number" min="0" max="25000" step="1" value="'+e(item.kcal)+'"></label>'+
   '<label class="mp-field">Estimated protein per full batch, g (optional)<input name="protein" type="number" min="0" max="1500" step="0.1" value="'+e(item.protein)+'"></label></div>'+
-  '<p class="mp-muted">Nutrition is optional and manually estimated. Enter totals for the entire four-serving batch. Logging to the food diary is available when both numbers are entered.</p>'+
+  '<div class="mp-three"><label class="mp-field">Batch carbs (g)<input name="carbs" type="number" min="0" max="5000" step="0.1" value="'+e(item.carbs??'')+'"></label><label class="mp-field">Batch fat (g)<input name="fat" type="number" min="0" max="3000" step="0.1" value="'+e(item.fat??'')+'"></label><label class="mp-field">Batch fibre (g)<input name="fibre" type="number" min="0" max="1000" step="0.1" value="'+e(item.fibre??'')+'"></label></div>'+ '<p class="mp-muted">All nutrition figures are optional, manually estimated totals for the entire four-serving batch. Fill all five fields to enable diary logging.</p>'+
   '<button class="mp-button mp-primary" type="submit">Save recipe</button></form>';
  }
  function groceriesView(){
@@ -205,15 +206,14 @@ export function openMealPlanner({state,save,log,notify}) {
   }
   if(kind==='log-batch'){
    const i=Number(element.dataset.day),recipe=recipeById(p,activePlan()[i]);
-   if(!recipe||!(recipe.kcal>0&&recipe.protein>0))throw new Error('Enter batch calories and protein before logging.');
+   if(!recipe||!completeNutrition(recipe))throw new Error('Enter complete batch nutrition before logging.');
    const key=week+'-'+i+'-'+p.diaryPerson;
    if(state.food.some(x=>x.plannerKey===key))throw new Error('Already logged. Delete the existing entries before logging again.');
    const amounts=estimate(recipe,p,p.diaryPerson),date=addDays(week,i);
    const entries=[{date,meal:'Dinner'},{date:addDays(date,1),meal:'Lunch'}].map(x=>({
     id:id(),name:recipe.name+' ('+p.diaryPerson+' portion)',date:x.date,meal:x.meal,
-    calories:amounts.kcal,protein:amounts.protein,carbs:0,fat:0,fibre:0,
-    foodSource:'recomp-recipe-estimate',plannerKey:key,plannerPerson:p.diaryPerson,
-    missingNutrition:['carbs','fat','fibre']
+    calories:amounts.kcal,protein:amounts.protein,carbs:amounts.carbs,fat:amounts.fat,fibre:amounts.fibre,
+    foodSource:'recomp-recipe-estimate',plannerKey:key,plannerPerson:p.diaryPerson
    }));
    await log(entries);message='Dinner and next-day lunch added for '+p.diaryPerson+'.';render();notify?.(message);
   }
@@ -253,12 +253,12 @@ export function openMealPlanner({state,save,log,notify}) {
    if(form.id==='mp-form'){
     const name=String(d.get('name')||'').trim().slice(0,90);
     const mins=Number(d.get('mins')),steps=String(d.get('steps')||'').trim().slice(0,4000);
-    const kcal=d.get('kcal')===''?null:Number(d.get('kcal')),protein=d.get('protein')===''?null:Number(d.get('protein'));
+    const macro={};for(const key of ['kcal','protein','carbs','fat','fibre'])macro[key]=d.get(key)===''?null:Number(d.get(key));
     if(!name||!steps||!(mins>=5&&mins<=240)||!Number.isFinite(mins))throw new Error('Check recipe name, cooking time and steps.');
-    if((kcal!==null&&(!Number.isFinite(kcal)||kcal<0||kcal>25000))||(protein!==null&&(!Number.isFinite(protein)||protein<0||protein>1500)))throw new Error('Check batch nutrition amounts.');
+    for(const [key,value] of Object.entries(macro))if(value!==null&&(!Number.isFinite(value)||value<0||value>(key==='kcal'?25000:5000)))throw new Error('Check batch '+key+'.');
     const ingredients=parseIngredients(d.get('ingredients'));
     const r=editing?recipeById(p,editing):null;
-    const values={name,base:String(d.get('base')||'Other'),mins,steps,ingredients,kcal,protein};
+    const values={name,base:String(d.get('base')||'Other'),mins,steps,ingredients,...macro};
     if(r)Object.assign(r,values);else p.recipes.push({id:id(),...values});
     view='recipes';editing=null;await persist('Recipe saved');
    }else{
