@@ -267,6 +267,20 @@ function daily(list,day=today()){return list.filter(x=>x.date===day);}
 function nutritionTotals(day=today()){return daily(state.food,day).reduce((a,x)=>{for(const k of ['calories','protein','carbs','fat','fibre'])a[k]+=n(x[k]);return a;},{calories:0,protein:0,carbs:0,fat:0,fibre:0});}
 function waterSum(day=today()){return daily(state.water,day).reduce((s,x)=>s+n(x.ml),0);}
 function activityToday(day=today()){return state.activity.find(x=>x.date===day)||{steps:0,activeCalories:0};}
+async function syncNativeActivity(){
+ if(!nativeHealthAvailable())throw new Error('Health Connect requires the Recomp Android wrapper. A PWA cannot read it directly.');
+ const date=today(),previous=state.activity.find(x=>x.date===date);
+ const next=await readHealthConnectDay(date);
+ if(previous&&previous.source!=='Health Connect'&&(Number(previous.steps)>0||Number(previous.activeCalories)>0)){
+  if(!confirm("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
+ }
+ if(next.steps===0&&next.activeCalories===0&&previous&&(previous.steps||previous.activeCalories)){
+  notify('No activity returned from Health Connect; existing manual values were kept.');return;
+ }
+ state.activity=mergeDailyActivity(state.activity,next);
+ await commit();
+ notify('Health Connect: '+num(next.steps)+' steps · '+num(next.activeCalories)+' active kcal');
+}
 function checkboxDone(task){let d=today();if(Object.prototype.hasOwnProperty.call(state.taskChecks?.[d]||{},task.id))return Boolean(state.taskChecks[d][task.id]);if(task.auto==='protein')return nutritionTotals(d).protein >= state.goals.protein;if(task.auto==='steps')return activityToday(d).steps >= state.goals.steps;if(task.auto==='water')return waterSum(d)>=state.goals.water;if(task.auto==='workout')return state.workoutHistory.some(w=>w.date===d);return Boolean(state.taskChecks[d]?.[task.id]);}
 function progress(value,max){return `<div class="progress"><div style="width:${Math.min(100,Math.max(0,max?n(value)/n(max)*100:0))}%"></div></div>`;}
 function iconButton(icon,action,extra='',title=''){return `<button class="btn ${extra}" data-action="${action}" ${title?`aria-label="${escapeHtml(title)}"`:''}>${svg(icon)}</button>`;}
@@ -739,7 +753,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'test-haptics':{const accepted=haptic('test',true);notify(accepted?'Vibration requested. If you felt nothing, check Android vibration settings and battery saver.':'Vibration not available in this browser or device.');break;}
  case 'test-water-sound':playWaterSound(true);notify('Water sound test. Check your media volume if it is silent.');break;
  case 'test-app-sound':playUiSound('success',true);notify('App sound test. Check your media volume if it is silent.');break;
- case 'refresh-steps':{if(stepRefresh)break;stepRefresh=true;stepRefreshInfo=false;render();setTimeout(()=>{stepRefresh=false;stepRefreshInfo=true;render();notify('No watch connection yet. Steps are currently entered manually.');},950);break;}
+ case 'refresh-steps':{if(stepRefresh)break;if(nativeHealthAvailable()){stepRefresh=true;try{await syncNativeActivity();}finally{stepRefresh=false;}}else{stepRefreshInfo=true;render();notify('Health Connect is only available through the native Android app. Manual tracking still works.');}break;}
  case 'metric-active':modal={type:'activity'};render();notify('Come on, burn it. Log your move!');break;
  case 'quick-water':await addQuickWater(n(el.dataset.amount));break;
  case 'add-guide-item':mealGuideActionsId=null;modal={type:'meal-guide-item',id:null};render();break;
