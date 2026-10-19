@@ -55,11 +55,11 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  <button class="nf-choice" data-nf="go" data-mode="search"><span class="nf-choice-icon">${ico('search')}</span><span><b>Search food</b><small>Indian meals and ingredients · works offline</small></span><span class="nf-chevron">›</span></button>
  <button class="nf-choice" data-nf="go" data-mode="photo"><span class="nf-choice-icon">${ico('photo')}</span><span><b>Photo meal</b><small>Take a photo or choose from your gallery</small></span><span class="nf-chevron">›</span></button>
  <button class="nf-choice" data-nf="go" data-mode="barcode"><span class="nf-choice-icon">${ico('barcode')}</span><span><b>Scan barcode</b><small>Look up packaged foods</small></span><span class="nf-chevron">›</span></button></div><button class="nf-text-action nf-home-manual" data-nf="manual">Enter nutrition manually</button>`;}
- function search(){return `<p class="nf-subtle">Find a dish, then confirm its portion.</p><label class="nf-field nf-search-field"><span class="nf-sr">Find a food</span><input id="nf-search" type="search" value="${esc(query)}" placeholder="Search roti, dal, paneer…" autocomplete="off" spellcheck="false"></label><div id="nf-results" class="nf-food-results">${results(query)}</div><button class="nf-text-action" data-nf="manual">Can't find it? Enter manually</button>`;}
+ function search(){return `<p class="nf-subtle">${FOOD_ITEMS.length} Indian home-food estimates. Find a dish, then confirm its portion.</p><label class="nf-field nf-search-field"><span class="nf-sr">Find a food</span><input id="nf-search" type="search" value="${esc(query)}" placeholder="Search roti, dal, paneer…" autocomplete="off" spellcheck="false"></label><div id="nf-results" class="nf-food-results">${results(query)}</div><button class="nf-text-action" data-nf="manual">Can't find it? Enter manually</button>`;}
  function portion(){
   const packaged=selected?.source==='Open Food Facts';
   const edit=packaged?`<div class="nf-product-edit"><h4>Nutrition per 100 g / 100 ml</h4><p>Confirm the German package label or correct incomplete community data.</p><div class="nf-product-fields">${nutrients.map(k=>`<label class="nf-field"><span>${esc({calories:'Energy (kcal)',protein:'Protein (g)',carbs:'Carbohydrates (g)',fat:'Fat (g)',fibre:'Fibre (g)'}[k])}</span><input type="number" min="0" max="100000" step="0.1" inputmode="decimal" data-nf-per100="${k}" value="${selected.per100?.[k]==null?'':esc(selected.per100[k])}" placeholder="Not listed"></label>`).join('')}</div></div>`:'';
-  return `<div class="nf-picked"><span class="nf-overline">${packaged?'PACKAGED FOOD · GERMAN LABEL':'INDIAN HOME-FOOD ESTIMATE'}</span><h3>${esc(selected?.name)}</h3><p>${packaged?`Open Food Facts · ${esc(selected?.brand||'Community product')} ${selected?.cached?'· Cached':''}. Always check the packet.`:'Ingredients and cooking oil change the values.'}</p></div>
+  return `<div class="nf-picked"><span class="nf-overline">${packaged?'PACKAGED FOOD · GERMAN LABEL':'INDIAN HOME-FOOD ESTIMATE'}</span><h3>${esc(selected?.name)}</h3><p>${packaged?`Open Food Facts · ${esc(selected?.brand||'Community product')} ${selected?.cached?'· Cached':''}${selected?.stores?' · Shops listed: '+esc(selected.stores):''}. Always check the packet.`:'Ingredients and cooking oil change the values.'}</p></div>
   ${mealDateFields()}<label class="nf-field nf-portion"><span>Portion eaten <em>(grams / ml)</em></span><div class="nf-quantity"><input id="nf-grams" type="number" inputmode="decimal" min="1" max="5000" step="1" value="${esc(grams)}" required><span>g / ml</span></div></label>${edit}<div id="nf-macros">${macros(selected,grams)}</div>${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}`;
  }
  function photoChoose(){return `<div class="nf-photo-lead"><span class="nf-photo-illustration" aria-hidden="true">${ico('photo')}</span><h3>Log a meal from a photo</h3><p>Start with a picture. We'll help you identify the foods, then you can review the portions.</p></div>
@@ -79,7 +79,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  function barcodeView(){return `<div class="nf-barcode-visual" aria-hidden="true">${ico('barcode')}</div><p class="nf-subtle">Scan EAN / UPC barcodes from Lidl, Aldi, REWE, EDEKA, Penny, Kaufland and other German supermarkets.</p>
   <button class="nf-secondary-block" data-nf="scan">Start camera scanner</button><p class="nf-status" role="status">${esc(barcodeStatus||'On unsupported Android browsers, a free ZXing scanner will be loaded on first use.')}</p><div id="nf-camera" class="nf-camera"></div><button class="nf-text-action" data-nf="barcode-image">Or select a barcode photograph</button>
   <label class="nf-field"><span>EAN / GTIN barcode number</span><input id="nf-barcode" inputmode="numeric" type="text" pattern="[0-9]*" value="${esc(barcode)}" maxlength="14" placeholder="8–14 digits"></label><button class="nf-primary nf-barcode-submit" data-nf="lookup" ${looking?'disabled':''}>${looking?'Searching…':'Find German supermarket product'}</button>
-  <button class="nf-text-action" data-nf="manual">Not found? Enter nutrition manually</button><p class="nf-muted-note">Open Food Facts is a community database and does not contain every supermarket own-brand product. German names are preferred. Data may be incomplete; check the package. Photos are decoded on your device.</p>`;}
+  <button class="nf-text-action" data-nf="manual">Not found? Enter nutrition manually</button><p class="nf-muted-note">Open Food Facts is a community database and does not contain every Aldi, Lidl, REWE, EDEKA or Kaufland own-brand product. Shops appear only when listed in the product record. German names are preferred. Data may be incomplete; check the package. Photos are decoded on your device.</p>`;}
  function footer(){if(page==='portion')return `<button type="button" class="nf-primary" data-nf="save-portion" ${saving?'disabled':''}>${saving?'Saving…':'Add to food diary'}</button>`;
  if(page==='photo'&&photoStep==='review')return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||photoFoods.length===0?'disabled':''}>${saving?'Saving…':`Add ${photoFoods.length} ${photoFoods.length===1?'food':'foods'} to diary`}</button>`;
  return '';
@@ -142,6 +142,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  }
 
  async function lookup(){
+  if(looking)return;
   barcode=barcode.trim();
   if(!/^\d{8,14}$/.test(barcode)){barcodeStatus='Enter an 8–14 digit EAN or UPC barcode.';render();return;}
   stopCamera();looking=true;barcodeStatus='Searching German product names in Open Food Facts…';render();
@@ -150,12 +151,26 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    const product=await lookupProduct(barcode);
    if(disposed)return;
    if(!product?.per100||!Number.isFinite(product.per100.calories))throw Error('No usable calorie data for this product. Enter nutrition manually from the label.');
-   selectFood({id:barcode,name:product.name,brand:product.brand,quantity:product.quantity,defaultGrams:100,per100:{...product.per100},source:'Open Food Facts',cached:product.cached},'barcode');
-  }catch(err){barcodeStatus=String(err?.message||'Could not look up the product.').slice(0,240);if(!disposed)render();}
-  finally{looking=false;}
+   selectFood({id:barcode,name:product.name,brand:product.brand,stores:product.stores,quantity:product.quantity,defaultGrams:100,per100:{...product.per100},source:'Open Food Facts',cached:product.cached},'barcode');
+  }catch(err){barcodeStatus=String(err?.message||'Could not look up the product.').slice(0,240);}
+  finally{looking=false;if(!disposed&&page==='barcode')render();}
  }
  // ZXing is a free MIT-licensed decoder downloaded on demand. Frames stay on the phone.
  async function loadZxing(){return import('https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm');}
+ async function startZxing(video,token){
+  if(disposed||page!=='barcode'||token!==scannerToken)return;
+  barcodeStatus='Loading free ZXing barcode scanner…';
+  const status=host.querySelector('.nf-status');if(status)status.textContent=barcodeStatus;
+  const {BrowserMultiFormatOneDReader}=await loadZxing();
+  if(disposed||page!=='barcode'||token!==scannerToken)return;
+  const reader=new BrowserMultiFormatOneDReader();
+  scannerControls=await reader.decodeFromVideoElement(video,result=>{
+   const code=result?.getText?.()||result?.text;
+   if(code)foundBarcode(code);
+  });
+  if(disposed||page!=='barcode'||token!==scannerToken)stopCamera();
+  else{barcodeStatus='ZXing ready. Centre the barcode in the camera view.';if(status)status.textContent=barcodeStatus;}
+ }
  function foundBarcode(value){
   const code=String(value||'').trim();
   if(!/^\d{8,14}$/.test(code)||looking||disposed||page!=='barcode')return;
@@ -173,31 +188,40 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    video.srcObject=cameraStream;await video.play();
    barcodeStatus='Hold the barcode steady inside the camera view.';
    const status=host.querySelector('.nf-status');if(status)status.textContent=barcodeStatus;
+
    if('BarcodeDetector' in window){
     try{
+     // Some Android browsers expose BarcodeDetector without working EAN decoding.
+     const supported=typeof BarcodeDetector.getSupportedFormats==='function'?await BarcodeDetector.getSupportedFormats():null;
+     if(supported&&!supported.some(format=>['ean_13','ean_8','upc_a','upc_e'].includes(format)))throw Error('No supported EAN formats');
      const detector=new BarcodeDetector({formats:['ean_8','ean_13','upc_a','upc_e','code_128']});
-     let busy=false;
+     let busy=false,failures=0,switched=false;
+     const started=Date.now();
+     const useFallback=()=>{
+      if(switched)return;switched=true;
+      if(scanInterval){clearInterval(scanInterval);scanInterval=null;}
+      if(disposed||page!=='barcode'||token!==scannerToken)return;
+      startZxing(video,token).catch(()=>{
+       stopCamera();barcodeStatus='Scanner unavailable. Enter the EAN digits or choose a barcode photograph.';
+       if(!disposed)render();
+      });
+     };
      scanInterval=setInterval(async()=>{
-      if(busy||video.readyState<2||disposed)return;
+      if(busy||video.readyState<2||disposed||token!==scannerToken)return;
       busy=true;
-      try{const found=await detector.detect(video);for(const x of found){if(/^\d{8,14}$/.test(String(x.rawValue))){foundBarcode(x.rawValue);break;}}}
-      catch{ /* Native detector may fail on difficult frames. */ }
+      try{
+       const found=await detector.detect(video);
+       failures=0;
+       for(const x of found){if(/^\d{8,14}$/.test(String(x.rawValue))){foundBarcode(x.rawValue);return;}}
+      }catch{failures++;}
       finally{busy=false;}
+      // Try the alternative decoder after three errors or nine seconds without a scan.
+      if(failures>=3||Date.now()-started>9000)useFallback();
      },480);
      return;
-    }catch{ /* Native barcode API may exist but not support these formats. */ }
+    }catch{ /* Unsupported native formats: use ZXing. */ }
    }
-   barcodeStatus='Loading free ZXing barcode scanner…';
-   if(status)status.textContent=barcodeStatus;
-   const {BrowserMultiFormatOneDReader}=await loadZxing();
-   if(disposed||token!==scannerToken){stopCamera();return;}
-   const reader=new BrowserMultiFormatOneDReader();
-   scannerControls=await reader.decodeFromVideoElement(video,result=>{
-    const code=result?.getText?.()||result?.text;
-    if(code)foundBarcode(code);
-   });
-   if(disposed||token!==scannerToken)stopCamera();
-   else if(status)status.textContent='ZXing ready. Centre the barcode in the camera view.';
+   await startZxing(video,token);
   }catch(err){
    stopCamera();
    barcodeStatus=err?.name==='NotAllowedError'?'Camera permission denied. Enable camera access in your Android browser, or type the barcode.':'Scanner unavailable. You can enter digits or use a barcode photograph.';
