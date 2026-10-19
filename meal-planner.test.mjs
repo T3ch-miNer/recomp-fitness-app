@@ -5,8 +5,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('./meal-planner.js',import.meta.url),'utf8');
+const foodSource=await readFile(new URL('./food-db.js',import.meta.url),'utf8');
+const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource).toString('base64');
+const moduleSource=source.replace("from './food-db.js'","from '"+foodUrl+"'");
 const {monday,addDays,parseIngredients,avoidedIngredients,groceryItems}=
-  await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+  await import('data:text/javascript;base64,'+Buffer.from(moduleSource).toString('base64'));
 
 test('weeks start on Monday in local time',()=>{
  assert.equal(monday('2026-10-21'),'2026-10-19');
