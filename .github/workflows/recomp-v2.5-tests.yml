@@ -11,6 +11,10 @@ on:
       - 'nutrition-v2.js'
       - 'food-recognition-worker.js'
       - 'meal-planner.js'
+      - 'health-connect.js'
+      - 'recipe-estimates.js'
+      - 'nav-capsule.css'
+      - 'android-health-connect/**'
       - 'meal-planner.test.mjs'
       - 'tests/**'
       - '.github/workflows/recomp-v2.5-tests.yml'
@@ -28,7 +32,7 @@ jobs:
           node-version: '22'
       - name: Check ES module syntax
         run: |
-          for file in app.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js cloud.js sw.js; do
+          for file in app.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js cloud.js sw.js; do
             node --input-type=module --check < "$file"
           done
       - name: Test meal planner, recipe integration, barcodes and local storage
