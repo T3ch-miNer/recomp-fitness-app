@@ -1,0 +1,35 @@
+name: Recomp v2.5 nutrition and planner tests
+on:
+  push:
+    branches:
+      - feature/v2.5-integrated-recipe-planning-20261019
+  pull_request:
+    paths:
+      - 'app.js'
+      - 'db.js'
+      - 'food-db.js'
+      - 'nutrition-v2.js'
+      - 'food-recognition-worker.js'
+      - 'meal-planner.js'
+      - 'meal-planner.test.mjs'
+      - 'tests/**'
+      - '.github/workflows/recomp-v2.5-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check ES module syntax
+        run: |
+          for file in app.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js cloud.js sw.js; do
+            node --input-type=module --check < "$file"
+          done
+      - name: Test meal planner, recipe integration, barcodes and local storage
+        run: node --test meal-planner.test.mjs tests/*.test.mjs
