@@ -84,7 +84,9 @@ const shoppingText=(p,week)=>{
 const completeNutrition=r=>['kcal','protein','carbs','fat','fibre'].every(k=>Number.isFinite(r[k])&&r[k]>=0)&&r.kcal>0&&r.protein>0;
 const estimate=(r,p,person)=>{
  const share=person==='Rahul'?p.rahulShare/100:(100-p.rahulShare)/100;
- return Object.fromEntries(['kcal','protein','carbs','fat','fibre'].map(k=>[k,k==='kcal'?Math.round(r[k]*share/2):Math.round(r[k]*share/2*10)/10]));
+ return Object.fromEntries(['kcal','protein','carbs','fat','fibre'].map(k=>{const total=k==='kcal'?Math.round(r[k]/2):Math.round(r[k]/2*10)/10;
+  const rahul=k==='kcal'?Math.round(total*p.rahulShare/100):Math.round(total*p.rahulShare/10)/10;
+  return [k,person==='Rahul'?rahul:Math.round((total-rahul)*10)/10];}));
 };
 export function openMealPlanner({state,save,log,notify}) {
  const p=ensure(state);
