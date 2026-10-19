@@ -32,6 +32,8 @@ const INGREDIENTS = {
  mango:[60,0.8,15,0.4,1.6],apple:[52,0.3,13.8,0.2,2.4],orange:[47,0.9,11.8,0.1,2.4],papaya:[43,0.5,10.8,0.3,1.7],
  raisins:[299,3.1,79.2,0.5,3.7],coconutWater:[19,0.7,3.7,0.2,1.1],roastedGram:[390,20.8,59.5,6.2,17]
 };
+// Approximate nutritional ingredient reference values per 100 g, used for opt-in batch estimates.
+export const INGREDIENT_REFERENCE=Object.freeze(Object.fromEntries(Object.entries(INGREDIENTS).map(([key,val])=>[key,Object.freeze([...val])])));
 // [id, English name, synonyms, category, yield grams, ingredient recipe, typical cooked quantity]
 const RECIPES = [
  ['roti','Roti / Chapati','phulka chapathi wheat roti','Breads',110,[['atta',70],['water',40]],55],
