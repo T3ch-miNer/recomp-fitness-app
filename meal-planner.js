@@ -1,4 +1,5 @@
 import {FOOD_ITEMS,nutrientsForGrams} from './food-db.js';
+import {estimateBatchNutrition} from './recipe-estimates.js';
 // Recomp recipe book and weekly batch-cooking planner.
 // Data lives in the existing app state, so device backups and cloud snapshots include it.
 const defaultExclusions = 'tomato, citrus, coffee, tofu, soya';
@@ -209,7 +210,7 @@ export function openMealPlanner({state,save,log,notify}) {
   '<div class="mp-two"><label class="mp-field">Estimated kcal per full batch (optional)<input name="kcal" type="number" min="0" max="25000" step="1" value="'+e(item.kcal)+'"></label>'+
   '<label class="mp-field">Estimated protein per full batch, g (optional)<input name="protein" type="number" min="0" max="1500" step="0.1" value="'+e(item.protein)+'"></label></div>'+
   '<div class="mp-three"><label class="mp-field">Batch carbs (g)<input name="carbs" type="number" min="0" max="5000" step="0.1" value="'+e(item.carbs??'')+'"></label><label class="mp-field">Batch fat (g)<input name="fat" type="number" min="0" max="3000" step="0.1" value="'+e(item.fat??'')+'"></label><label class="mp-field">Batch fibre (g)<input name="fibre" type="number" min="0" max="1000" step="0.1" value="'+e(item.fibre??'')+'"></label></div>'+ '<p class="mp-muted">All nutrition figures are optional, manually estimated totals for the entire four-serving batch. Fill all five fields to enable diary logging.</p>'+
-  '<button class="mp-button mp-primary" type="submit">Save recipe</button></form>';
+  '<div class="mp-actions"><button class="mp-button" type="button" data-mp="estimate-macros">Estimate macros from ingredients</button><button class="mp-button mp-primary" type="submit">Save recipe</button></div><p class="mp-muted">Only recognised ingredients and supported units can be estimated. The figures are approximate and do not save until you review and tap Save recipe.</p></form>';
  }
  function groceriesView(){
   const items=groceryItems(p,week),skip=p.stock[week]||[];
@@ -246,6 +247,23 @@ export function openMealPlanner({state,save,log,notify}) {
   if(kind==='previous'||kind==='next'){week=addDays(week,kind==='next'?7:-7);message='';render();return;}
   if(kind==='back'){view=view==='detail'?'week':'recipes';editing=null;message='';render();return;}
   if(kind==='new'){view='editor';editing=null;message='';render();return;}
+  if(kind==='estimate-macros'){
+   const form=overlay.querySelector('#mp-form');
+   if(!form)return;
+   const old=overlay.querySelector('#mp-estimate-feedback');old?.remove();
+   const note=document.createElement('p');note.id='mp-estimate-feedback';note.className='mp-message';note.setAttribute('role','status');
+   form.prepend(note);
+   try{
+    const ingredientLines=new FormData(form).get('ingredients');
+    const outcome=estimateBatchNutrition(parseIngredients(ingredientLines));
+    if(!outcome.complete){note.textContent='Cannot estimate all ingredients: '+outcome.missing.slice(0,8).join(', ')+'. Enter their macros manually or use recognised names and weights.';return;}
+    for(const [k,val] of Object.entries(outcome.totals)){
+     const input=form.querySelector('[name="'+k+'"]');if(input)input.value=String(val);
+    }
+    note.textContent='Estimated all '+outcome.ingredientCount+' ingredients. Please review labels, cooked weights and oil. Nothing saved yet.';
+   }catch(err){note.textContent=err.message||'Check ingredient lines first.';}
+   return;
+  }
   if(kind==='open-catalogue'){view='catalogue';catalogueQuery='';message='';render();return;}
   if(kind==='import-catalogue'){
    const food=FOOD_ITEMS.find(item=>item.id===element.dataset.id);
