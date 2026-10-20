@@ -2,7 +2,7 @@
 
 Recomp remains on **free GitHub Pages**. AI detection is entirely optional; manual search and the existing offline/wasm photo model still work without this setup.
 
-**Status:** Implemented in a development pull request, but **not yet published or tested against a real Hugging Face account**. You must deploy and privately configure the Worker before we can complete a real food-photo test.
+**Status:** The owner deployed Cloudflare and successfully tested Hugging Face on real food photos. The v2.7 draft now adds **whole-dish recognition with approximate macros**; this newest revision still needs redeployment and real-photo testing before the Recomp app itself is released.
 
 ## Why Hugging Face + a Cloudflare Worker?
 
@@ -22,7 +22,7 @@ Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted s
    - `SCAN_ACCESS_TOKEN`: a **different** randomly generated private token of 32 or more characters. Do not use the Hugging Face token as this token. Do not check either token into GitHub.
 5. Recomp's public Worker address is already preconfigured as `https://recomp-food-ai.rahul-dbz95.workers.dev/scan` (provided by the app owner). This address is public, and you can still change it in the app if you later redeploy.
 6. After the scanner has been reviewed and published, open **Recomp → Nutrition → Photo meal**, choose a photo, confirm the prefilled Worker URL, enter **only your separate Worker access token** (not the Hugging Face token), and tap **AI Scan this photo**.
-7. Review the food items suggested by the model. Tap **Find food** to select a corresponding food from Recomp's existing catalogue, **correct the cooked weight**, and save only after review.
+7. The new AI result suggests **one combined meal name** (e.g. Korean beef rice bowl, ramen, masala dosa with sides), approximate serving, kcal estimate and range, plus protein/carbs/fat/fibre for the **whole meal**. Correct all fields before tapping **Save reviewed dish estimate**. You can also ignore AI and use the ingredient-by-ingredient free catalogue instead.
 
 A CLI alternative, if you already use Wrangler:
 
@@ -44,9 +44,9 @@ The owner has deployed `recomp-food-ai` and confirmed that both Worker secrets e
 2. Replace the editor contents with the **latest** [photo-scan-worker/worker.js](./photo-scan-worker/worker.js) from the v2.7 draft and click **Deploy**. The latest code includes a self-contained `/test` page; older deployments will return `Not found` for `/test`.
 3. Open **<https://recomp-food-ai.rahul-dbz95.workers.dev/test>** in a normal browser tab. The root path `/` may still say `{"error":"Not found"}` — that is expected.
 4. Enter only your separate `SCAN_ACCESS_TOKEN` value in the password box. **Never enter `HF_TOKEN` in a browser or share it in chat.** Click **Check Hugging Face vision connection (free)** first. The test page then lists the chosen currently available image-capable model, or reports a token/provider error without sending a photograph.
-5. Once the connection check succeeds, choose a non-sensitive meal photo (preferably rice, dal and/or roti), then click **Test food recognition**. You authorise sending a resized copy to your Worker and Hugging Face by pressing that button.
-6. You should see a list of proposed foods, visible evidence and uncertainty markers. A response such as `credits exhausted`, `token needs updating` or `model not available` is useful troubleshooting information—do not send credentials to anybody.
-7. The owner's two reference photos include a Korean rice bowl (beef, egg, corn, edamame, sprouts and greens) and masala dosa with potato sabzi and green chutney. Report whether the suggestions match these visible items, or share only the displayed error text (hide credentials and personal information).
+5. Once the connection check succeeds, choose a non-sensitive meal photo (preferably rice, dal and/or roti), then click **Scan dish & estimate nutrition**. You authorise sending a resized copy to your Worker and Hugging Face by pressing that button.
+6. You should see a proposed **whole dish** (not individual toppings), its approximate serving weight, a kcal range and macro estimates. A response such as `credits exhausted`, `token needs updating` or `model not available` is useful troubleshooting information—do not send credentials to anybody.
+7. The owner's reference photos include a Korean-style beef rice bowl (beef, egg, corn, edamame, sprouts and greens) and masala dosa with potato sabzi and green chutney. These should be treated as **one meal each**, not separate items. Report whether the suggestions match these visible items, or share only the displayed error text (hide credentials and personal information).
 
 The `/test` page performs no writes to Recomp's storage or diaries and stores no credentials. Delete or disable the test page after verification if you prefer a smaller public footprint. It requires the separate private access token for actual inference.
 
@@ -56,7 +56,7 @@ The `/test` page performs no writes to Recomp's storage or diaries and stores no
 - The app only persists the public Worker URL. It does **not** persist `HF_TOKEN` or `SCAN_ACCESS_TOKEN`; the separate access token stays in RAM for the current app session.
 - Browsers send the separate Worker access token for authentication; it is distinct from the HF token and should still be kept private. The Worker permits only the official GitHub Pages origin for browser requests, but **CORS is not authentication**.
 - The Hugging Face provider may log or retain request data according to its policies. Avoid faces, documents, addresses or other sensitive content in meal photos; review your provider's terms.
-- Vision-language models may confuse curries and hidden ingredients. They cannot accurately weigh food or infer added oil/ghee. Each model output is clearly a *suggestion*. Nutrition is calculated locally from **foods and gram amounts you confirm**.
+- Vision-language models can misidentify dishes, portions, hidden oil, ghee and sauces. **All macros are approximate AI guesses for the combined dish** (not USDA/label measurements). The user must review and can directly correct all values. Adjusting the approximate grams scales the suggested macros. Recomp saves one dish entry with an explicit AI-estimate source, no image and no automatic logging of toppings. The manual food-catalogue path remains independent.
 - The model can return invalid JSON, lack available provider capacity or exhaust your monthly credits. In those situations the app should display an error and still allow manual/offline logging.
 - The Worker does not write meal history, fitness records, photos or backups. No IndexedDB migration or reset is part of this feature.
 - GitHub Actions tests validate the API request shape and error handling with mocks. They **cannot** verify a real Hugging Face scan until the account and secrets are configured.
