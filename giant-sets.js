@@ -14,6 +14,15 @@ export function getGiantGroups(session){
   // Leave them in Detailed View instead of inventing/misplacing sets.
   const rounds=items[0].exercise.sets.length;
   if(items.length<2||rounds<2||items.some(it=>it.exercise.sets.length!==rounds))return [];
+  // Some FTS circuits encode 20–15–10–5 twice as EIGHT stored set entries,
+  // not eight independent giant-set rounds. Keep those in Detailed View so
+  // neither the prescribed sequence nor any recorded repetitions are mislabelled.
+  const isDescendingSequence=items.some(({exercise})=>
+   /(?:20\s*[–-]\s*15\s*[–-]\s*10\s*[–-]\s*5|descending)/i.test(
+    String(exercise.targetLabel||'')+' '+String(exercise.notes||'')
+   )
+  );
+  if(isDescendingSequence)return [];
   return [{id,items,rounds}];
  });
 }
