@@ -36,6 +36,20 @@ npx wrangler deploy
 
 Wrangler prompts for secrets privately. **Do not paste secret values into this chat, GitHub, screenshots, or shell commands.** The public Worker URL (without any token) is safe to share.
 
+## Test before publishing Recomp v2.7
+
+The owner has deployed `recomp-food-ai` and confirmed that both Worker secrets exist. To test the actual Hugging Face model **without touching the live Recomp app**:
+
+1. In Cloudflare, select **Workers & Pages → recomp-food-ai → Edit code**.
+2. Replace the editor contents with the **latest** [photo-scan-worker/worker.js](./photo-scan-worker/worker.js) from the v2.7 draft and click **Deploy**. The latest code includes a self-contained `/test` page; older deployments will return `Not found` for `/test`.
+3. Open **<https://recomp-food-ai.rahul-dbz95.workers.dev/test>** in a normal browser tab. The root path `/` may still say `{"error":"Not found"}` — that is expected.
+4. Enter only your separate `SCAN_ACCESS_TOKEN` value in the password box. **Never enter `HF_TOKEN` in a browser or share it in chat.**
+5. Choose a non-sensitive meal photo (preferably rice, dal and/or roti), then click **Test food recognition**. You authorise sending a resized copy to your Worker and Hugging Face by pressing that button.
+6. You should see a list of proposed foods, visible evidence and uncertainty markers. A response such as `credits exhausted`, `token needs updating` or `model not available` is useful troubleshooting information—do not send credentials to anybody.
+7. Report whether the list accurately describes the photo, or share only the text of an error (with tokens and personal information hidden).
+
+The `/test` page performs no writes to Recomp's storage or diaries and stores no credentials. Delete or disable the test page after verification if you prefer a smaller public footprint. It requires the separate private access token for actual inference.
+
 ## Privacy, costs and limitations
 
 - A photo is uploaded to your Cloudflare Worker and forwarded to the selected Hugging Face Inference Provider **only after** tapping AI Scan. A resized JPEG is used. A photo is not stored in your Recomp diary by default.
