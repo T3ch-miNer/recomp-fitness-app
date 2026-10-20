@@ -1,5 +1,5 @@
-const CACHE='recomp-shell-v2.5.4-fts-workouts';
-const CORE=['./','./index.html','./styles.css','./app.js','./fts-workouts.js','./food-db.js','./nutrition-v2.js','./nutrition-v2.css','./meal-planner.js','./meal-planner.css','./nav-capsule.css','./nav-cloud.css','./recipe-estimates.js','./health-connect.js','./first-run.js','./first-run.css','./premium.css','./db.js','./cloud.js','./clerk-auth.js'];
+const CACHE='recomp-shell-v2.5.4-exercise-demo';
+const CORE=['./','./index.html','./styles.css','./app.js','./fts-workouts.js','./exercise-guides.js','./exercise-demonstration.js','./exercise-demonstration.css','./food-db.js','./nutrition-v2.js','./nutrition-v2.css','./meal-planner.js','./meal-planner.css','./nav-capsule.css','./nav-cloud.css','./recipe-estimates.js','./health-connect.js','./first-run.js','./first-run.css','./premium.css','./db.js','./cloud.js','./clerk-auth.js'];
 const FONT_CACHE='recomp-fonts-v1';
 const OPTIONAL=['./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./food-recognition-worker.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{

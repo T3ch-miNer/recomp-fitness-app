@@ -1,0 +1,24 @@
+/* Recomp exercise demonstrations: offline technique cues and optional videos. */
+.exercise-demo{display:grid;gap:14px}
+.exercise-demo-heading h3{font-family:var(--font-display,inherit);font-size:22px;line-height:1.15;margin:5px 0}
+.exercise-demo-media{position:relative;aspect-ratio:16/9;border:1px solid var(--line);background:#080d12;border-radius:15px;overflow:hidden}
+.exercise-demo-frame{display:block;width:100%;height:100%;border:0}
+.exercise-demo-play{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;color:#d6ffee;background:radial-gradient(circle at 50% 45%,#19483d,#0c151b 72%);border:0;font-size:34px;cursor:pointer}
+.exercise-demo-play span{font-size:13px;font-weight:750}
+.exercise-demo-play:focus-visible{outline:3px solid var(--accent);outline-offset:-4px}
+.exercise-demo-steps{padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--panel2)}
+.exercise-demo-steps h4{font-size:15px;margin:0 0 10px;color:var(--text)}
+.exercise-demo-steps ol{padding-left:22px;margin:0;display:grid;gap:10px}
+.exercise-demo-steps li{line-height:1.52;padding-left:2px;color:var(--text)}
+.exercise-demo-steps li::marker{color:var(--accent);font-weight:750}
+.exercise-demo-tip{display:grid;gap:4px;padding:11px 12px;margin-top:14px;border-left:3px solid var(--accent);border-radius:9px;background:var(--accent2);font-size:12px}
+.exercise-demo-tip b{color:var(--text)}
+.exercise-demo-tip span{color:var(--text);line-height:1.5}
+.exercise-demo .hint{margin:0}
+.exercise-demo-notes{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--panel)}
+.exercise-demo-notes summary{font-weight:750;cursor:pointer}
+.exercise-demo-notes p{margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+.exercise-demo-actions{display:flex;flex-wrap:wrap;gap:8px}
+.exercise-demo-actions .btn{white-space:normal;text-align:center}
+@media(max-width:460px){.exercise-demo-actions .btn{flex:1 1 100%}}
+@media(prefers-reduced-motion:reduce){.exercise-demo-play{scroll-behavior:auto}}
