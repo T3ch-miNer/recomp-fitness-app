@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'app.js'
+      - 'fts-workouts.js'
       - 'db.js'
       - 'food-db.js'
       - 'nutrition-v2.js'
@@ -37,7 +38,7 @@ jobs:
           node-version: '22'
       - name: Check ES module syntax
         run: |
-          for file in app.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
+          for file in app.js fts-workouts.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
             node --input-type=module --check < "$file"
           done
       - name: Test meal planner, recipe integration, barcodes and local storage
