@@ -9,7 +9,7 @@ const logic=await import(logicUrl);
 const displaySource=file('giant-set-view.js');
 const displayUrl='data:text/javascript;base64,'+Buffer.from(displaySource.replace("'./giant-sets.js'","'"+logicUrl+"'")).toString('base64');
 const {renderGiantSetView}=await import(displayUrl);
-const {FTS_WORKOUTS}=await import('data:text/javascript;base64,'+Buffer.from(file('fts-workouts.js')).toString('base64');
+const {FTS_WORKOUTS}=await import('data:text/javascript;base64,'+Buffer.from(file('fts-workouts.js')).toString('base64'));
 const app=file('app.js'),css=file('giant-sets.css'),worker=file('sw.js'),index=file('index.html');
 
 function sessionFromPlan(plan){
