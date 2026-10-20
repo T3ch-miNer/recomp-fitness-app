@@ -77,3 +77,14 @@ test('16px editable kg/reps, themed dialog and updated offline shell',()=>{
   assert.ok(sw.includes("'./"+name+"'"),name+' must be included offline');
  }
 });
+
+test('recipe planner uses themed confirmations and manual-copy fallback instead of system prompts',()=>{
+ const planner=get('meal-planner.js');
+ assert.match(planner,/confirmStandalone\(/);
+ assert.match(planner,/showCopyPanel\(list\)/);
+ assert.match(dialogSrc,/export function confirmStandalone\(/);
+ assert.match(dialogSrc,/export function showCopyPanel\(/);
+ assert.ok(!/\b(?:window\.)?(?:confirm|alert|prompt)\s*\(/.test(planner));
+ assert.match(css,/recomp-copy-text/);
+ assert.ok(!/indexedDB|deleteDatabase|\bclear\(/.test(dialogSrc));
+});
