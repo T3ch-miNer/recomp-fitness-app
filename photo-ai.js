@@ -2,6 +2,8 @@
 // The owner deploys a separate Worker with HF_TOKEN in encrypted secrets.
 // The public endpoint URL can be remembered; access passphrase is memory-only.
 const URL_KEY='recomp-photo-ai-endpoint-v1';
+// Public Worker address supplied by the Recomp owner. No credentials live here.
+export const DEFAULT_PHOTO_AI_ENDPOINT='https://recomp-photo-scan.rahul-dbz95.workers.dev/scan';
 let sessionAccessToken='';
 export function getPhotoAiSessionToken(){return sessionAccessToken;}
 export function rememberPhotoAiSessionToken(value){
@@ -10,7 +12,7 @@ export function rememberPhotoAiSessionToken(value){
  sessionAccessToken=token;
  return Boolean(token);
 }
-export function getPhotoAiEndpoint(){try{return localStorage.getItem(URL_KEY)||'';}catch{return '';}}
+export function getPhotoAiEndpoint(){try{return localStorage.getItem(URL_KEY)||DEFAULT_PHOTO_AI_ENDPOINT;}catch{return DEFAULT_PHOTO_AI_ENDPOINT;}}
 export function savePhotoAiEndpoint(value){
  const input=String(value||'').trim();
  const url=new URL(input);
