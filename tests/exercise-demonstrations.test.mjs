@@ -75,5 +75,5 @@ test('responsive exercise demo connected to modal with safe PWA caching',()=>{
   assert.ok(sw.includes("'./"+file+"'"),'not in offline shell: '+file);
  }
  assert.match(html,/exercise-demonstration\.css/);
- assert.match(html,/2\.7-goals-clerk-dock/);
+ assert.match(html,/2\.7-settings-hub/);
 });
