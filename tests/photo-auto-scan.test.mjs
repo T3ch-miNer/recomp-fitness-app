@@ -101,3 +101,21 @@ test('failed photo scans show status next to scan button with a way to change st
  assert.match(css,/\.nf-ai-scan-status-error/);
  assert.match(css,/\.nf-ai-scan-status-working/);
 });
+
+test('retry and result updates preserve the Android photo modal scroll position',()=>{
+ const start=ui.indexOf('function render(){');
+ const end=ui.indexOf('function go(mode)',start);
+ assert.ok(start>=0&&end>start,'render function located');
+ const renderFunction=ui.slice(start,end);
+ assert.match(renderFunction,/previousContent\.scrollTop/);
+ assert.match(renderFunction,/lastRenderedPage===page/);
+ assert.match(renderFunction,/lastRenderedPhotoStep===photoStep/);
+ assert.match(renderFunction,/content\.scrollTop=previousScroll/);
+ assert.match(renderFunction,/advancedWasOpen/);
+ assert.match(renderFunction,/settings\.open=true/);
+ const scanFunction=ui.slice(ui.indexOf('async function scanWithAi()'),ui.indexOf('async function recognise()'));
+ assert.match(scanFunction,/aiStatus='working'/);
+ assert.match(scanFunction,/aiStatus=aiMeal\?'success':'error'/);
+ assert.match(scanFunction,/finally\{if\(token===aiRequestId\)/);
+ assert.ok(!scanFunction.includes('saveEntries('),'retry must not automatically save a meal');
+});
