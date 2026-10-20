@@ -78,7 +78,7 @@ test('food-photo review never autosaves suggestions and retains free manual path
  assert.match(nutrition,/scanPhotoWithWorker\(/);
  assert.match(nutrition,/data-nf="ai-find-food"/);
  assert.match(nutrition,/photoQuery=item\.name/);
- assert.match(nutrition,/data-nf="recognise"/);
+ assert.match(nutrition,/recognising\?'cancel-recognition':'recognise'/);
  assert.match(nutrition,/saveEntries\(entries\)/);
  assert.match(nutrition,/AI may misidentify food/);
  assert.ok(!/OPENAI_API_KEY|sk-[A-Za-z0-9]{20,}/.test(nutrition+clientSource),'no provider API key in browser');
