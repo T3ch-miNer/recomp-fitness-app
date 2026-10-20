@@ -3,7 +3,7 @@
 // The publishable key is deliberately user-configured. No secret keys belong in the PWA.
 // Set this *public* key once before publishing to enable sign-in for everyone.
 // Do NOT paste a Clerk secret key in this file. Until configured, guest mode works.
-export const CLERK_PUBLISHABLE_KEY='';
+export const CLERK_PUBLISHABLE_KEY='pk_test_Z2l2aW5nLXRvbWNhdC04Njc0LmNsZXJrLmFjY291bnRzLmRldiQ';
 const KEY='recomp-clerk-publishable-key-v1';
 let loading=null;
 
