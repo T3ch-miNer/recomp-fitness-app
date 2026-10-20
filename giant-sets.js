@@ -14,6 +14,14 @@ export function getGiantGroups(session){
   // Leave them in Detailed View instead of inventing/misplacing sets.
   const rounds=items[0].exercise.sets.length;
   if(items.length<2||rounds<2||items.some(it=>it.exercise.sets.length!==rounds))return [];
+  // FTS Workout 4 uses two 20–15–10–5 descending ladders, recorded as
+  // eight set entries per exercise. These are NOT eight ordinary giant
+  // rounds. Keep their exact order and rep targets in Detailed View.
+  // Respect the exercise's authored target, not editable historic reps.
+  const ladder=items.some(({exercise})=>
+   /(?:descending|ladder|pyramid|\\d+\\s*[-–—]\\s*\\d+\\s*[-–—]\\s*\\d+\\s*[-–—]\\s*\\d+)/i.test(
+    String(exercise.targetLabel||'')+' '+String(exercise.notes||'')));
+  if(ladder)return [];
   return [{id,items,rounds}];
  });
 }
