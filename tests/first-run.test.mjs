@@ -74,3 +74,11 @@ test('successful Clerk modal launch removes the guest welcome, blocked setup doe
   else globalThis.document=previous;
  }
 });
+
+test('published guest-first onboarding visibly disables unavailable Google sign-in',()=>{
+ assert.ok(source.includes("googleEnabled=true"));
+ assert.ok(source.includes('Google sign-in is coming later'));
+ assert.ok(source.includes('disabled aria-disabled="true"'));
+ assert.ok(app.includes('googleEnabled:isClerkLoginAvailable()'));
+ assert.ok(app.includes("if(isClerkLoginAvailable())"));
+});
