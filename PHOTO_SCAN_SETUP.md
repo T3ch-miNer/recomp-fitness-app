@@ -16,7 +16,7 @@ The **OpenAI API secret must never be entered into a public GitHub Pages app**, 
 2. Using Cloudflare Worker Settings → **Variables and Secrets**, add both as **Secret** (not plain variables):
    - `OPENAI_API_KEY`: your own OpenAI Platform API key, created on <https://platform.openai.com/api-keys>. Enter it **in Cloudflare only**, never in Recomp or ChatGPT.
    - `SCAN_ACCESS_TOKEN`: a separate random 32+ character secret passphrase, generated locally. Don't save it in this GitHub repository.
-3. Worker should respond at `https://YOUR-WORKER.workers.dev/scan`. The code only allows `https://t3ch-miner.github.io` as the browser origin. For another host, review and explicitly change `ALLOWED_ORIGIN` in `worker.js`.
+3. Worker should respond at `https://YOUR-WORKER.workers.dev/scan` (you may paste the public Worker root URL in Recomp; it appends `/scan`). The code only allows `https://t3ch-miner.github.io` as the browser origin. For another host, review and explicitly change `ALLOWED_ORIGIN` in `worker.js`.
 4. In the Recomp **Nutrition → Photo meal** screen, choose a picture, enter the public Worker URL and your **separate Worker access token** and tap **AI Scan this photo**. Only then is a resized JPEG sent to your Worker and OpenAI.
 5. Choose the right catalogue food for each suggested item, review cooked weights, then save. Unknown dishes are **not** assigned invented nutrition numbers.
 6. If available, use an OpenAI usage budget / alert, protect and rotate your token, and consider Cloudflare rate limits as usage grows.
@@ -35,7 +35,7 @@ Wrangler prompts for secret values locally. **Never paste credentials into this 
 
 ## Privacy and reliability
 
-- Recomp remembers **only the public Worker URL**, not the Worker access token or OpenAI secret. The access token is in memory until that Photo meal screen is closed.
+- Recomp remembers **only the public Worker URL**, not the Worker access token or OpenAI secret. The access token remains in RAM until the Recomp page reloads or closes. It is never persisted to localStorage, IndexedDB or a file.
 - Photos are neither automatically uploaded nor added to the diary. Manual and MobileCLIP on-device options still work without an OpenAI account or network.
 - OpenAI only sees a compressed copy **after** you tap AI Scan. The request uses `store:false`; normal API operational data policies may still apply. Avoid photos containing people, addresses or private documents.
 - The model identifies **possibly visible items**, not weighed portions or laboratory macro values. The image might not reveal oil, ghee, cooking methods or ingredients in curry. Ask the user to confirm every suggestion.
