@@ -1,0 +1,54 @@
+/* v2.8 Food Diary: mobile-first history, repeat logging and portion editing. */
+.diary-history{display:grid;gap:12px;min-width:0}
+.diary-date-card{padding:17px 18px}
+.diary-date-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.diary-date-top h3{font-size:20px;letter-spacing:-.035em;margin:6px 0 4px}
+.diary-date-top p{margin:0;line-height:1.6}
+.diary-date-controls{display:flex;align-items:center;gap:6px;max-width:100%}
+.diary-date-arrow{width:40px;min-width:40px;height:42px;display:grid;place-items:center;padding:7px}
+.diary-date-arrow svg{width:17px;height:17px}
+.diary-date-arrow:first-child svg{transform:rotate(90deg)}
+.diary-date-arrow.diary-next svg{transform:rotate(-90deg)}
+.diary-date-arrow:disabled{opacity:.4;cursor:not-allowed}
+.diary-date-field{min-width:0;display:block}
+.diary-date-field>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.diary-date-field input{color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:12px;min-height:42px;min-width:0;width:148px;max-width:100%;padding:7px 9px;font:inherit;font-size:13px;color-scheme:dark}
+[data-theme=light] .diary-date-field input{color-scheme:light}
+.diary-today{margin-top:13px}
+.diary-meal-card{margin-bottom:0!important;padding:18px}
+.diary-meal-head{gap:12px;align-items:center;margin-bottom:9px}
+.diary-meal-head .section-title{margin:0}
+.diary-empty{margin:11px 0 2px;line-height:1.5}
+.diary-entry{display:flex;align-items:center;gap:11px;min-width:0;flex-wrap:nowrap}
+.diary-entry-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.diary-entry-copy strong{display:block;color:var(--text);font-size:13px;line-height:1.45}
+.diary-entry-copy small{display:block;color:var(--muted);margin-top:5px;font-size:11px;line-height:1.5}
+.diary-entry-actions{display:grid;justify-items:end;gap:8px;flex:none}
+.diary-kcal{font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.diary-kcal span{font-size:10px;color:var(--muted);font-weight:500}
+.diary-row-buttons{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px}
+.diary-row-buttons .diary-action{display:inline-flex;align-items:center;gap:4px;min-height:38px;padding:7px 9px;font-size:11px}
+.diary-row-buttons .diary-action svg{width:14px;height:14px}
+.diary-row-buttons .diary-delete{padding-inline:10px}
+.diary-recent-card .section-title{margin:0 0 4px}
+.diary-recent-card .hint{line-height:1.5;margin:0}
+.diary-recent-row{gap:12px}
+.diary-recent-row .btn{flex:none;min-height:41px}
+.diary-footnote{padding:0 4px;margin:15px 0 24px;line-height:1.6}
+.diary-recalculate{margin:4px 0 13px;min-height:43px}
+@media(max-width:520px){
+ .diary-date-top{align-items:stretch}
+ .diary-date-controls{width:100%;justify-content:space-between}
+ .diary-date-field{flex:1}
+ .diary-date-field input{width:100%}
+ .diary-entry{align-items:flex-start;flex-wrap:wrap;gap:9px}
+ .diary-entry .list-icon{margin-top:3px}
+ .diary-entry-actions{width:100%;display:flex;justify-content:space-between;align-items:center;padding-left:43px}
+ .diary-row-buttons{justify-content:flex-end}
+ .diary-row-buttons .diary-action{min-height:43px}
+}
+@media(max-width:360px){
+ .diary-date-card,.diary-meal-card{padding:13px}
+ .diary-entry-actions{padding-left:0}
+ .diary-row-buttons .diary-action{font-size:10px;padding:8px 7px}
+}
