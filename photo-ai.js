@@ -6,7 +6,7 @@ let sessionAccessToken='';
 export function getPhotoAiSessionToken(){return sessionAccessToken;}
 export function rememberPhotoAiSessionToken(value){
  const token=String(value||'');
- if(token && (token.length<12||token.length>256||/^sk[-_]/i.test(token)))throw Error('Use a private Worker access token, not a provider API key.');
+ if(token && (token.length<12||token.length>256||/^(?:sk[-_]|hf_)/i.test(token)))throw Error('Use a private Worker access token, not a provider API key.');
  sessionAccessToken=token;
  return Boolean(token);
 }
