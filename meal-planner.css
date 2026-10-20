@@ -49,3 +49,9 @@
  .mp-button{padding:9px 10px}
 }
 @media(prefers-reduced-motion:reduce){.mp-sheet{scroll-behavior:auto}}
+
+/* Indian catalogue search: compact, touch-friendly rows. */
+.mp-catalogue-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.mp-catalogue-row>div{min-width:0;flex:1}
+.mp-catalogue-row .mp-button{flex-shrink:0}
+@media(max-width:480px){.mp-catalogue-row{align-items:stretch;flex-direction:column}.mp-catalogue-row .mp-button{width:100%}}

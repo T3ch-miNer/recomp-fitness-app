@@ -1,0 +1,71 @@
+/* Recomp v2.5 review: floating capsule navigation inspired by the user's reference.
+   Mobile only. Leave the desktop sidebar and all tab state unchanged. */
+@media(max-width:760px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{
+  position:fixed!important;
+  left:50%!important;right:auto!important;
+  bottom:calc(13px + env(safe-area-inset-bottom))!important;
+  width:min(calc(100vw - 36px),388px)!important;
+  height:76px!important;min-height:76px!important;max-height:76px!important;
+  transform:translate3d(-50%,0,0)!important;
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  align-items:center!important;justify-items:center!important;
+  gap:0!important;padding:7px 8px!important;margin:0!important;
+  box-sizing:border-box!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  border-radius:999px!important;
+  background:rgba(248,247,251,.95)!important;
+  box-shadow:0 13px 42px rgba(0,0,0,.38),0 2px 8px rgba(0,0,0,.08),inset 0 1px 2px #fff!important;
+  -webkit-backdrop-filter:blur(12px) saturate(125%)!important;
+  backdrop-filter:blur(12px) saturate(125%)!important;
+  overflow:hidden;z-index:35!important;
+ }
+ #recomp-bottom-dock[hidden]{display:none!important}
+ #recomp-bottom-dock .dock-selection{display:none!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock::before,
+ #recomp-bottom-dock.bottom-nav.premium-dock::after{display:none!important;content:none!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{
+  position:relative!important;isolation:isolate;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  width:60px!important;min-width:60px!important;max-width:60px!important;
+  height:60px!important;min-height:60px!important;max-height:60px!important;
+  margin:auto!important;padding:0!important;
+  border:1px solid rgba(20,18,31,.04)!important;
+  border-radius:50%!important;
+  background:linear-gradient(180deg,#f0f0f2,#e6e6e9)!important;
+  color:#44444c!important;box-shadow:none!important;
+  transition:background-color 170ms ease,color 170ms ease,transform 170ms ease!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active{
+  color:#1c122d!important;
+  background:linear-gradient(150deg,#c5adff,#a68bef)!important;
+  box-shadow:0 4px 13px rgba(135,91,224,.27),inset 0 1px 1px rgba(255,255,255,.65)!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon{
+  width:25px!important;height:25px!important;flex:0 0 25px!important;
+  color:inherit!important;transform:none!important;filter:none!important;
+  stroke-width:2!important;position:relative;z-index:1;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active .icon{color:inherit!important;filter:none!important;transform:none!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn span{
+  position:absolute!important;width:1px!important;height:1px!important;
+  padding:0!important;margin:-1px!important;overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:focus-visible{
+  outline:3px solid #6b46cd!important;outline-offset:2px!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:active{transform:scale(.95)!important}
+ .main{padding-bottom:calc(166px + env(safe-area-inset-bottom))!important}
+ .floating-workout{bottom:calc(108px + env(safe-area-inset-bottom))!important}
+ .quick-fab,.food-fab-cluster{bottom:calc(112px + env(safe-area-inset-bottom))!important}
+ .quick-fab.above-workout,.food-fab-cluster.above-workout{bottom:calc(202px + env(safe-area-inset-bottom))!important}
+ .water-cheers,.recomp-update-notice{bottom:calc(107px + env(safe-area-inset-bottom))!important}
+}
+@media(max-width:350px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{width:calc(100vw - 24px)!important;height:68px!important;min-height:68px!important;max-height:68px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{width:53px!important;min-width:53px!important;max-width:53px!important;height:53px!important;min-height:53px!important;max-height:53px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{transition:none!important}
+}

@@ -5,8 +5,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const source=await readFile(new URL('./meal-planner.js',import.meta.url),'utf8');
+const foodSource=await readFile(new URL('./food-db.js',import.meta.url),'utf8');
+const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource).toString('base64');
+const estimatesSource=await readFile(new URL('./recipe-estimates.js',import.meta.url),'utf8');
+const estimatesUrl='data:text/javascript;base64,'+Buffer.from(estimatesSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
+const moduleSource=source.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'");
 const {monday,addDays,parseIngredients,avoidedIngredients,groceryItems}=
-  await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+  await import('data:text/javascript;base64,'+Buffer.from(moduleSource).toString('base64'));
 
 test('weeks start on Monday in local time',()=>{
  assert.equal(monday('2026-10-21'),'2026-10-19');

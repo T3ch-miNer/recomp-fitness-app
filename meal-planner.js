@@ -1,3 +1,5 @@
+import {FOOD_ITEMS,nutrientsForGrams} from './food-db.js';
+import {estimateBatchNutrition} from './recipe-estimates.js';
 // Recomp recipe book and weekly batch-cooking planner.
 // Data lives in the existing app state, so device backups and cloud snapshots include it.
 const defaultExclusions = 'tomato, citrus, coffee, tofu, soya';
@@ -19,6 +21,46 @@ const SEEDS = [
  {name:'Masoor dal rice with eggs',base:'Rice',mins:35,ingredients:'200 g dry masoor dal\n220 g dry rice\n8 pcs eggs\n350 g carrots\n250 g courgette\n15 g cooking oil',steps:'Cook rice and red lentils with chopped vegetables, cumin and turmeric until very soft. Boil eggs until cooked. Divide between dinner and next-day lunch, cooling the rice quickly.',kcal:2100,protein:128,carbs:350,fat:55,fibre:32}
 ];
 const units=['g','kg','ml','l','pcs','tbsp','tsp'];
+
+/*
+ * The Indian food catalogue remains read-only. Importing a food explicitly
+ * adds an editable personal copy without replacing saved recipes or logs.
+ */
+const ingredientLabels={
+ atta:'whole-wheat flour (atta)',riceCooked:'cooked rice',brownRiceCooked:'cooked brown rice',
+ toorDalCooked:'cooked toor dal',moongDalCooked:'cooked moong dal',masoorDalCooked:'cooked masoor dal',
+ chanaDalCooked:'cooked chana dal',chanaCooked:'cooked chickpeas',blackChanaCooked:'cooked black chickpeas',
+ rajmaCooked:'cooked kidney beans',uradDalCooked:'cooked urad dal',wholeMoongCooked:'cooked whole moong',
+ cowpeasCooked:'cooked cowpeas',greenMoongSprouted:'sprouted green moong',
+ soyChunksHydrated:'rehydrated soya chunks',chickenCooked:'cooked chicken',fishCooked:'cooked fish',
+ prawnsCooked:'cooked prawns',potatoCooked:'cooked potato',sweetPotatoCooked:'cooked sweet potato',
+ riceFlour:'rice flour',gramFlour:'gram flour (besan)',jowarFlour:'jowar flour',
+ bajraFlour:'bajra flour',ragiFlour:'ragi flour',coconutWater:'coconut water',
+ idliBatter:'idli batter',dosaBatter:'dosa batter',eggWhite:'egg white',
+ wheatBread:'whole-wheat bread',roastedGram:'roasted gram',puffedRice:'puffed rice',
+ sweetCorn:'sweetcorn',bottleGourd:'bottle gourd',rawMango:'unripe mango',
+ spices:'mixed spices',oil:'cooking oil'
+};
+const ingredientDisplay=name=>ingredientLabels[name]||String(name)
+ .replace(/([a-z])([A-Z])/g,'$1 $2').toLowerCase();
+export function catalogueRecipeFromFood(food) {
+ if(!food||!food.id||!Array.isArray(food.ingredients)||!Number.isFinite(food.yieldGrams)||food.yieldGrams<=0)throw new Error('Invalid catalogue food.');
+ const servingGrams=Math.min(1250,Math.max(1,Number(food.defaultGrams)||150));
+ const batchGrams=servingGrams*4,scale=batchGrams/food.yieldGrams;
+ const ingredients=food.ingredients.filter(item=>item.name!=='water').map(item=>({
+  name:ingredientDisplay(item.name),unit:'g',amount:Math.round(item.grams*scale*10)/10
+ }));
+ if(!ingredients.length||ingredients.some(item=>!Number.isFinite(item.amount)||item.amount<=0))throw new Error('Invalid catalogue ingredients.');
+ const values=nutrientsForGrams(food,batchGrams);
+ const base=food.category==='Rice'?'Rice':food.category==='Breads'?'Chapati':'Other';
+ return {
+  id:'catalogue-'+food.id,name:food.name,base,mins:30,ingredients,
+  steps:'Planning estimate imported from the Indian food catalogue, not a verified cooking method. Follow your household recipe and edit the ingredients, cooking time and method before cooking. Check cooked versus dry weights, oil and finished yield.',
+  kcal:values.calories,protein:values.protein,carbs:values.carbs,fat:values.fat,fibre:values.fibre,
+  sourceFoodId:food.id,batchGrams
+ };
+}
+
 export function parseIngredients(input) {
  const lines=String(input||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
  if(!lines.length || lines.length>60) throw new Error('Add 1–60 ingredient lines.');
@@ -90,7 +132,7 @@ const estimate=(r,p,person)=>{
 };
 export function openMealPlanner({state,save,log,notify}) {
  const p=ensure(state);
- let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',message='';
+ let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',catalogueQuery='',message='';
  const overlay=document.createElement('div');overlay.className='mp-overlay';
  overlay.setAttribute('role','presentation');document.body.appendChild(overlay);
  const focusBefore=document.activeElement;
@@ -126,16 +168,32 @@ export function openMealPlanner({state,save,log,notify}) {
  function recipesView(){
   const visible=p.recipes.filter(r=>(showAvoided||!avoidedIngredients(r,p.exclusions).length)&&r.name.toLowerCase().includes(query.toLowerCase()));
   return '<div class="mp-between"><div><h2>Recipe book</h2><p class="mp-muted">'+p.recipes.length+' saved recipes. Edit ingredients and step-by-step cooking methods.</p></div>'+button('new','+ Add recipe')+'</div>'+
+  '<div class="mp-actions">'+button('open-catalogue','Browse '+FOOD_ITEMS.length+' Indian foods')+'</div>'+ 
   '<label class="mp-field">Find a recipe <input type="search" id="mp-search" placeholder="Search chicken, paneer, dal…" value="'+e(query)+'"></label>'+
   '<label class="mp-check"><input type="checkbox" id="mp-show-avoided" '+(showAvoided?'checked':'')+'> Show recipes with avoided ingredients</label>'+
   (visible.length?visible.map(card).join(''):'<div class="mp-card">No matching recipes. Remove a filter or add your own.</div>');
+ }
+
+ function catalogueView(){
+  const q=catalogueQuery.trim().toLowerCase();
+  const matches=FOOD_ITEMS.filter(food=>(food.name+' '+food.aliases+' '+food.category).toLowerCase().includes(q));
+  return '<div class="mp-actions">'+button('tab','← My recipes','data-view="recipes"')+'</div>'+
+   '<h2>Indian food catalogue</h2><p class="mp-muted">'+FOOD_ITEMS.length+' locally available recipe estimates. Import individual foods for your weekly plan without overwriting existing recipes.</p>'+
+   '<label class="mp-field">Find an Indian dish<input type="search" id="mp-catalogue-search" value="'+e(catalogueQuery)+'" placeholder="Try dal, palak, roti, biryani…" autocomplete="off"></label>'+
+   '<p class="mp-muted">Showing '+Math.min(24,matches.length)+' of '+matches.length+' matches. Search to narrow results.</p>'+
+   '<div class="mp-catalogue-results">'+matches.slice(0,24).map(food=>{
+    const imported=p.recipes.some(r=>r.sourceFoodId===food.id);
+    return '<article class="mp-card mp-catalogue-row"><div><b>'+e(food.name)+'</b><p class="mp-muted">'+e(food.category)+' · ~'+Math.round(food.per100.calories)+' kcal/100 g · assumed '+food.defaultGrams+' g per serving</p></div>'+
+     button('import-catalogue',imported?'Already imported':'Add to recipe book','data-id="'+e(food.id)+'" '+(imported?'disabled':''))+'</article>';
+   }).join('')+'</div>'+
+   '<p class="mp-note">Imported dishes are editable estimates for four cooked-weight portions. Ingredient amounts may represent cooked foods rather than raw shopping quantities. Edit method, time and nutrition before cooking or logging.</p>';
  }
  function detailView(r){
   if(!r)return '<div class="mp-card">Recipe not found.</div>';
   return '<div class="mp-actions">'+button('back','← Back')+button('edit','Edit recipe','data-id="'+e(r.id)+'"')+'</div>'+
   '<h2>'+e(r.name)+'</h2><p class="mp-muted">'+e(r.base)+' · '+r.mins+' min · Makes four servings (dinner for two, lunch for two)</p>'+
   (avoidedIngredients(r,p.exclusions).length?'<p class="mp-alert">Avoided ingredients: '+e(avoidedIngredients(r,p.exclusions).join(', '))+'</p>':'')+
-  '<div class="mp-card"><h3>Ingredients for four servings</h3><ul>'+r.ingredients.map(i=>'<li>'+amountText(i.amount)+' '+e(i.unit)+' '+e(i.name)+'</li>').join('')+'</ul>'+
+  '<div class="mp-card">'+(r.sourceFoodId?'<p class="mp-alert">Imported estimate. Verify dry/cooked ingredient weights, recipe method and oil quantities.</p>':'')+'<h3>Ingredients for four servings</h3><ul>'+r.ingredients.map(i=>'<li>'+amountText(i.amount)+' '+e(i.unit)+' '+e(i.name)+'</li>').join('')+'</ul>'+
   '<h3>Method</h3><p class="mp-method">'+e(r.steps||'No cooking method recorded yet.')+'</p>'+
   '<p class="mp-muted">Illustrative batch estimate: '+(completeNutrition(r)?Math.round(r.kcal)+' kcal, '+Number(r.protein)+' g protein, '+Number(r.carbs)+' g carbs, '+Number(r.fat)+' g fat, '+Number(r.fibre)+' g fibre':'Incomplete / not entered')+'. Check brands, oil and actual cooking yields.</p></div>';
  }
@@ -152,12 +210,12 @@ export function openMealPlanner({state,save,log,notify}) {
   '<div class="mp-two"><label class="mp-field">Estimated kcal per full batch (optional)<input name="kcal" type="number" min="0" max="25000" step="1" value="'+e(item.kcal)+'"></label>'+
   '<label class="mp-field">Estimated protein per full batch, g (optional)<input name="protein" type="number" min="0" max="1500" step="0.1" value="'+e(item.protein)+'"></label></div>'+
   '<div class="mp-three"><label class="mp-field">Batch carbs (g)<input name="carbs" type="number" min="0" max="5000" step="0.1" value="'+e(item.carbs??'')+'"></label><label class="mp-field">Batch fat (g)<input name="fat" type="number" min="0" max="3000" step="0.1" value="'+e(item.fat??'')+'"></label><label class="mp-field">Batch fibre (g)<input name="fibre" type="number" min="0" max="1000" step="0.1" value="'+e(item.fibre??'')+'"></label></div>'+ '<p class="mp-muted">All nutrition figures are optional, manually estimated totals for the entire four-serving batch. Fill all five fields to enable diary logging.</p>'+
-  '<button class="mp-button mp-primary" type="submit">Save recipe</button></form>';
+  '<div class="mp-actions"><button class="mp-button" type="button" data-mp="estimate-macros">Estimate macros from ingredients</button><button class="mp-button mp-primary" type="submit">Save recipe</button></div><p class="mp-muted">Only recognised ingredients and supported units can be estimated. The figures are approximate and do not save until you review and tap Save recipe.</p></form>';
  }
  function groceriesView(){
   const items=groceryItems(p,week),skip=p.stock[week]||[];
   return '<div class="mp-between"><div><h2>Grocery list</h2><p class="mp-muted">'+shortDate(week)+'–'+shortDate(addDays(week,6))+' · All planned dinner ingredients summed</p></div>'+button('copy-groceries','Copy list')+'</div>'+
-  '<p class="mp-note">Tick ingredients you already have, such as rice, lentils and frozen vegetables. The copied list excludes ticked items.</p>'+
+  '<p class="mp-note">Tick ingredients you already have. The copied list excludes ticked items. Imported Indian dishes can list cooked ingredient weights, so adjust dry shopping quantities before buying.</p>'+
   (items.length?items.map(item=>'<label class="mp-grocery"><input type="checkbox" data-mp-stock="'+e(stockKey(item))+'" '+(skip.includes(stockKey(item))?'checked':'')+'><span>'+e(item.name)+'</span><b>'+amountText(item.amount)+' '+e(item.unit)+'</b></label>').join(''):'<div class="mp-card">Plan some dinners to generate your groceries.</div>')+
   '<p class="mp-muted">'+items.filter(i=>!skip.includes(stockKey(i))).length+' items still to buy. Shop twice weekly if your fridge is small.</p>';
  }
@@ -177,7 +235,7 @@ export function openMealPlanner({state,save,log,notify}) {
    '<header class="mp-header"><div><strong>Recipes & weekly plan</strong><small>Recomp · Dinner today, lunch tomorrow</small></div>'+button('close','Close ×')+'</header>'+
    '<nav class="mp-tabs" aria-label="Meal planner sections">'+[['week','Week'],['recipes','Recipes'],['groceries','Groceries'],['settings','Preferences']].map(([key,label])=>button('tab',label,'data-view="'+key+'" class="mp-button '+(view===key?'mp-active':'')+'"')).join('')+'</nav>'+
    '<div class="mp-body">'+(message?'<p role="status" class="mp-message">'+e(message)+'</p>':'')+
-   (view==='week'?weekView():view==='recipes'?recipesView():view==='groceries'?groceriesView():view==='settings'?settingsView():view==='detail'?detailView(recipeById(p,editing)):editorView())+
+   (view==='week'?weekView():view==='recipes'?recipesView():view==='catalogue'?catalogueView():view==='groceries'?groceriesView():view==='settings'?settingsView():view==='detail'?detailView(recipeById(p,editing)):editorView())+
    '</div></section>';
   overlay.querySelector('.mp-body').scrollTop=scroll;
  }
@@ -189,6 +247,34 @@ export function openMealPlanner({state,save,log,notify}) {
   if(kind==='previous'||kind==='next'){week=addDays(week,kind==='next'?7:-7);message='';render();return;}
   if(kind==='back'){view=view==='detail'?'week':'recipes';editing=null;message='';render();return;}
   if(kind==='new'){view='editor';editing=null;message='';render();return;}
+  if(kind==='estimate-macros'){
+   const form=overlay.querySelector('#mp-form');
+   if(!form)return;
+   const old=overlay.querySelector('#mp-estimate-feedback');old?.remove();
+   const note=document.createElement('p');note.id='mp-estimate-feedback';note.className='mp-message';note.setAttribute('role','status');
+   form.prepend(note);
+   try{
+    const ingredientLines=new FormData(form).get('ingredients');
+    const outcome=estimateBatchNutrition(parseIngredients(ingredientLines));
+    if(!outcome.complete){note.textContent='Cannot estimate all ingredients: '+outcome.missing.slice(0,8).join(', ')+'. Enter their macros manually or use recognised names and weights.';return;}
+    for(const [k,val] of Object.entries(outcome.totals)){
+     const input=form.querySelector('[name="'+k+'"]');if(input)input.value=String(val);
+    }
+    note.textContent='Estimated all '+outcome.ingredientCount+' ingredients. Please review labels, cooked weights and oil. Nothing saved yet.';
+   }catch(err){note.textContent=err.message||'Check ingredient lines first.';}
+   return;
+  }
+  if(kind==='open-catalogue'){view='catalogue';catalogueQuery='';message='';render();return;}
+  if(kind==='import-catalogue'){
+   const food=FOOD_ITEMS.find(item=>item.id===element.dataset.id);
+   if(!food)throw new Error('Food not found in local catalogue.');
+   if(p.recipes.some(r=>r.sourceFoodId===food.id)){message='Already in your recipe book.';render();return;}
+   const recipe=catalogueRecipeFromFood(food);
+   if(p.recipes.some(r=>r.id===recipe.id))recipe.id=id();
+   p.recipes.push(recipe);
+   view='recipes';query=recipe.name;await persist('Imported an editable recipe estimate. Review before cooking.');
+   return;
+  }
   if(kind==='edit'){view='editor';editing=element.dataset.id;message='';render();return;}
   if(kind==='details'){view='detail';editing=element.dataset.id;message='';render();return;}
   if(kind==='remove'){
@@ -246,6 +332,7 @@ export function openMealPlanner({state,save,log,notify}) {
  });
  overlay.addEventListener('input',event=>{
   if(event.target.id==='mp-search'){query=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-search');input?.focus();input?.setSelectionRange(pos,pos);}
+  if(event.target.id==='mp-catalogue-search'){catalogueQuery=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-catalogue-search');input?.focus();input?.setSelectionRange(pos,pos);}
  });
  overlay.addEventListener('submit',async event=>{
   if(!['mp-form','mp-preferences'].includes(event.target.id))return;

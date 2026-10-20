@@ -1,0 +1,46 @@
+/* First visit only: optional guest / Google choice, never shown over existing records. */
+.first-run-overlay{
+ position:fixed;inset:0;z-index:250;
+ display:flex;align-items:center;justify-content:center;
+ padding:24px max(16px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom));
+ background:rgba(4,7,12,.80);
+ -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+ overflow-y:auto;box-sizing:border-box;
+}
+.first-run-card{
+ width:min(100%,420px);padding:30px 28px;
+ border-radius:30px;border:1px solid rgba(255,255,255,.18);
+ background:linear-gradient(150deg,#24232f,#14161e 62%,#101118);
+ color:#f9f8ff;box-shadow:0 25px 90px rgba(0,0,0,.55);
+ text-align:center;box-sizing:border-box;
+}
+.first-run-mark{font-size:22px;font-weight:850;letter-spacing:-.08em;text-align:left}
+.first-run-mark span{color:#b2f2d8}
+.first-run-icon{display:grid;place-items:center;margin:20px auto 14px;
+ width:76px;height:76px;border-radius:26px;color:#241539;
+ background:linear-gradient(145deg,#d6c0ff,#a78ce8);font-size:40px;
+ box-shadow:0 9px 28px rgba(158,114,240,.25)}
+.first-run-eyebrow{font-size:11px;letter-spacing:.18em;font-weight:850;color:#c5b5ec}
+.first-run-card h1{margin:12px 0;font-size:clamp(29px,8vw,38px);line-height:1.1;color:#fff}
+.first-run-card p{font-size:14px;line-height:1.55;color:#c5c3d0}
+.first-run-actions{display:grid;gap:12px;margin-top:27px}
+.first-run-actions button{
+ display:flex;align-items:center;justify-content:center;gap:12px;
+ min-height:55px;padding:13px 18px;border:0;border-radius:999px;
+ font:inherit;font-size:14px;font-weight:760;cursor:pointer;
+ transition:transform .16s ease,box-shadow .16s ease;
+}
+.first-run-actions button:active{transform:scale(.985)}
+.first-run-google{background:#f8f8f8;color:#17171b;box-shadow:0 5px 18px rgba(0,0,0,.18)}
+.first-run-google-letter{font-size:22px;font-weight:850;color:#4285f4}
+.first-run-guest{background:linear-gradient(145deg,#bea5fc,#a58ae9);color:#190e2a}
+.first-run-actions button:focus-visible{outline:3px solid #b6ffe4;outline-offset:3px}
+.first-run-google:disabled{opacity:.48;cursor:not-allowed;box-shadow:none}
+.first-run-card .first-run-google-note{font-size:12px;color:#d3c3f7;margin:12px 0 0}
+.first-run-card .first-run-error{
+ margin:16px 0 0;border-radius:12px;padding:12px;text-align:left;
+ color:#ffe5af;background:#4c392e;font-size:12px
+}
+.first-run-card .first-run-privacy{margin:18px 0 0;font-size:12px;color:#a9a6bb}
+@media(max-width:420px){.first-run-card{padding:25px 19px;border-radius:25px}}
+@media(prefers-reduced-motion:reduce){.first-run-actions button{transition:none}}

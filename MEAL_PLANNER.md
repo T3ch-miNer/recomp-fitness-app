@@ -41,3 +41,18 @@ Under **Week**, assign a recipe to each dinner. The next day's lunch is shown au
 Run: node --test meal-planner.test.mjs
 
 The planner intentionally has no external recipe service dependency and can be used without internet access.
+
+
+## Indian catalogue integration (v2.5 preview)
+
+- The **Nutrition → Recipes & weekly plan → Recipes → Browse Indian foods** control searches all **290** offline Indian food estimates.
+- Select **Add to recipe book** to import one recipe into your editable personal recipe book. The original seven starter recipes and your existing custom recipes are preserved.
+- Imported foods carry estimated nutrients for **four portions**, using the food catalogue's default cooked serving weight. The household percentage split still applies to both dinner and next-day lunch.
+- Imported ingredients are scaled from the catalogue's illustrative ingredient proportions. Some ingredients were originally measured **after cooking** (for example, cooked rice, chickpeas and chicken), so these weights must not be mistaken for raw shopping weights.
+- Imported entries have placeholder preparation instructions and a default 30-minute planning time. **Edit the method, raw/dry ingredients, quantities and time before cooking or relying on a grocery list.** They are not validated, ready-to-cook recipes.
+- Import is opt-in: the whole catalogue is **not** added to your IndexedDB state. Edits to imported recipes do not rewrite the source food catalogue or earlier diary records. Editing the ingredients does not recalculate macros, so adjust estimated nutrition manually if you change quantities.
+- The existing **German supermarket barcode scanning** and offline photo-recognition pathways are retained. Product coverage still depends on community-provided Open Food Facts data.
+
+## Automated regression checks
+
+Run `node --test meal-planner.test.mjs tests/*.test.mjs` with Node 22. This checks starter planner behaviour, new recipe imports and macro scaling, German barcode mapping, existing food IDs and IndexedDB schema. Android hardware camera and first-load model tests remain necessary.
