@@ -76,3 +76,19 @@ body.nf-open{overflow:hidden}
 .nf-vision-result small{font-size:11px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
 .nf-vision-result .nf-outlined{flex:none;min-height:40px;font-size:12px}
 @media(max-width:380px){.nf-vision-result{align-items:stretch;flex-wrap:wrap}.nf-vision-result .nf-outlined{flex:1 1 100%}}
+
+/* Recomp v2.7 — visually separated, editable whole-dish AI nutrition estimate. */
+.nf-ai-dish{display:grid;gap:14px;border:1px solid color-mix(in srgb,var(--accent) 47%,var(--line));background:var(--panel);border-radius:16px;padding:15px;min-width:0}
+.nf-dish-top h3{color:var(--text);font-size:19px;letter-spacing:-.025em;margin:5px 0 4px}
+.nf-dish-top small{color:var(--muted);font-size:11px;line-height:1.45}
+.nf-ai-dish .nf-field{min-width:0}
+.nf-ai-dish .nf-field span{color:var(--muted);font-size:11px;font-weight:650}
+.nf-ai-dish input{min-width:0;width:100%;max-width:100%;font-size:16px}
+.nf-dish-kcal{padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;display:grid;gap:6px}
+.nf-dish-kcal>span,.nf-dish-kcal>small{font-size:11px;color:var(--muted);line-height:1.4}
+.nf-dish-kcal>strong{font-size:29px;color:var(--text);letter-spacing:-.05em}
+.nf-dish-kcal>strong small{font-size:14px;font-weight:500}
+.nf-dish-macros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nf-dish-macros .nf-field:first-child{grid-column:1/-1}
+.nf-dish-assumptions{color:var(--muted);background:var(--panel2);padding:12px;border-radius:12px;font-size:12px;line-height:1.5;margin:0}
+.nf-dish-assumptions b{color:var(--text)}
