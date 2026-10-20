@@ -10,7 +10,7 @@ let sessionAccessToken='';
 export function getPhotoAiSavedAccessToken(){
  try{
   const value=String(localStorage.getItem(PRIVATE_DEVICE_KEY)||'');
-  return value.length>=12&&value.length<=256&&!/^(?:sk[-_]|hf_)/i.test(value)?value:'';
+  return value.length>0&&value.length<=256&&!/^(?:sk[-_]|hf_)/i.test(value)?value:'';
  }catch{return '';}
 }
 export function getPhotoAiSessionToken(){return sessionAccessToken||getPhotoAiSavedAccessToken();}
@@ -28,7 +28,10 @@ export function forgetPhotoAiDeviceToken(){
 
 export function rememberPhotoAiSessionToken(value){
  const token=String(value||'');
- if(token && (token.length<12||token.length>256||/^(?:sk[-_]|hf_)/i.test(token)))throw Error('Use a private Worker access token, not a provider API key.');
+ // Cloudflare checks exact equality and does NOT impose a 12-character minimum.
+ // Rejecting shorter valid codes here falsely reported authentication failure.
+ if(token && (token.length>256||/^(?:sk[-_]|hf_)/i.test(token)))
+  throw Error('Use the separate Worker access code (up to 256 characters), not a provider API key.');
  sessionAccessToken=token;
  return Boolean(token);
 }
@@ -104,8 +107,12 @@ export function explainPhotoAiFailure(error){
  const raw=String(error?.message||'The image scan failed.').slice(0,230);
  const lower=raw.toLowerCase();
  if(error?.name==='AbortError')return {issue:'cancelled',message:'Recognition cancelled. No meal was saved.'};
- if(/incorrect private scanner access token|private scan access token|worker access token/.test(lower))
-  return {issue:'access',message:'Your private Worker access code was not accepted. Choose Change scanner access code and enter it again.'};
+ if(error?.httpStatus===401||/incorrect private scanner access token/.test(lower))
+  return {issue:'access',message:'The Cloudflare Worker returned HTTP 401. Check that Recomp is using the same Worker URL as the /test page and that its SCAN_ACCESS_TOKEN secret still matches. You can also use Change scanner access code. Do not share the code.'};
+ if(/enter the private scan access token|enter a private worker access token/.test(lower))
+  return {issue:'access',message:'No Worker access code has been entered, so the request was not sent to Cloudflare.'};
+ if(/use the separate worker access code|do not paste a hugging face/.test(lower))
+  return {issue:'access',message:'Enter your separate Worker access code, not the Hugging Face API token. This check was performed locally.'};
  if(/secure scanner unavailable|failed to fetch|networkerror|load failed|internet|connection/.test(lower))
   return {issue:'connection',message:'Could not contact the photo scanner. Check your connection and Worker URL, then retry.'};
  if(/image|jpeg|decode|bitmap|oversized photo/.test(lower)&&!/model|hugging face/.test(lower))
@@ -116,9 +123,32 @@ export function explainPhotoAiFailure(error){
   return {issue:'configuration',message:raw+' The Cloudflare Worker configuration or deployment needs checking.'};
  return {issue:'provider',message:raw};
 }
+/** Auth-only model check. Does not upload a photo or consume image inference credits. */
+export async function checkPhotoAiConnection({endpoint,accessToken,signal,fetchImpl=fetch}){
+ const safeEndpoint=savePhotoAiEndpoint(endpoint);
+ if(typeof accessToken!=='string'||!accessToken||accessToken.length>256)
+  throw Error('Enter the private scan access token from your Worker.');
+ if(/^(?:sk[-_]|hf_)/i.test(accessToken))
+  throw Error('Do not paste a Hugging Face or OpenAI API token into Recomp. Use a separate Worker access token.');
+ const modelURL=new URL('/models',safeEndpoint).toString();
+ let response;
+ try{response=await fetchImpl(modelURL,{
+  method:'GET',headers:{'Authorization':'Bearer '+accessToken},
+  cache:'no-store',credentials:'omit',signal
+ });}
+ catch(error){if(error?.name==='AbortError')throw error;throw Error('Secure scanner unavailable. Check the Worker URL and internet connection.');}
+ let data;
+ try{data=await response.json();}catch{throw Error('The scanner returned an unreadable response.');}
+ if(!response.ok){
+  const error=new Error(String(data?.error||'Scanner connection check failed ('+response.status+').').slice(0,200));
+  error.httpStatus=response.status;
+  throw error;
+ }
+ return {model:String(data?.selected||'Hugging Face vision').slice(0,100)};
+}
 export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
- if(!accessToken||typeof accessToken!=='string'||accessToken.length<12||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');
+ if(!accessToken||typeof accessToken!=='string'||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');
  if(/^(?:sk[-_]|hf_)/i.test(accessToken))throw Error('Do not paste a Hugging Face or OpenAI API token into Recomp. Use a separate Worker access token.');
  if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(String(imageDataUrl))||imageDataUrl.length>2_800_000)throw Error('Invalid or oversized photo. Try a smaller image.');
  let response;
@@ -126,6 +156,10 @@ export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,sig
  catch(error){if(error?.name==='AbortError')throw error;throw Error('Secure scanner unavailable. Check the Worker URL and internet connection.');}
  let data;
  try{data=await response.json();}catch{throw Error('The scanner returned an unreadable response.');}
- if(!response.ok)throw Error(String(data?.error||'AI scan failed ('+response.status+').').slice(0,200));
+ if(!response.ok){
+  const error=new Error(String(data?.error||'AI scan failed ('+response.status+').').slice(0,200));
+  error.httpStatus=response.status;
+  throw error;
+ }
  return normalisePhotoMeal(data);
 }
