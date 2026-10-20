@@ -97,13 +97,13 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  ${!aiMeal||photoSeparateMode?`<div class="nf-catalogue-mode">
  <p class="nf-muted-note">${aiMeal?'Alternative logging method: selecting individual ingredients will replace the whole-dish estimate, not add to it.':''}</p>
 ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
- ${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
  ${photoFoods.length?photoFoods.map((item,i)=>{const food=findFood(item.id);return `<div class="nf-meal-line"><div><b>${esc(food?.name||'Food')}</b><small>Cooked weight</small></div><div class="nf-inline-quantity"><input data-nf-grams="${i}" type="number" min="1" max="5000" inputmode="decimal" step="1" value="${esc(item.grams)}" aria-label="Grams of ${esc(food?.name||'food')}"><span>g</span></div><button class="nf-remove" data-nf="remove-photo" data-index="${i}" aria-label="Remove ${esc(food?.name||'food')}">×</button></div>`;}).join(''):'<p class="nf-empty nf-help-compact">No foods selected yet. Add the foods you can see in the photo.</p>'}
  ${photoSearchVisible?`<div class="nf-photo-search"><label class="nf-field"><span>Find a food</span><input id="nf-photo-search" type="search" value="${esc(photoQuery)}" placeholder="Roti, rice, curry…" autocomplete="off"></label><div class="nf-food-results nf-small-results" id="nf-photo-results">${results(photoQuery,7)}</div></div>`:''}
 
  <div id="nf-photo-total">${photoTotals()}</div>
  </div>`:''}
+ ${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}
  ${mealDateFields()}
  <p class="nf-muted-note nf-final-note">${aiMeal&&!photoSeparateMode?'The whole-dish estimate is for the entire meal; confirm the name and macro values before saving. It is not measured from the photo.':'Nutrition for catalogue entries is estimated from the foods and grams you confirm.'}</p>`;}
  function photo(){return photoStep==='choose'?photoChoose():photoReview();}
@@ -341,6 +341,12 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
      if(key==='calories'){
       const total=host.querySelector('#nf-ai-calories-total');
       if(total)total.textContent=el.value+' kcal';
+      const range=host.querySelector('#nf-ai-calorie-range');
+      if(range){
+       const isInRange=Number.isFinite(aiMeal.calories)&&aiMeal.calories>=aiMeal.calorieLow&&aiMeal.calories<=aiMeal.calorieHigh;
+       range.textContent=isInRange?'Approx. range: '+aiMeal.calorieLow+'–'+aiMeal.calorieHigh+' kcal':
+        'Calories manually adjusted · original AI uncertainty range no longer applies';
+      }
      }
     }
     return;
