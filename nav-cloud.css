@@ -1,0 +1,73 @@
+/* Recomp v2.5.2: actual connected, cloud-shaped four-bubble navigation.
+   The organic SVG contour is part of the dock: it is not a recoloured capsule.
+   All existing tabs, handlers and accessibility labels remain unchanged. */
+@media(max-width:760px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{
+  position:fixed!important;left:50%!important;right:auto!important;
+  bottom:calc(7px + env(safe-area-inset-bottom))!important;
+  width:min(calc(100vw - 22px),392px)!important;
+  height:98px!important;min-height:98px!important;max-height:98px!important;
+  transform:translate3d(-50%,0,0)!important;
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  align-items:center!important;justify-items:center!important;
+  padding:6px 8px 9px!important;margin:0!important;gap:0!important;
+  border:0!important;border-radius:0!important;box-sizing:border-box!important;
+  overflow:visible!important;background:transparent!important;
+  box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  contain:none!important;isolation:isolate;z-index:35!important;
+ }
+ #recomp-bottom-dock[hidden]{display:none!important}
+ #recomp-bottom-dock .dock-selection{display:none!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock::before,
+ #recomp-bottom-dock.bottom-nav.premium-dock::after{content:none!important;display:none!important}
+ #recomp-bottom-dock .dock-cloud-surface{
+  display:block;position:absolute;z-index:0;inset:0;width:100%;height:100%;
+  overflow:visible;pointer-events:none;
+  filter:drop-shadow(0 11px 16px rgba(0,0,0,.45));
+ }
+ #recomp-bottom-dock .dock-cloud-surface path{
+  fill:#faf9fd;stroke:rgba(255,255,255,.95);stroke-width:1.5;
+  vector-effect:non-scaling-stroke;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{
+  position:relative!important;z-index:1!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  width:clamp(52px,17vw,68px)!important;min-width:0!important;
+  max-width:68px!important;height:clamp(52px,17vw,68px)!important;
+  min-height:0!important;max-height:68px!important;
+  padding:0!important;margin:0 auto!important;box-sizing:border-box!important;
+  border-radius:50%!important;border:1px solid rgba(26,24,35,.035)!important;
+  background:linear-gradient(145deg,#f2f2f4,#e7e8eb)!important;
+  color:#53535d!important;box-shadow:inset 0 1px 1px rgba(255,255,255,.8)!important;
+  transition:background-color 180ms ease,color 180ms ease,transform 180ms ease!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active{
+  color:#241735!important;background:linear-gradient(145deg,#cdb7ff,#ab8ce9)!important;
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.64),0 5px 12px rgba(118,74,207,.21)!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon,
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active .icon{
+  display:block!important;width:25px!important;height:25px!important;flex:0 0 25px!important;
+  color:inherit!important;filter:none!important;transform:none!important;stroke-width:2.1!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn span{
+  position:absolute!important;width:1px!important;height:1px!important;
+  padding:0!important;margin:-1px!important;overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:focus-visible{
+  outline:3px solid #6e51ce!important;outline-offset:3px!important;
+ }
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:active{transform:scale(.96)!important}
+ .main{padding-bottom:calc(165px + env(safe-area-inset-bottom))!important}
+ .floating-workout{bottom:calc(116px + env(safe-area-inset-bottom))!important}
+ .quick-fab,.food-fab-cluster{bottom:calc(122px + env(safe-area-inset-bottom))!important}
+ .quick-fab.above-workout,.food-fab-cluster.above-workout{bottom:calc(215px + env(safe-area-inset-bottom))!important}
+ .water-cheers,.recomp-update-notice{bottom:calc(119px + env(safe-area-inset-bottom))!important}
+}
+@media(max-width:350px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{height:89px!important;min-height:89px!important;max-height:89px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{transition:none!important}
+}
