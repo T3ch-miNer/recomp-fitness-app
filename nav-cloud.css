@@ -1,6 +1,6 @@
-/* Recomp v2.5.2: actual connected, cloud-shaped four-bubble navigation.
-   The organic SVG contour is part of the dock: it is not a recoloured capsule.
-   All existing tabs, handlers and accessibility labels remain unchanged. */
+/* Recomp v2.5.3: only the navigation silhouette changes.
+   Restore Recomp's original premium glass, mint-green accent, visible labels
+   and the same four navigation actions. This overrides nav-capsule.css. */
 @media(max-width:760px){
  #recomp-bottom-dock.bottom-nav.premium-dock{
   position:fixed!important;left:50%!important;right:auto!important;
@@ -10,7 +10,7 @@
   transform:translate3d(-50%,0,0)!important;
   display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
   align-items:center!important;justify-items:center!important;
-  padding:6px 8px 9px!important;margin:0!important;gap:0!important;
+  padding:13px 8px 8px!important;margin:0!important;gap:0!important;
   border:0!important;border-radius:0!important;box-sizing:border-box!important;
   overflow:visible!important;background:transparent!important;
   box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
@@ -23,40 +23,52 @@
  #recomp-bottom-dock .dock-cloud-surface{
   display:block;position:absolute;z-index:0;inset:0;width:100%;height:100%;
   overflow:visible;pointer-events:none;
-  filter:drop-shadow(0 11px 16px rgba(0,0,0,.45));
+  filter:drop-shadow(0 15px 18px rgba(0,0,0,.33));
  }
  #recomp-bottom-dock .dock-cloud-surface path{
-  fill:#faf9fd;stroke:rgba(255,255,255,.95);stroke-width:1.5;
-  vector-effect:non-scaling-stroke;
+  fill:var(--nav-float);stroke:var(--nav-float-border);
+  stroke-width:1.75;vector-effect:non-scaling-stroke;
  }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{
   position:relative!important;z-index:1!important;
-  display:flex!important;align-items:center!important;justify-content:center!important;
-  width:clamp(52px,17vw,68px)!important;min-width:0!important;
-  max-width:68px!important;height:clamp(52px,17vw,68px)!important;
-  min-height:0!important;max-height:68px!important;
-  padding:0!important;margin:0 auto!important;box-sizing:border-box!important;
-  border-radius:50%!important;border:1px solid rgba(26,24,35,.035)!important;
-  background:linear-gradient(145deg,#f2f2f4,#e7e8eb)!important;
-  color:#53535d!important;box-shadow:inset 0 1px 1px rgba(255,255,255,.8)!important;
-  transition:background-color 180ms ease,color 180ms ease,transform 180ms ease!important;
+  display:flex!important;flex-direction:column!important;
+  align-items:center!important;justify-content:center!important;
+  gap:3px!important;
+  width:clamp(60px,20vw,79px)!important;min-width:0!important;max-width:79px!important;
+  height:67px!important;min-height:67px!important;max-height:67px!important;
+  margin:0 auto!important;padding:5px 4px!important;
+  box-sizing:border-box!important;border-radius:21px!important;
+  border:1px solid transparent!important;
+  background:transparent!important;color:var(--muted)!important;
+  box-shadow:none!important;
+  font-size:10.5px!important;font-weight:650!important;letter-spacing:.01em!important;
+  transition:background .24s ease,color .24s ease,transform .2s ease!important;
  }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active{
-  color:#241735!important;background:linear-gradient(145deg,#cdb7ff,#ab8ce9)!important;
-  box-shadow:inset 0 2px 2px rgba(255,255,255,.64),0 5px 12px rgba(118,74,207,.21)!important;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent) 8%,transparent))!important;
+  border-color:color-mix(in srgb,var(--accent) 35%,transparent)!important;
+  color:var(--text)!important;
+  box-shadow:0 8px 22px -9px var(--accent-glow)!important;
  }
- #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon,
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon{
+  display:block!important;width:23px!important;height:23px!important;
+  flex:0 0 23px!important;color:var(--muted)!important;
+  filter:none!important;stroke-width:2!important;
+  transform:none!important;transition:color .22s ease,transform .3s ease!important;
+ }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn.active .icon{
-  display:block!important;width:25px!important;height:25px!important;flex:0 0 25px!important;
-  color:inherit!important;filter:none!important;transform:none!important;stroke-width:2.1!important;
+  color:var(--accent)!important;
+  filter:drop-shadow(0 0 8px var(--accent-glow))!important;
+  transform:translateY(-1px)!important;
  }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn span{
-  position:absolute!important;width:1px!important;height:1px!important;
-  padding:0!important;margin:-1px!important;overflow:hidden!important;
-  clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;
+  display:block!important;position:static!important;clip:auto!important;
+  width:auto!important;height:auto!important;margin:0!important;padding:0!important;
+  border:0!important;overflow:visible!important;white-space:nowrap!important;
+  font-size:10.5px!important;line-height:1.2!important;color:inherit!important;
  }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:focus-visible{
-  outline:3px solid #6e51ce!important;outline-offset:3px!important;
+  outline:3px solid var(--accent)!important;outline-offset:2px!important;
  }
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn:active{transform:scale(.96)!important}
  .main{padding-bottom:calc(165px + env(safe-area-inset-bottom))!important}
@@ -66,8 +78,10 @@
  .water-cheers,.recomp-update-notice{bottom:calc(119px + env(safe-area-inset-bottom))!important}
 }
 @media(max-width:350px){
- #recomp-bottom-dock.bottom-nav.premium-dock{height:89px!important;min-height:89px!important;max-height:89px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock{height:90px!important;min-height:90px!important;max-height:90px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{height:62px!important;min-height:62px!important;max-height:62px!important}
 }
 @media(prefers-reduced-motion:reduce){
- #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{transition:none!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn,
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn .icon{transition:none!important}
 }

@@ -41,7 +41,7 @@ test('existing IndexedDB records are not changed by welcome',()=>{
 test('offline cache includes onboarding module and stylesheet',()=>{
  assert.ok(serviceWorker.includes("'./first-run.js'"));
  assert.ok(serviceWorker.includes("'./first-run.css'"));
- assert.ok(index.includes('./first-run.css?v=2.5.1-guest-first'));
+ assert.ok(index.includes('./first-run.css?v=2.5.3-dev-auth'));
 });
 
 test('successful Clerk modal launch removes the guest welcome, blocked setup does not',async()=>{

@@ -5,7 +5,7 @@ export function shouldOfferFirstRun({hasSavedState=false,hasChoice=false,hasSess
  return !hasSavedState && !hasChoice && !hasSession && !hasOAuthCallback;
 }
 
-export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true}){
+export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true,developmentMode=false}){
  if(document.getElementById('recomp-first-run'))return;
  if(typeof onGuest!=='function'||typeof onGoogle!=='function')throw new Error('First-run actions are required.');
  const overlay=document.createElement('div');
@@ -16,6 +16,7 @@ export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true}){
   <div class="first-run-eyebrow">YOUR FITNESS. YOUR RULES.</div>
   <h1 id="first-run-title">Start strong.</h1>
   <p id="first-run-description">Track workouts, nutrition and progress without an account. Optional Google sign-in uses Clerk when configured. Cloud backup is a separate feature.</p>
+  ${developmentMode?'<p class="first-run-dev-note" role="note"><b>Development mode · Google sign-in testing</b><span>This is a test account, not production login. Signing in will not back up your fitness data. You may continue as a guest.</span></p>':''}
   <div class="first-run-actions">
     <button class="first-run-google" type="button" data-first-run="google" ${googleEnabled?'':'disabled aria-disabled="true" title="Google sign-in is coming later"'}><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
     <button class="first-run-guest" type="button" data-first-run="guest">Continue without signing in <span aria-hidden="true">→</span></button>

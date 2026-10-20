@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/v2.5-integrated-recipe-planning-20261019
+      - feature/v2.5.3-original-cloud-style-dev-clerk-20261020
   pull_request:
     paths:
       - 'app.js'
