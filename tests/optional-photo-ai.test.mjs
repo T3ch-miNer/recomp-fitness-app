@@ -20,6 +20,12 @@ test('photo scan client accepts one trusted HTTPS endpoint and rejects API secre
  assert.throws(()=>client.savePhotoAiEndpoint('https://user:secret@unsafe.example.com/scan'),/HTTPS/);
  const stored={};
  globalThis.localStorage={getItem:k=>stored[k],setItem:(k,v)=>stored[k]=v};
+ assert.equal(client.getPhotoAiSessionToken(),'');
+ assert.throws(()=>client.rememberPhotoAiSessionToken('sk-prohibited'),/OpenAI API key/);
+ assert.equal(client.rememberPhotoAiSessionToken(accessToken),true);
+ assert.equal(client.getPhotoAiSessionToken(),accessToken);
+ assert.ok(!JSON.stringify(stored).includes(accessToken),'RAM-only scan token is not written to browser storage');
+ assert.equal(client.savePhotoAiEndpoint('https://my-worker.workers.dev'),'https://my-worker.workers.dev/scan');
  let requests=0;
  await assert.rejects(client.scanPhotoWithWorker({endpoint:'https://my-worker.workers.dev/scan',accessToken:'sk-secret-dont-ever-send',imageDataUrl:image,fetchImpl:()=>{requests++;}}),/Do not paste an OpenAI/);
  assert.equal(requests,0);
