@@ -9,6 +9,7 @@ export function renderGiantSetView(session){
  const roundDone=selected.items.filter(({exercise})=>Boolean(exercise.sets[round]?.done)).length;
  const completeRounds=Array.from({length:selected.rounds},(_,r)=>isRoundDone(selected,r)).filter(Boolean).length;
  const other=ungroupedExerciseIndices(session,groups);
+ const pendingOther=other.filter(index=>session.exercises[index].sets.some(set=>!set.done));
  const steps=selected.items.map(({exercise:e,index:i},ordinal)=>{
   const set=e.sets[round],done=Boolean(set?.done),active=i===cursor.index;
   const target=safe(e.targetLabel||((round+1)+' of '+e.sets.length+' sets'));
@@ -45,6 +46,11 @@ export function renderGiantSetView(session){
   <div class="giant-round-progress" role="status">Round ${round+1}: ${roundDone} of ${selected.items.length} exercises completed</div>
   <div class="giant-exercises">${steps}</div>
   <div class="giant-round-foot"><span>${roundDone===selected.items.length?'Round completed. Rest as needed before continuing.':'Complete each exercise in order. Rest between rounds.'}</span></div>
-  ${other.length?`<p class="giant-other-note">${other.length} additional exercise${other.length===1?'':'s'} (including any special set sequences) can be edited in Detailed View.</p>`:''}
+  ${pendingOther.length?`<aside class="giant-other-note" role="note">
+   <div><b>${pendingOther.length} exercise${pendingOther.length===1?'':'s'} still need${pendingOther.length===1?'s':''} attention</b>
+   <span>${pendingOther.map(i=>safe(session.exercises[i].name)).join(' · ')}</span>
+   <small>These use their own set order, so they stay in Detailed View.</small></div>
+   <button type="button" class="btn" data-action="giant-view" data-mode="detailed">Open Detailed View</button>
+  </aside>`:''}
  </section>`;
 }
