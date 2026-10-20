@@ -17,6 +17,20 @@ const sampleDish={name:'Masala dosa with potato and chutney',
  assumptions:'Oil and chutney recipes are unknown.'};
 const mockAi=()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({meal:sampleDish})}}]}),{status:200});
 
+// Synthetic Router catalogue, not a claim about current provider inventory.
+const routerCatalog={data:[
+ {id:'Qwen/Qwen3-VL-4B-Instruct',architecture:{input_modalities:['text','image']},providers:[{status:'error',provider:'featherless-ai'}]},
+ {id:'Qwen/Qwen2.5-VL-3B-Instruct',architecture:{input_modalities:['text','image']},providers:[{status:'live',provider:'featherless-ai',pricing:{input:0.2,output:0.5}}]},
+ {id:'Qwen/Qwen3-VL-8B-Instruct',architecture:{input_modalities:['text','image']},providers:[{status:'live',provider:'novita',pricing:{input:0.35,output:0.7}}]},
+ {id:'openai/gpt-oss-120b',architecture:{input_modalities:['text']},providers:[{status:'live',provider:'groq',pricing:{input:0.5,output:1}}]}
+]};
+const mockCatalog=()=>new Response(JSON.stringify(routerCatalog),{status:200});
+const routed=chat=>async(url,opts)=>{
+ if(url==='https://router.huggingface.co/v1/models')return mockCatalog();
+ if(url==='https://router.huggingface.co/v1/chat/completions')return chat(url,opts);
+ throw Error('Unexpected Hugging Face route: '+url);
+};
+
 test('photo scan client accepts one trusted HTTPS endpoint and rejects API secrets',async()=>{
  assert.throws(()=>client.savePhotoAiEndpoint('http://unsafe.example.com/scan'),/HTTPS/);
  assert.throws(()=>client.savePhotoAiEndpoint('https://user:secret@unsafe.example.com/scan'),/HTTPS/);
