@@ -160,11 +160,23 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
   aiScanning=true;aiMeal=null;aiModel='';photoSeparateMode=false;aiStatus='working';aiIssue='';aiMessage='Automatically analysing your dish with Hugging Face…';notice='';render();
   try{
-   const bitmap=await createImageBitmap(imageFile);
-   if(disposed||token!==aiRequestId){bitmap.close();return;}
-   const scale=Math.min(1,1120/Math.max(bitmap.width,bitmap.height));
-   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+   let bitmap=null,imageSource=null;
+   // Some Android gallery formats fail createImageBitmap while an ordinary image still decodes.
+   if(typeof createImageBitmap==='function'){
+    try{bitmap=await createImageBitmap(imageFile);}catch{ /* Try browser image decoding. */ }
+   }
+   if(bitmap)imageSource=bitmap;
+   else{
+    const fallback=new Image();fallback.src=imageURL;
+    try{await fallback.decode();}catch{throw Error('Could not decode the selected photo. Try a JPG or PNG image.');}
+    imageSource=fallback;
+   }
+   if(disposed||token!==aiRequestId){bitmap?.close();return;}
+   const scale=Math.min(1,1120/Math.max(imageSource.width||imageSource.naturalWidth,imageSource.height||imageSource.naturalHeight));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round((imageSource.width||imageSource.naturalWidth)*scale));
+   canvas.height=Math.max(1,Math.round((imageSource.height||imageSource.naturalHeight)*scale));
+   canvas.getContext('2d').drawImage(imageSource,0,0,canvas.width,canvas.height);bitmap?.close();
    const image=canvas.toDataURL('image/jpeg',.72);
    const result=await scanPhotoWithWorker({endpoint:aiEndpoint,accessToken:aiAccessToken,imageDataUrl:image,signal});
    if(disposed||token!==aiRequestId)return;
