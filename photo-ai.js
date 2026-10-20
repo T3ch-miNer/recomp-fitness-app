@@ -1,11 +1,31 @@
 // Recomp optional photo-vision client. Never send a Hugging Face provider token from a browser.
 // The owner deploys a separate Worker with HF_TOKEN in encrypted secrets.
-// The public endpoint URL can be remembered; access passphrase is memory-only.
+// Keep provider keys off the browser. Owners can explicitly remember a separate
+// Worker-only access token on a trusted device so photos can scan automatically.
 const URL_KEY='recomp-photo-ai-endpoint-v1';
+const PRIVATE_DEVICE_KEY='recomp-photo-ai-device-worker-access-v1';
 // Public Worker address supplied by the Recomp owner. No credentials live here.
 export const DEFAULT_PHOTO_AI_ENDPOINT='https://recomp-food-ai.rahul-dbz95.workers.dev/scan';
 let sessionAccessToken='';
-export function getPhotoAiSessionToken(){return sessionAccessToken;}
+export function getPhotoAiSavedAccessToken(){
+ try{
+  const value=String(localStorage.getItem(PRIVATE_DEVICE_KEY)||'');
+  return value.length>=12&&value.length<=256&&!/^(?:sk[-_]|hf_)/i.test(value)?value:'';
+ }catch{return '';}
+}
+export function getPhotoAiSessionToken(){return sessionAccessToken||getPhotoAiSavedAccessToken();}
+export function savePhotoAiDeviceToken(value){
+ rememberPhotoAiSessionToken(value);
+ if(!sessionAccessToken)throw Error('Enter a private Worker access token first.');
+ try{localStorage.setItem(PRIVATE_DEVICE_KEY,sessionAccessToken);}
+ catch{throw Error('Could not remember access on this device. Browser storage may be disabled.');}
+ return true;
+}
+export function forgetPhotoAiDeviceToken(){
+ try{localStorage.removeItem(PRIVATE_DEVICE_KEY);}catch{}
+ sessionAccessToken='';
+}
+
 export function rememberPhotoAiSessionToken(value){
  const token=String(value||'');
  if(token && (token.length<12||token.length>256||/^(?:sk[-_]|hf_)/i.test(token)))throw Error('Use a private Worker access token, not a provider API key.');
