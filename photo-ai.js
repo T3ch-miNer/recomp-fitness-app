@@ -21,15 +21,32 @@ export function savePhotoAiEndpoint(value){
  try{localStorage.setItem(URL_KEY,clean);}catch{}
  return clean;
 }
-export function normalisePhotoItems(body){
- if(!body||!Array.isArray(body.items))throw Error('The scanner did not return a valid food list.');
- return body.items.slice(0,12).flatMap(item=>{
-  const name=String(item?.name||'').trim().slice(0,90);
-  if(name.length<2)return [];
-  return [{name,visualEvidence:String(item?.visualEvidence||'').trim().slice(0,140),
-   portionHint:String(item?.portionHint||'').trim().slice(0,100),
-   uncertain:Boolean(item?.uncertain)}];
- });
+// Treat all model/provider output as untrusted. Never treat AI numbers as measured.
+export function normalisePhotoMeal(body){
+ if(!body||!Object.hasOwn(body,'meal'))
+  throw Error('The Worker is running an older ingredient-only scanner. Deploy the latest Recomp Worker code.');
+ if(body.meal===null)return {meal:null,model:String(body.model||'').slice(0,100)};
+ const m=body.meal;
+ if(!m||typeof m!=='object'||Array.isArray(m))
+  throw Error('The scanner did not return a valid meal.');
+ const name=String(m.name||'').trim().slice(0,100);
+ const servingDescription=String(m.servingDescription||'').trim().slice(0,110);
+ if(name.length<3||servingDescription.length<3)throw Error('Unrecognisable dish or serving.');
+ const validate=(key,min,max)=>{
+  if(typeof m[key]!=='number'||!Number.isFinite(m[key])||m[key]<min||m[key]>max)
+   throw Error('Invalid AI nutrition estimate for '+key+'.');
+  return Math.round(m[key]);
+ };
+ const meal={name,servingDescription,estimatedGrams:validate('estimatedGrams',50,3000),
+  calories:validate('calories',1,4500),
+  protein:validate('protein',0,350),carbs:validate('carbs',0,700),
+  fat:validate('fat',0,350),fibre:validate('fibre',0,130),
+  calorieLow:validate('calorieLow',1,4500),calorieHigh:validate('calorieHigh',1,4500),
+  uncertain:m.uncertain!==false,
+  assumptions:String(m.assumptions||'').trim().slice(0,340)};
+ if(meal.calorieLow>meal.calories||meal.calorieHigh<meal.calories)
+  throw Error('Invalid nutrition uncertainty range.');
+ return {meal,model:String(body.model||'').slice(0,100)};
 }
 export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
@@ -42,5 +59,5 @@ export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,sig
  let data;
  try{data=await response.json();}catch{throw Error('The scanner returned an unreadable response.');}
  if(!response.ok)throw Error(String(data?.error||'AI scan failed ('+response.status+').').slice(0,200));
- return normalisePhotoItems(data);
+ return normalisePhotoMeal(data);
 }
