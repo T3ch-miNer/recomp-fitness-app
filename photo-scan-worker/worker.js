@@ -6,7 +6,54 @@ const ALLOWED_ORIGIN='https://t3ch-miner.github.io';
 const TEST_ORIGIN='https://recomp-food-ai.rahul-dbz95.workers.dev';
 const isAllowedOrigin=origin=>origin===ALLOWED_ORIGIN||origin===TEST_ORIGIN;
 const MAX_BYTES=2_900_000;
-const MODEL='Qwen/Qwen3-VL-4B-Instruct';
+// Models listed on the Hub are not necessarily live at an Inference Provider.
+// Consult the Hugging Face router's active image-capable catalogue on each scan.
+const CATALOG_URL='https://router.huggingface.co/v1/models';
+const MODEL_PREFERENCES=[
+ 'Qwen/Qwen2.5-VL-3B-Instruct',
+ 'Qwen/Qwen3-VL-8B-Instruct',
+ 'Qwen/Qwen3-VL-30B-A3B-Instruct',
+ 'Qwen/Qwen3.5-4B',
+ 'meta-llama/Llama-3.2-11B-Vision-Instruct',
+ 'zai-org/GLM-4.5V'
+];
+export function pickVisionModels(body){
+ const data=Array.isArray(body?.data)?body.data:[];
+ const vision=data.filter(item=>
+  typeof item?.id==='string'&&
+  item.architecture?.input_modalities?.includes('image')&&
+  Array.isArray(item.providers)&&item.providers.some(p=>p.status==='live'));
+ const viable=vision.map(item=>{
+  const live=item.providers.filter(p=>p.status==='live');
+  const affordable=live.some(p=>p.is_free===true||(
+   p.pricing!=null&&Number.isFinite(Number(p.pricing.input))&&
+   Number.isFinite(Number(p.pricing.output))&&
+   Number(p.pricing.input)<=1&&Number(p.pricing.output)<=2));
+  return {id:item.id,priority:MODEL_PREFERENCES.indexOf(item.id),affordable,
+   providers:live.map(p=>p.provider)};
+ }).filter(x=>x.priority>=0||x.affordable);
+ viable.sort((a,b)=>{
+  const score=x=>x.priority>=0?x.priority:100;
+  return score(a)-score(b)||a.id.localeCompare(b.id);
+ });
+ return viable.slice(0,6).map(({id,providers})=>({id,providers}));
+}
+export async function getVisionModels(env,fetchImpl=fetch){
+ let res;
+ try{res=await fetchImpl(CATALOG_URL,{method:'GET',
+   headers:{Authorization:'Bearer '+env.HF_TOKEN},
+   cache:'no-store',signal:AbortSignal.timeout(15000)});}
+ catch{throw Error('Could not reach the Hugging Face model catalogue. Try again.');}
+ if(!res.ok){
+  if(res.status===401||res.status===403)
+   throw Error('Hugging Face token is invalid or missing Inference Providers permission (HTTP '+res.status+').');
+  throw Error('Hugging Face model list is unavailable (HTTP '+res.status+').');
+ }
+ let body;try{body=await res.json();}catch{throw Error('Hugging Face returned invalid model catalogue data.');}
+ const models=pickVisionModels(body);
+ if(!models.length)throw Error('No live image-capable model was found within the scanner price limits. Provider availability may be limited.');
+ return models;
+}
 const json=(body,status=200,origin='')=>new Response(JSON.stringify(body),{status,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
  ...(isAllowedOrigin(origin)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{})
@@ -16,8 +63,8 @@ const INSTRUCTIONS=`Analyse ONE photograph for a PERSONAL food diary. Identify u
 Reply with ONLY one valid JSON object of this shape, no prose or markdown:
 {"items":[{"name":"Dal","visualEvidence":"Yellow food in bowl","portionHint":"Small bowl","uncertain":true}]}
 Each field must be included. The evidence must say what is visible, not imply invisible ingredients. Use everyday food names and plain-language estimated serving descriptions, not grams. The user must personally review everything.`;
-export function buildHfRequest(image){
- return {model:MODEL,max_tokens:950,temperature:0.1,stream:false,messages:[{
+export function buildHfRequest(image,model=MODEL_PREFERENCES[0]){
+ return {model,max_tokens:950,temperature:0.1,stream:false,messages:[{
   role:'user',content:[
    {type:'text',text:INSTRUCTIONS},
    {type:'image_url',image_url:{url:image}}
@@ -44,13 +91,21 @@ export async function handleScan(request,env,fetchImpl=fetch){
  if(request.method==='OPTIONS'){
   if(!isAllowedOrigin(origin))return new Response(null,{status:403});
   return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,
-   'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type',
+   'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type',
    'Access-Control-Max-Age':'600','Vary':'Origin'}});
  }
- if(path!=='/scan'||request.method!=='POST')return json({error:'Not found'},404,origin);
+ if(!['/scan','/models'].includes(path))return json({error:'Not found'},404,origin);
+ if((path==='/scan'&&request.method!=='POST')||(path==='/models'&&request.method!=='GET'))
+  return json({error:'Method not allowed'},405,origin);
  if(!isAllowedOrigin(origin))return json({error:'Origin is not allowed.'},403);
  if(!env?.HF_TOKEN||!env?.SCAN_ACCESS_TOKEN)return json({error:'Scanner is not configured. Add Hugging Face and access-token Worker secrets.'},503,origin);
  if(request.headers.get('Authorization')!=='Bearer '+env.SCAN_ACCESS_TOKEN)return json({error:'Incorrect private scanner access token.'},401,origin);
+ // Check model availability without a billed photo inference call.
+ if(path==='/models'){
+  try{const models=await getVisionModels(env,fetchImpl);
+   return json({selected:models[0].id,models},200,origin);}
+  catch(e){return json({error:String(e.message).slice(0,230)},503,origin);}
+ }
  if(!/application\/json/i.test(request.headers.get('Content-Type')||''))return json({error:'Expected JSON.'},415,origin);
  const declared=Number(request.headers.get('Content-Length')||0);
  if(declared>MAX_BYTES)return json({error:'Photo is too large.'},413,origin);
@@ -60,24 +115,35 @@ export async function handleScan(request,env,fetchImpl=fetch){
  const image=body?.image;
  if(typeof image!=='string'||image.length>2_800_000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image))
   return json({error:'Expected a compressed JPEG photo.'},400,origin);
- let response;
- try{response=await fetchImpl('https://router.huggingface.co/v1/chat/completions',{method:'POST',headers:{
-   'Authorization':'Bearer '+env.HF_TOKEN,'Content-Type':'application/json'
-  },body:JSON.stringify(buildHfRequest(image)),signal:AbortSignal.timeout(40000)});}
- catch{return json({error:'Hugging Face image recognition service is temporarily unreachable.'},502,origin);}
+ let models;
+ try{models=await getVisionModels(env,fetchImpl);}
+ catch(e){return json({error:String(e.message).slice(0,230)},503,origin);}
+ let response=null,selected=null,failedModel=null;
+ // The alternate model is attempted only if a provider rejects the selected
+ // model or request (400/404), never for auth, quota or billing problems.
+ for(const candidate of models.slice(0,2)){
+  selected=candidate.id;
+  try{response=await fetchImpl('https://router.huggingface.co/v1/chat/completions',{method:'POST',headers:{
+     'Authorization':'Bearer '+env.HF_TOKEN,'Content-Type':'application/json'
+    },body:JSON.stringify(buildHfRequest(image,selected)),signal:AbortSignal.timeout(40000)});}
+  catch{return json({error:'Hugging Face image recognition is temporarily unreachable.'},502,origin);}
+  if(response.ok)break;
+  if(response.status===400||response.status===404){failedModel=selected;continue;}
+  break;
+ }
  if(!response.ok){
-  const status=response.status;
+  const status=response.status,routeError=status===400||status===404;
   return json({error:status===402?'Hugging Face credits are exhausted. Add credits to continue.':
    status===429?'Hugging Face requests are rate-limited. Try again later.':
    status===401||status===403?'Hugging Face access token needs updating or lacks Inference Providers access.':
-   status===404||status===400?'The selected vision model is not available through your Hugging Face provider.':
-   'Hugging Face could not analyse this photo.'},status===402?402:502,origin);
+   routeError?'Hugging Face rejected '+failedModel+' (HTTP '+status+'). This provider may not support the image request.':
+   'Hugging Face could not analyse the photo (HTTP '+status+').'},status===402?402:502,origin);
  }
  let output;try{output=await response.json();}catch{return json({error:'Unreadable response from image recognition.'},502,origin);}
  let items;
  try{items=parseFoodList(output?.choices?.[0]?.message?.content);}catch{
   return json({error:'The vision model did not return a usable food list. Try a clearer photo or search foods manually.'},502,origin);
  }
- return json({items},200,origin);
+ return json({items,model:selected},200,origin);
 }
 export default {async fetch(request,env){return handleScan(request,env);}};
