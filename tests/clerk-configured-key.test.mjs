@@ -26,3 +26,17 @@ test('frontend loader imports official Clerk v6 browser bundle with optional Goo
  assert.ok(!/deleteDatabase|\bindexedDB\b|uploadSnapshot|downloadSnapshot/.test(source));
  assert.ok(!/sk_(?:test|live)_[A-Za-z0-9]+/.test(source));
 });
+
+test('development Clerk is disabled on published GitHub Pages, but available to local tests',async()=>{
+ const before=globalThis.location;
+ try{
+  globalThis.location={hostname:'t3ch-miner.github.io'};
+  assert.equal(auth.isClerkLoginAvailable(),false);
+  await assert.rejects(()=>auth.loadClerk(),/not available on GitHub Pages/);
+  globalThis.location={hostname:'localhost'};
+  assert.equal(auth.isClerkLoginAvailable(),true);
+ }finally{
+  if(before===undefined)delete globalThis.location;
+  else globalThis.location=before;
+ }
+});
