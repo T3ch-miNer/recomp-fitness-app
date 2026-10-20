@@ -458,8 +458,8 @@ function foodDiaryHistory(){
 }
 function foodDiaryQuickAdd(){
  const ordered=[...state.food].map((entry,index)=>({...entry,_order:index}))
-  .sort((a,b)=>b.date.localeCompare(a.date)||b._order-a._order);
- const recent=ordered.filter((entry,i,all)=>all.findIndex(x=>x.name.toLocaleLowerCase()===entry.name.toLocaleLowerCase())===i).slice(0,15);
+  .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||b._order-a._order);
+ const recent=ordered.filter((entry,i,all)=>all.findIndex(x=>String(x.name||'').toLocaleLowerCase()===String(entry.name||'').toLocaleLowerCase())===i).slice(0,15);
  return `<div class="card diary-recent-card"><div class="row space"><div><h3 class="section-title">Your regular meals</h3><p class="hint">Repeat a saved serving in one tap, then edit the portion if needed.</p></div></div>
  ${recent.length?recent.map(entry=>`<div class="list-entry diary-recent-row"><div class="diary-entry-copy"><strong>${escapeHtml(entry.name)}</strong><small>${num(entry.calories)} kcal · ${num(entry.protein)} g protein${entry.grams?' · '+num(entry.grams)+' g':''}</small></div><button type="button" class="btn ghost" data-action="repeat-food" data-id="${escapeHtml(entry.id)}" aria-label="Repeat ${escapeHtml(entry.name)} today">Add today</button></div>`).join(''):'<p class="muted small">Log a few meals and your regulars will appear here for quick repeats.</p>'}
  </div>`;
@@ -998,7 +998,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'delete-food':if(await confirmInApp('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-weight':if(await confirmInApp('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
- case 'repeat-food':{const x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push(repeatDiaryEntry(x,{id:uid(),date:today(),meal:x.meal}));await commit();notify('Added to today’s food diary');}break;}
+ case 'repeat-food':{const x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push(repeatDiaryEntry(x,{id:uid(),date:today(),meal:x.meal}));if(nutritionPanel==='diary')diaryDate=today();await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
  case 'create-template':modal={type:'new-template'};render();break;
  case 'edit-template':planActionsId=null;modal={type:'edit-template',id:el.dataset.id};render();break;
