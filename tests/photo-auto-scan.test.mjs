@@ -55,7 +55,7 @@ test('photo selection automatically runs Hugging Face if private access exists',
  assert.match(ui,/data-nf="save-ai-meal"/);
  assert.match(ui,/await saveEntries\(\[entry\]\)/);
  const scanFunction=ui.slice(ui.indexOf('async function scanWithAi()'),ui.indexOf('async function recognise()'));
- assert.doesNotMatch(scanFunction,/saveEntries\\(/,'recognition cannot write to diary without approval');
+ assert.ok(!scanFunction.includes('saveEntries('),'recognition cannot write to diary without approval');
 });
 
 test('provider key remains server-side, and private Worker still demands a separate bearer token',()=>{
