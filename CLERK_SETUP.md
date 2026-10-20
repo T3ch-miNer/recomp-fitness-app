@@ -1,5 +1,16 @@
 # Recomp: optional Google login with Clerk
 
+## Existing application selected for this integration
+
+The application chosen in the Clerk Dashboard is **`app_3KwMF7gpbqELTmo8Ny94dZ4tRbv`**. Recomp is an existing plain JavaScript PWA, not a new Next.js project. Its Clerk browser integration already exists, so **do not run `clerk init`** and do not provision an accountless or replacement Clerk project.
+
+The application ID is **not** a publishable key. To finish the connection, open that application in [Clerk Dashboard](https://dashboard.clerk.com/) → **API Keys** and copy only the **Publishable key** (`pk_test_` for development or `pk_live_` for production). Never commit a secret key. The browser SDK cannot obtain that key from the application ID alone.
+
+If you prefer the Clerk CLI from **your own authenticated development machine**, run `npx -y clerk@latest auth login` first. Link the existing repository to this exact app with `npx -y clerk@latest link --app app_3KwMF7gpbqELTmo8Ny94dZ4tRbv`, then retrieve missing development configuration with `npx -y clerk@latest env pull`. For production configuration only, use `env pull --instance prod`. **Do not replace working keys** or commit generated local environment files. A link and development environment variables alone don't automatically configure Recomp's static `clerk-auth.js` frontend: the approved publishable key must be set there separately.
+
+**Production release gate:** Clerk publishable key set, Google connection enabled, live Recomp GitHub Pages domain authorised, real Android/browser sign-in and sign-out tested, guest mode tested, existing fitness diary preserved, and no automatic upload or data migration. Automated source tests are necessary but not sufficient.
+
+
 Clerk is a simpler alternative to setting up your own Google OAuth client just to let a user sign in. Users can **always Continue without signing in**. The fitness diary, workouts and photos continue to use Recomp's local IndexedDB.
 
 > **Clerk login is not cloud backup.** Signing in alone neither uploads local records nor restores them on a second phone. Private backup remains an advanced, separately configured option; it is not required to use Clerk.
