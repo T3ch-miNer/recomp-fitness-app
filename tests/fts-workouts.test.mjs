@@ -61,6 +61,6 @@ test('one-time migration preserves existing templates including personal edits',
 
 test('updated PWA caches plans offline and forces latest app script',()=>{
  assert.ok(worker.includes("'./fts-workouts.js'"));
- assert.ok(worker.includes('recomp-shell-v2.7-worker-access-compat'));
- assert.ok(index.includes('app.js?v=2.7-worker-access-compat'));
+ assert.ok(worker.includes('recomp-shell-v2.8-history-preview'));
+ assert.ok(index.includes('app.js?v=2.8-history-preview'));
 });

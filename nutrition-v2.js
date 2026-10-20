@@ -19,10 +19,10 @@ const amount=(food,grams)=>nutrientsForGrams(food,Number(grams));
 const fmt=(value)=>Math.round(Number(value)||0).toLocaleString('en-GB');
 const mealOptions=current=>meals.map(m=>`<option ${current===m?'selected':''} value="${m}">${m}</option>`).join('');
 
-export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct}={}) {
+export function openNutrition({mode='home',meal,date:requestedDate,save,manual,notify,lookupProduct}={}) {
  let page=['home','search','photo','barcode'].includes(mode)?mode:'home';
  let selectedMeal=meals.includes(meal)?meal:mealForHour();
- let date=localDate(),query='',selected=null,grams=100,priorPage='search';
+ let date=typeof requestedDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)?requestedDate:localDate(),query='',selected=null,grams=100,priorPage='search';
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoSeparateMode=false,photoFoods=[],suggestions=[],recognising=false;
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
