@@ -8,6 +8,14 @@ The owner has provided a **development publishable key** (`pk_test_`), now confi
 
 If you prefer the Clerk CLI from **your own authenticated development machine**, run `npx -y clerk@latest auth login` first. Link the existing repository to this exact app with `npx -y clerk@latest link --app app_3KwMF7gpbqELTmo8Ny94dZ4tRbv`, then retrieve missing development configuration with `npx -y clerk@latest env pull`. For production configuration only, use `env pull --instance prod`. **Do not replace working keys** or commit generated local environment files. A link and development environment variables alone don't automatically configure Recomp's static `clerk-auth.js` frontend: the approved publishable key must be set there separately.
 
+## Optional development login on GitHub Pages (v2.5.3 testing)
+
+The app owner specifically requested a **test-only** Google sign-in option on the current public GitHub Pages URL while keeping the free address. The JavaScript PWA now allows the existing `pk_test_` instance to open Clerk's development sign-in UI. A clear **Development mode · test sign-in** notice appears at the first-launch welcome and in **Settings → Account**, and Clerk's own development UI may also show its warnings.
+
+**Security and limitations:** Clerk documents that development instances are **not suitable for production workloads**. Their authentication sessions have weaker cross-site characteristics, may display a Clerk `accounts.dev` domain, are limited in scale, and **do not have a production user migration path**. Test with non-sensitive accounts only; treat the login as experimental. Users can always **Continue without signing in**, and signed-in identities do not upload, sync, reset or grant access to local workouts, nutrition data, body measurements or photos. Backups remain entirely separate and opt-in.
+
+Actual social login completion on Android Chrome must be checked manually with the selected Clerk instance and its enabled Google connection. GitHub Actions syntax and unit tests are **not** an end-to-end OAuth success test. Proper production authentication still requires a production Clerk instance, an owner-controlled domain/DNS and the matching production credentials.
+
 **Production release gate:** Create a Clerk **production** instance in the existing application, complete its domain/DNS and Google OAuth setup, supply the **production public** publishable key (`pk_live_`), configure the actual deployed origin, confirm Android/browser sign-in and sign-out plus guest and existing-data regression tests. Clerk documents that production deployment requires a **domain you own with DNS control**; the current `t3ch-miner.github.io` GitHub Pages hostname is not a domain the app owner can edit at its DNS root. Plan for a custom domain or another Clerk-supported production arrangement before release. Automated source tests are necessary but not sufficient.
 
 
