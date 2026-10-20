@@ -7,6 +7,7 @@ on:
       - feature/v2.5.4-exercise-demonstrations-20261020
       - feature/v2.5.5-workout-back-inline-dialogs-20261020
       - feature/v2.5.6-fts-round-based-giant-sets-20261020
+      - feature/v2.6-giant-set-final-release-20261020
   pull_request:
     paths:
       - 'app.js'
