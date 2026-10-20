@@ -1,10 +1,14 @@
 // Optional Clerk identity for the static Recomp PWA.
 // This signs in users only; it never uploads or reads fitness records.
 // The publishable key is deliberately user-configured. No secret keys belong in the PWA.
+// Set this *public* key once before publishing to enable sign-in for everyone.
+// Do NOT paste a Clerk secret key in this file. Until configured, guest mode works.
+export const CLERK_PUBLISHABLE_KEY='';
 const KEY='recomp-clerk-publishable-key-v1';
 let loading=null;
 
 export function getClerkKey(){
+ if(CLERK_PUBLISHABLE_KEY)return CLERK_PUBLISHABLE_KEY;
  try{return localStorage.getItem(KEY)||'';}catch{return '';}
 }
 export function saveClerkKey(key){
