@@ -10,28 +10,12 @@ const image='data:image/jpeg;base64,'+'a'.repeat(128);
 const accessToken='random-long-photo-scan-passphrase-123';
 const request=(opt={})=>new Request('https://my-worker.workers.dev/scan',{method:'POST',headers:{'Origin':'https://t3ch-miner.github.io','Content-Type':'application/json','Authorization':'Bearer '+accessToken,...opt.headers},body:JSON.stringify({image,...opt.body})});
 const env={HF_TOKEN:'hf_FAKE_TEST_ONLY',SCAN_ACCESS_TOKEN:accessToken};
-const mockAi=()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({items:[
-  {name:'Dal',visualEvidence:'Yellow curry in a bowl',portionHint:'Small bowl',uncertain:true},
-  {name:'Rice',visualEvidence:'White grains',portionHint:'One scoop',uncertain:false}
- ]})}}]}),{status:200});
-
-// This is a synthetic router catalogue, not a claim about current live HF inventory.
-const routerCatalog={data:[
- {id:'Qwen/Qwen3-VL-4B-Instruct',architecture:{input_modalities:['text','image']},
-  providers:[{status:'error',provider:'featherless-ai'}]},
- {id:'Qwen/Qwen2.5-VL-3B-Instruct',architecture:{input_modalities:['text','image']},
-  providers:[{status:'live',provider:'featherless-ai',pricing:{input:0.2,output:0.5}}]},
- {id:'Qwen/Qwen3-VL-8B-Instruct',architecture:{input_modalities:['text','image']},
-  providers:[{status:'live',provider:'novita',pricing:{input:0.35,output:0.7}}]},
- {id:'openai/gpt-oss-120b',architecture:{input_modalities:['text']},
-  providers:[{status:'live',provider:'groq',pricing:{input:0.5,output:1}}]}
-]};
-const mockCatalog=()=>new Response(JSON.stringify(routerCatalog),{status:200});
-const routed=chat=>async(url,opts)=>{
- if(url==='https://router.huggingface.co/v1/models')return mockCatalog();
- if(url==='https://router.huggingface.co/v1/chat/completions')return chat(url,opts);
- throw Error('Unexpected provider request: '+url);
-};
+const sampleDish={name:'Masala dosa with potato and chutney',
+ servingDescription:'One large dosa with sides',estimatedGrams:430,
+ calories:650,protein:12,carbs:88,fat:28,fibre:6,
+ calorieLow:430,calorieHigh:950,uncertain:false,
+ assumptions:'Oil and chutney recipes are unknown.'};
+const mockAi=()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({meal:sampleDish})}}]}),{status:200});
 
 test('photo scan client accepts one trusted HTTPS endpoint and rejects API secrets',async()=>{
  assert.throws(()=>client.savePhotoAiEndpoint('http://unsafe.example.com/scan'),/HTTPS/);
@@ -54,10 +38,11 @@ test('photo scan client accepts one trusted HTTPS endpoint and rejects API secre
   assert.equal(options.headers.Authorization,'Bearer '+accessToken);
   assert.equal(options.credentials,'omit');
   assert.deepEqual(JSON.parse(options.body),{image});
-  return new Response(JSON.stringify({items:[{name:'Rice',visualEvidence:'Visible grains',portionHint:'One spoon',uncertain:false}]}));
+  return new Response(JSON.stringify({meal:sampleDish,model:'mock-vision'}));
  }});
- assert.equal(out.length,1);
- assert.equal(out[0].name,'Rice');
+ assert.equal(out.meal.name,'Masala dosa with potato and chutney');
+ assert.equal(out.meal.calories,650);
+ assert.equal(out.model,'mock-vision');
  assert.equal(stored['recomp-photo-ai-endpoint-v1'],'https://my-worker.workers.dev/scan');
  assert.ok(!JSON.stringify(stored).includes(accessToken),'the access token must not be stored');
  delete globalThis.localStorage;
@@ -84,7 +69,7 @@ test('private Worker test page requires deliberate photo selection and never per
  assert.equal(page.headers.get('cache-control'),'no-store');
  assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
  const html=await page.text();
- assert.match(html,/Test food recognition/);
+ assert.match(html,/Scan dish & estimate nutrition/);
  assert.match(html,/Check Hugging Face vision connection/);
  assert.match(html,/fetch\('\/models'/);
  assert.match(html,/SCAN_ACCESS_TOKEN/);
@@ -98,7 +83,7 @@ test('private Worker test page requires deliberate photo selection and never per
  });
  const accepted=await worker.handleScan(localRequest,env,routed(async()=>mockAi()));
  assert.equal(accepted.status,200);
- assert.equal((await accepted.json()).items.length,2);
+ assert.equal((await accepted.json()).meal.name,sampleDish.name);
  const cross=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/scan',{
   method:'POST',headers:{Origin:'https://attacker.example',Authorization:'Bearer '+accessToken,
    'Content-Type':'application/json'},body:JSON.stringify({image})}),env,()=>{
@@ -143,11 +128,11 @@ test('Worker calls Hugging Face vision chat API after consent and returns separa
  assert.equal(calls,1);
  assert.equal(reply.status,200);
  const body=await reply.json();
- assert.equal(body.items.length,2);
+ assert.equal(body.meal.name,'Masala dosa with potato and chutney');
  assert.equal(body.model,'Qwen/Qwen2.5-VL-3B-Instruct');
- assert.equal(body.items[0].name,'Dal');
- assert.equal(body.items[0].uncertain,true);
- assert.equal(body.items[1].name,'Rice');
+ assert.equal(body.meal.calories,650);
+ assert.equal(body.meal.calorieLow,430);
+ assert.equal(body.meal.protein,12);
  assert.ok(!JSON.stringify(body).includes('hf_FAKE'));
 });
 
@@ -183,7 +168,7 @@ test('Worker only retries a model routing failure once and never repeats credit 
 test('Worker handles invalid response, missing HF token and unavailable image models safely',async()=>{
  const invalid=await worker.handleScan(request(),env,routed(async()=>new Response(JSON.stringify({choices:[{message:{content:'not JSON'}}]}),{status:200})));
  assert.equal(invalid.status,502);
- assert.match((await invalid.json()).error,/usable food list/);
+ assert.match((await invalid.json()).error,/valid dish and nutrition estimate/);
  const missing=await worker.handleScan(request(),{SCAN_ACCESS_TOKEN:accessToken},async()=>{throw Error('must not send');});
  assert.equal(missing.status,503);
  const none=await worker.handleScan(request(),env,async(url)=>{
@@ -195,18 +180,53 @@ test('Worker handles invalid response, missing HF token and unavailable image mo
 });
 
 
+
+test('AI result identifies a complete dish and rejects invented or invalid macro data',()=>{
+ const result=client.normalisePhotoMeal({meal:sampleDish,model:'vision'});
+ assert.equal(result.meal.name,'Masala dosa with potato and chutney');
+ assert.equal(result.meal.calories,650);
+ assert.equal(result.meal.fibre,6);
+ assert.equal(result.meal.calorieHigh,950);
+ assert.equal(result.model,'vision');
+ assert.equal(client.normalisePhotoMeal({meal:null}).meal,null);
+ assert.throws(()=>client.normalisePhotoMeal({items:[{name:'rice'}]}),/older ingredient-only scanner/);
+ assert.throws(()=>client.normalisePhotoMeal({meal:{...sampleDish,calories:'650'}}),/Invalid AI nutrition/);
+ assert.throws(()=>client.normalisePhotoMeal({meal:{...sampleDish,calorieLow:1000}}),/uncertainty range/);
+ assert.throws(()=>client.normalisePhotoMeal({meal:{...sampleDish,estimatedGrams:8000}}),/Invalid AI nutrition/);
+ assert.deepEqual(worker.parseDishEstimate(JSON.stringify({meal:sampleDish})),sampleDish);
+ assert.equal(worker.parseDishEstimate('{"meal":null}'),null);
+ assert.throws(()=>worker.parseDishEstimate('{"items":[{"name":"rice"}]}'),/Missing meal/);
+ assert.throws(()=>worker.parseDishEstimate(JSON.stringify({meal:{...sampleDish,calories:10000}})),/Invalid nutrition estimate/);
+});
+
+test('prompt requires whole dishes rather than individual ingredients, with uncertain kcal/macros',()=>{
+ const built=worker.buildHfRequest(image,'Qwen/Qwen2.5-VL-3B-Instruct');
+ const instruction=built.messages[0].content[0].text;
+ assert.match(instruction,/NAME THE COMPLETE DISH/);
+ assert.match(instruction,/ramen bowl/);
+ assert.match(instruction,/masala dosa/);
+ assert.match(instruction,/calorieLow/);
+ assert.match(instruction,/fibre/);
+ assert.match(instruction,/hidden ingredients/);
+ assert.match(workerSource,/return json\(\{meal,model:selected/);
+ assert.doesNotMatch(workerSource,/return json\(\{items,model:selected/);
+});
+
 test('food-photo review never autosaves suggestions and retains free manual path',()=>{
  assert.match(nutrition,/aiScanning\?'ai-cancel':'ai-scan'/);
  assert.match(nutrition,/scanPhotoWithWorker\(/);
- assert.match(nutrition,/data-nf="ai-find-food"/);
- assert.match(nutrition,/photoQuery=item\.name/);
+ assert.match(nutrition,/data-nf="save-ai-meal"/);
+ assert.match(nutrition,/aiMeal=result\.meal/);
+ assert.match(nutrition,/AI photo estimate \(Hugging Face; user reviewed\)/);
  assert.match(nutrition,/recognising\?'cancel-recognition':'recognise'/);
  assert.match(nutrition,/saveEntries\(entries\)/);
- assert.match(nutrition,/AI may misidentify food/);
+ assert.match(nutrition,/Don't log those again as separate ingredients/);
+ assert.match(nutrition,/nf-ai-calorie-range/);
+ assert.match(nutrition,/data-nf="save-photo"/);
  assert.ok(!/(?:sk[-_]|hf_)[A-Za-z0-9]{20,}/.test(nutrition+clientSource),'no provider key literal in browser');
  assert.throws(()=>client.rememberPhotoAiSessionToken('hf_forbidden'),/provider API key/);
  assert.ok(!/localStorage\.setItem\([^\n]*accessToken/.test(clientSource),'the private token must not be persisted');
- assert.match(styles,/nf-vision-result/);
+ assert.match(styles,/nf-ai-dish/);
  assert.match(sw,/'\.\/photo-ai\.js'/);
  assert.match(html,/2\.7-ai-photos/);
  assert.match(gitignore,/photo-scan-worker\/\.dev\.vars/);
