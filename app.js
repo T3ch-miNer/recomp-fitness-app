@@ -1280,7 +1280,18 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
  // Load Clerk identity if the app owner has configured it. No authentication
  // is ever required to access existing IndexedDB fitness records.
  if(getClerkKey()){
-  try{await loadClerk();}catch(e){console.warn('Optional Clerk sign-in unavailable:',e.message);}
+  try{
+   const clerkClient=await loadClerk();
+   // Keep the account display in sync and close the first-run welcome after
+   // Clerk confirms authentication. This listener never modifies fitness data.
+   clerkClient.addListener(({user})=>{
+    if(user){
+     try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
+     document.getElementById('recomp-first-run')?.remove();
+    }
+    if(tab==='settings' && !modal)render();
+   },{skipInitialEmit:true});
+  }catch(e){console.warn('Optional Clerk sign-in unavailable:',e.message);}
  }
  // Guest-first welcome is only for genuinely new installations. Never interrupt
  // users who already have IndexedDB fitness records, even without a Google session.
