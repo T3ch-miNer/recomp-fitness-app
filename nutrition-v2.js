@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
+import {DEFAULT_PHOTO_AI_ENDPOINT,savePhotoAiEndpoint,getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -27,6 +27,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken=getPhotoAiSessionToken(),aiMeal=null,aiModel='',aiScanning=false,aiAbort=null,aiRequestId=0;
+ let aiStatus='idle',aiMessage='',aiIssue='';
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
@@ -69,7 +70,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  <div class="nf-photo-pickers"><button type="button" class="nf-photo-pick" data-nf="gallery"><span>${ico('photo')}</span><b>Choose from gallery</b></button><button type="button" class="nf-photo-pick" data-nf="take"><span>${ico('camera')}</span><b>Take photo</b></button></div>
  <p class="nf-muted-note">Choosing a photo automatically sends a resized copy through your private Worker to Hugging Face if scanner access has been set up. This may use paid inference credits. If access is not set up, you'll be prompted once. Nothing is added to your food diary until you approve it.</p>`;}
  function photoTotals(){let t=Object.fromEntries(nutrients.map(k=>[k,0]));for(const entry of photoFoods){const food=findFood(entry.id);if(!food||!(Number(entry.grams)>0))continue;try{const a=amount(food,entry.grams);nutrients.forEach(k=>t[k]+=a[k]);}catch{}}return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated meal total</span><strong>${fmt(t.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(t.protein)}g</b><small>Protein</small></span><span><b>${fmt(t.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(t.fat)}g</b><small>Fat</small></span><span><b>${fmt(t.fibre)}g</b><small>Fibre</small></span></div></div>`;}
- function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
+ function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>${aiScanning?'Analysing your meal':aiMeal?'Dish recognised':'Photo added'}</b><span>${aiScanning?'Hugging Face is estimating nutrition':aiMeal?'Review your dish below':'Check the scan status below'}</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
  <section class="nf-vision-panel" aria-label="Hugging Face automatic photo recognition">
    <div class="nf-vision-heading"><b>Hugging Face · automatic dish recognition</b><span>Whole dish name, serving and estimated calories/macros</span></div>
    <p class="nf-muted-note">Hugging Face estimates the main foreground plate only, including its sides, not unrelated meals in the background. Check the suggested dish and portions before saving.</p>
@@ -81,12 +82,19 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    </div>`:''}
    ${aiAccessToken&&!getPhotoAiSavedAccessToken()?`<label class="nf-ai-remember-option"><input id="nf-ai-remember" type="checkbox" checked><span>Remember access after a successful scan</span></label>`:''}
    ${getPhotoAiSavedAccessToken()?`<p class="nf-muted-note">Scanner access is remembered on this device. <button type="button" class="nf-inline-link" data-nf="forget-ai-access">Forget saved access</button></p>`:''}
+   ${aiAccessToken?`<button type="button" class="nf-inline-link nf-ai-change-access" data-nf="change-ai-access">Change scanner access code</button>`:''}
    <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">
      ${aiScanning?'Cancel recognition':!aiAccessToken?'Connect scanner & recognise':'Retry Hugging Face recognition'}
    </button>
-   ${aiScanning?'<p class="nf-status" role="status">Automatically analysing your dish with Hugging Face…</p>':''}
+   ${aiMessage?`<div id="nf-ai-scan-status" class="nf-ai-scan-status nf-ai-scan-status-${aiStatus}" role="${aiStatus==='error'?'alert':'status'}" aria-live="polite">
+      <strong>${aiStatus==='error'?'Recognition failed':aiStatus==='success'?'Dish identified':aiStatus==='working'?'Analysing your dish':'Scanner information'}</strong>
+      <span>${esc(aiMessage)}</span>
+      ${aiStatus==='error'&&aiIssue==='access'?'<button type="button" class="nf-inline-link" data-nf="change-ai-access">Enter a new Worker access code</button>':''}
+      ${aiStatus==='error'&&aiIssue==='connection'?'<small>Check your internet connection and Worker URL in Scanner settings, then retry.</small>':''}
+    </div>`:''}
    <details class="nf-ai-advanced"><summary>Scanner settings and local fallback</summary>
      <label class="nf-field"><span>Worker URL (public)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
+     <button type="button" class="nf-inline-link" data-nf="reset-ai-endpoint">Use default Recomp Worker URL</button>
      <div class="nf-ai-action"><div><b>On-device recognition</b><small>Alternative · local, model download required</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify locally'}</button></div>
      ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
    </details>
@@ -104,8 +112,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    
   </section>
 
- ${aiMeal?`<button type="button" class="nf-text-action nf-ai-switch" data-nf="toggle-photo-alternative">${photoSeparateMode?'Back to whole-dish logging':'Prefer individual ingredients? Switch to catalogue logging'}</button>`:''}
- ${!aiMeal||photoSeparateMode?`<div class="nf-catalogue-mode">
+ <button type="button" class="nf-text-action nf-ai-switch" data-nf="toggle-photo-alternative">${photoSeparateMode?(aiMeal?'Back to whole-dish logging':'Back to Hugging Face scanner'):(aiMeal?'Prefer individual ingredients? Switch to catalogue logging':'Log foods manually instead')}</button>
+ ${photoSeparateMode?`<div class="nf-catalogue-mode">
  <p class="nf-muted-note">${aiMeal?'Alternative logging method: selecting individual ingredients will replace the whole-dish estimate, not add to it.':''}</p>
 ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
