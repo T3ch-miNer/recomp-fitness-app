@@ -113,7 +113,7 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
 });
 test('PWA caches new round tracker and keeps existing premium colours',()=>{
  for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css'])assert.ok(sw.includes("'./"+name+"'"));
- assert.match(sw,/recomp-shell-v2\.7-original-glass-preview/);
+ assert.match(sw,/recomp-shell-v2\.7-photo-scan-fix/);
  assert.match(index,/giant-sets\.css\?v=2\.6/);
  assert.match(index,/app\.js\?v=2\.7-settings-hub/);
  assert.match(css,/var\(--accent\)/);
