@@ -23,7 +23,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let page=['home','search','photo','barcode'].includes(mode)?mode:'home';
  let selectedMeal=meals.includes(meal)?meal:mealForHour();
  let date=localDate(),query='',selected=null,grams=100,priorPage='search';
- let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoFoods=[],suggestions=[],recognising=false;
+ let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoSeparateMode=false,photoFoods=[],suggestions=[],recognising=false;
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken=getPhotoAiSessionToken(),aiMeal=null,aiModel='',aiScanning=false,aiAbort=null,aiRequestId=0;
@@ -93,12 +93,19 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    
   </section>
 
- ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
+ ${aiMeal?`<button type="button" class="nf-text-action nf-ai-switch" data-nf="toggle-photo-alternative">${photoSeparateMode?'Back to whole-dish logging':'Prefer individual ingredients? Switch to catalogue logging'}</button>`:''}
+ ${!aiMeal||photoSeparateMode?`<div class="nf-catalogue-mode">
+ <p class="nf-muted-note">${aiMeal?'Alternative logging method: selecting individual ingredients will replace the whole-dish estimate, not add to it.':''}</p>
+${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
  ${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
  ${photoFoods.length?photoFoods.map((item,i)=>{const food=findFood(item.id);return `<div class="nf-meal-line"><div><b>${esc(food?.name||'Food')}</b><small>Cooked weight</small></div><div class="nf-inline-quantity"><input data-nf-grams="${i}" type="number" min="1" max="5000" inputmode="decimal" step="1" value="${esc(item.grams)}" aria-label="Grams of ${esc(food?.name||'food')}"><span>g</span></div><button class="nf-remove" data-nf="remove-photo" data-index="${i}" aria-label="Remove ${esc(food?.name||'food')}">×</button></div>`;}).join(''):'<p class="nf-empty nf-help-compact">No foods selected yet. Add the foods you can see in the photo.</p>'}
  ${photoSearchVisible?`<div class="nf-photo-search"><label class="nf-field"><span>Find a food</span><input id="nf-photo-search" type="search" value="${esc(photoQuery)}" placeholder="Roti, rice, curry…" autocomplete="off"></label><div class="nf-food-results nf-small-results" id="nf-photo-results">${results(photoQuery,7)}</div></div>`:''}
- ${mealDateFields()}<div id="nf-photo-total">${photoTotals()}</div><p class="nf-muted-note nf-final-note">Nutrition is estimated from the foods and weights you confirm, not measured from the photo.</p>`;}
+
+ <div id="nf-photo-total">${photoTotals()}</div>
+ </div>`:''}
+ ${mealDateFields()}
+ <p class="nf-muted-note nf-final-note">${aiMeal&&!photoSeparateMode?'The whole-dish estimate is for the entire meal; confirm the name and macro values before saving. It is not measured from the photo.':'Nutrition for catalogue entries is estimated from the foods and grams you confirm.'}</p>`;}
  function photo(){return photoStep==='choose'?photoChoose():photoReview();}
  function barcodeView(){return `<div class="nf-barcode-visual" aria-hidden="true">${ico('barcode')}</div><p class="nf-subtle">Scan EAN / UPC barcodes from Lidl, Aldi, REWE, EDEKA, Penny, Kaufland and other German supermarkets.</p>
   <button class="nf-secondary-block" data-nf="scan">Start camera scanner</button><p class="nf-status" role="status">${esc(barcodeStatus||'On unsupported Android browsers, a free ZXing scanner will be loaded on first use.')}</p><div id="nf-camera" class="nf-camera"></div><button class="nf-text-action" data-nf="barcode-image">Or select a barcode photograph</button>
@@ -106,8 +113,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   <button class="nf-text-action" data-nf="manual">Not found? Enter nutrition manually</button><p class="nf-muted-note">Open Food Facts is a community database and does not contain every Aldi, Lidl, REWE, EDEKA or Kaufland own-brand product. Shops appear only when listed in the product record. German names are preferred. Data may be incomplete; check the package. Photos are decoded on your device.</p>`;}
  function footer(){if(page==='portion')return `<button type="button" class="nf-primary" data-nf="save-portion" ${saving?'disabled':''}>${saving?'Saving…':'Add to food diary'}</button>`;
  if(page==='photo'&&photoStep==='review'){
-  if(aiMeal)return `<button type="button" class="nf-primary" data-nf="save-ai-meal" ${saving?'disabled':''}>${saving?'Saving…':'Save reviewed dish estimate'}</button>
-   ${photoFoods.length?`<button type="button" class="nf-text-action" data-nf="save-photo" ${saving?'disabled':''}>Or log ${photoFoods.length} catalogue food${photoFoods.length===1?'':'s'} separately instead</button>`:''}`;
+  if(aiMeal&&!photoSeparateMode)return `<button type="button" class="nf-primary" data-nf="save-ai-meal" ${saving?'disabled':''}>${saving?'Saving…':'Save reviewed dish estimate'}</button>`;
+  if(aiMeal&&photoSeparateMode)return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||!photoFoods.length?'disabled':''}>${saving?'Saving…':`Save ${photoFoods.length} separate catalogue food${photoFoods.length===1?'':'s'}`}</button>`;
   return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||photoFoods.length===0?'disabled':''}>${saving?'Saving…':`Add ${photoFoods.length} ${photoFoods.length===1?'food':'foods'} to diary`}</button>`;
  }
  return '';
@@ -119,7 +126,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  function back(){if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
- function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
+ function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
   if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();}
  async function scanWithAi(){
   if(!imageFile||disposed||aiScanning)return;
@@ -127,7 +134,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   if(!aiAccessToken){notice='Enter the private Worker access token (not a Hugging Face API token).';render();return;}
   try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){notice=String(error.message);render();return;}
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
-  aiScanning=true;aiMeal=null;aiModel='';notice='Preparing one compressed image for secure dish analysis…';render();
+  aiScanning=true;aiMeal=null;aiModel='';photoSeparateMode=false;notice='Preparing one compressed image for secure dish analysis…';render();
   try{
    const bitmap=await createImageBitmap(imageFile);
    if(disposed||token!==aiRequestId){bitmap.close();return;}
@@ -305,7 +312,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
     const missing=selected.source==='Open Food Facts'?nutrients.filter(k=>selected.per100?.[k]==null):[];
     await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id,missingNutrition:missing}]);return;
    }
-  if(a==='change-photo'){stopAiScan();aiMeal=null;aiModel='';photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
+  if(a==='toggle-photo-alternative'&&page==='photo'&&aiMeal){photoSeparateMode=!photoSeparateMode;render();return;}
+  if(a==='change-photo'){stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
   if(a==='ai-scan'){await scanWithAi();return;}
    if(a==='ai-cancel'){stopAiScan();notice='AI Scan cancelled. No data was logged.';render();return;}
