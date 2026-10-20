@@ -1,30 +1,18 @@
-// IndexedDB keeps all normal logs off localStorage and available offline.
-const NAME = 'recomp-fitness-v1';
-const STORES = ['records','photos'];
-let connection;
-export function openDb() {
-  if (connection) return connection;
-  connection = new Promise((resolve, reject) => {
-    const req = indexedDB.open(NAME, 1);
-    req.onupgradeneeded = () => { for (const s of STORES) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s); };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return connection;
-}
-async function request(store, mode, action) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, mode);
-    const req = action(tx.objectStore(store));
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-export const get = (key) => request('records','readonly',s=>s.get(key));
-export const put = (key,value) => request('records','readwrite',s=>s.put(value,key));
-export const getPhoto = (key) => request('photos','readonly',s=>s.get(key));
-export const putPhoto = (key,value) => request('photos','readwrite',s=>s.put(value,key));
-export const deletePhoto = key => request('photos','readwrite',s=>s.delete(key));
-export const getAllPhotos = () => request('photos','readonly',s=>s.getAllKeys());
+// Recomp v2.5.1 SAFE PREVIEW ONLY.
+// Deliberately uses volatile in-memory stores. There is no IndexedDB, no disk
+// persistence and no access to fitness records saved on the live Recomp origin.
+// Do not merge this preview-only replacement into the production pull request.
+const records=new Map();
+const photos=new Map();
+const clone=value=>{
+ if(value==null)return value;
+ if(typeof structuredClone==='function')return structuredClone(value);
+ return JSON.parse(JSON.stringify(value));
+};
+export async function openDb(){return {preview:true,persistent:false};}
+export const get=async key=>clone(records.get(key));
+export const put=async (key,value)=>{records.set(key,clone(value));return key;};
+export const getPhoto=async key=>photos.get(key);
+export const putPhoto=async (key,value)=>{photos.set(key,value);return key;};
+export const deletePhoto=async key=>{photos.delete(key);};
+export const getAllPhotos=async()=>[...photos.keys()];
