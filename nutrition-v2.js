@@ -28,6 +28,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken=getPhotoAiSessionToken(),aiMeal=null,aiModel='',aiScanning=false,aiAbort=null,aiRequestId=0;
  let aiStatus='idle',aiMessage='',aiIssue='';
+ let lastRenderedPage=null,lastRenderedPhotoStep=null;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
@@ -140,7 +141,16 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
  return '';
  }
  function render(){if(disposed)return;
+  // Preserve position through a scan's working, result and error updates. A full
+  // overlay rebuild previously jumped to the top whenever Retry was pressed.
+  const previousContent=host.querySelector('.nf-content');
+  const sameView=Boolean(previousContent&&lastRenderedPage===page&&(page!=='photo'||lastRenderedPhotoStep===photoStep));
+  const previousScroll=sameView?previousContent.scrollTop:0;
+  const advancedWasOpen=Boolean(sameView&&host.querySelector('.nf-ai-advanced')?.open);
   host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"><input class="nf-sr" id="nf-barcode-image" type="file" accept="image/*" aria-label="Select a barcode photograph"></div>`;
+  lastRenderedPage=page;lastRenderedPhotoStep=photoStep;
+  if(advancedWasOpen){const settings=host.querySelector('.nf-ai-advanced');if(settings)settings.open=true;}
+  if(sameView){const content=host.querySelector('.nf-content');if(content)content.scrollTop=previousScroll;}
  }
  function go(mode){stopAiScan();stopCamera();page=mode;notice='';aiStatus='idle';aiMessage='';aiIssue='';render();}
  function back(){stopAiScan();aiStatus='idle';aiMessage='';aiIssue='';if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
