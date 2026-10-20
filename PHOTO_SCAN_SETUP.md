@@ -1,46 +1,50 @@
-# Recomp v2.7 — private AI photo scanner (optional)
+# Recomp v2.7 — optional Hugging Face meal-photo scanner
 
-Recomp stays on GitHub Pages, with a free on-device food search/recognition fallback.
-This feature is **not live until the owner deploys and configures the Worker**.
-No OpenAI key is required to use other app features.
+Recomp remains on **free GitHub Pages**. AI detection is entirely optional; manual search and the existing offline/wasm photo model still work without this setup.
 
-## Why a Worker?
+**Status:** Implemented in a development pull request, but **not yet published or tested against a real Hugging Face account**. You must deploy and privately configure the Worker before we can complete a real food-photo test.
 
-The **OpenAI API secret must never be entered into a public GitHub Pages app**, checked into GitHub, embedded in browser JavaScript, or saved in localStorage. Use a Cloudflare Worker to keep it encrypted server-side. The free Workers tier can host the gateway, but OpenAI image analysis is **paid per usage**. Put a usage / project budget limit on your OpenAI account. A ChatGPT Plus subscription does **not** include API credits.
+## Why Hugging Face + a Cloudflare Worker?
 
-**For the current private beta:** one app-owner OpenAI key is stored in a Worker secret. To prevent the public worker URL being abused, a separate unpredictable `SCAN_ACCESS_TOKEN` controls its use. It should **not** equal your OpenAI key or an ordinary password. Do not share either token. This is a single-owner test flow, not a general multi-user BYOK vault. If you later invite friends, move to real per-user authentication, limits and provider-key storage rather than sharing the Worker token.
+For a personal beta, Hugging Face Inference Providers lets you experiment with a hosted multimodal model without an OpenAI API subscription. Its current free allowance is **$0.10 per month** in inference credits (subject to change). Extra usage may require payment. The Cloudflare free Worker tier is suitable for a small personal proxy.
 
-## One-time setup on your accounts
+We start with **Qwen/Qwen3-VL-4B-Instruct**, listed with Featherless AI as an inference provider. Provider/model availability and speed can change; a real test is required before assuming this combination works for your meal photos. This is NOT an unlimited free service.
 
-1. Create a Cloudflare account, open **Workers & Pages**, and deploy `photo-scan-worker/worker.js` (either using Wrangler from this folder or by pasting code into a new Worker).
-2. Using Cloudflare Worker Settings → **Variables and Secrets**, add both as **Secret** (not plain variables):
-   - `OPENAI_API_KEY`: your own OpenAI Platform API key, created on <https://platform.openai.com/api-keys>. Enter it **in Cloudflare only**, never in Recomp or ChatGPT.
-   - `SCAN_ACCESS_TOKEN`: a separate random 32+ character secret passphrase, generated locally. Don't save it in this GitHub repository.
-3. Worker should respond at `https://YOUR-WORKER.workers.dev/scan` (you may paste the public Worker root URL in Recomp; it appends `/scan`). The code only allows `https://t3ch-miner.github.io` as the browser origin. For another host, review and explicitly change `ALLOWED_ORIGIN` in `worker.js`.
-4. In the Recomp **Nutrition → Photo meal** screen, choose a picture, enter the public Worker URL and your **separate Worker access token** and tap **AI Scan this photo**. Only then is a resized JPEG sent to your Worker and OpenAI.
-5. Choose the right catalogue food for each suggested item, review cooked weights, then save. Unknown dishes are **not** assigned invented nutrition numbers.
-6. If available, use an OpenAI usage budget / alert, protect and rotate your token, and consider Cloudflare rate limits as usage grows.
+Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted secret**. Never paste it into the public Recomp app or GitHub. The Recomp browser only uses a separate personal Worker access token held **in RAM**, with the public Worker endpoint saved for convenience. Don't share either private token.
 
-To deploy using Wrangler:
+## Setup
+
+1. Create free accounts if needed at <https://huggingface.co> and <https://dash.cloudflare.com/>.
+2. In Hugging Face, open **Settings → Access Tokens → New token** and create a fine-grained token with the **Inference Providers** permission. Save the token privately.
+3. In Cloudflare **Workers & Pages**, create a Worker named `recomp-photo-scan`. Replace its default JavaScript with this repository's `photo-scan-worker/worker.js`, then deploy. Or use Wrangler.
+4. In the Worker's **Settings → Variables and Secrets**, create two **Secret** entries:
+   - `HF_TOKEN`: the Hugging Face fine-grained inference token, created at <https://huggingface.co/settings/tokens>.
+   - `SCAN_ACCESS_TOKEN`: a **different** randomly generated private token of 32 or more characters. Do not use the Hugging Face token as this token. Do not check either token into GitHub.
+5. Your public Worker address will look like `https://recomp-photo-scan.YOUR-SUBDOMAIN.workers.dev`. The Recomp UI accepts the root address and appends `/scan` automatically.
+6. After the scanner has been reviewed and published, open **Recomp → Nutrition → Photo meal**, choose a photo, provide the **public Worker URL** and the **separate Worker access token**, and tap **AI Scan this photo**.
+7. Review the food items suggested by the model. Tap **Find food** to select a corresponding food from Recomp's existing catalogue, **correct the cooked weight**, and save only after review.
+
+A CLI alternative, if you already use Wrangler:
 
 ```sh
 cd photo-scan-worker
 npx wrangler login
-npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put HF_TOKEN
 npx wrangler secret put SCAN_ACCESS_TOKEN
 npx wrangler deploy
 ```
 
-Wrangler prompts for secret values locally. **Never paste credentials into this chat, GitHub, an issue, or a public command line.**
+Wrangler prompts for secrets privately. **Do not paste secret values into this chat, GitHub, screenshots, or shell commands.** The public Worker URL (without any token) is safe to share.
 
-## Privacy and reliability
+## Privacy, costs and limitations
 
-- Recomp remembers **only the public Worker URL**, not the Worker access token or OpenAI secret. The access token remains in RAM until the Recomp page reloads or closes. It is never persisted to localStorage, IndexedDB or a file.
-- Photos are neither automatically uploaded nor added to the diary. Manual and MobileCLIP on-device options still work without an OpenAI account or network.
-- OpenAI only sees a compressed copy **after** you tap AI Scan. The request uses `store:false`; normal API operational data policies may still apply. Avoid photos containing people, addresses or private documents.
-- The model identifies **possibly visible items**, not weighed portions or laboratory macro values. The image might not reveal oil, ghee, cooking methods or ingredients in curry. Ask the user to confirm every suggestion.
-- The Worker is deliberately narrow: one POST `/scan` route, one allowed origin, private token required, request-size cap, no persistent photos, bounded output and uninformative upstream error messages.
-- CORS origin restrictions do not authenticate callers. The **private token is required** and should be treated as sensitive.
-- An actual end-to-end OpenAI call still requires your Worker deployment and API billing; GitHub Actions unit tests do **not** verify paid provider requests.
+- A photo is uploaded to your Cloudflare Worker and forwarded to the selected Hugging Face Inference Provider **only after** tapping AI Scan. A resized JPEG is used. A photo is not stored in your Recomp diary by default.
+- The app only persists the public Worker URL. It does **not** persist `HF_TOKEN` or `SCAN_ACCESS_TOKEN`; the separate access token stays in RAM for the current app session.
+- Browsers send the separate Worker access token for authentication; it is distinct from the HF token and should still be kept private. The Worker permits only the official GitHub Pages origin for browser requests, but **CORS is not authentication**.
+- The Hugging Face provider may log or retain request data according to its policies. Avoid faces, documents, addresses or other sensitive content in meal photos; review your provider's terms.
+- Vision-language models may confuse curries and hidden ingredients. They cannot accurately weigh food or infer added oil/ghee. Each model output is clearly a *suggestion*. Nutrition is calculated locally from **foods and gram amounts you confirm**.
+- The model can return invalid JSON, lack available provider capacity or exhaust your monthly credits. In those situations the app should display an error and still allow manual/offline logging.
+- The Worker does not write meal history, fitness records, photos or backups. No IndexedDB migration or reset is part of this feature.
+- GitHub Actions tests validate the API request shape and error handling with mocks. They **cannot** verify a real Hugging Face scan until the account and secrets are configured.
 
-Provider docs: <https://developers.openai.com/api/docs/guides/images-vision>, <https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety>, <https://developers.cloudflare.com/workers/configuration/secrets/>.
+Docs: <https://huggingface.co/docs/inference-providers/en/pricing> · <https://huggingface.co/docs/inference-providers/tasks/image-text-to-text> · <https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct> · <https://developers.cloudflare.com/workers/configuration/secrets/>.
