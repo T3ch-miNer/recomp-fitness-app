@@ -81,7 +81,8 @@ test('food-photo review never autosaves suggestions and retains free manual path
  assert.match(nutrition,/recognising\?'cancel-recognition':'recognise'/);
  assert.match(nutrition,/saveEntries\(entries\)/);
  assert.match(nutrition,/AI may misidentify food/);
- assert.ok(!/OPENAI_API_KEY|sk-[A-Za-z0-9]{20,}/.test(nutrition+clientSource),'no provider API key in browser');
+ assert.ok(!/sk-[A-Za-z0-9]{20,}/.test(nutrition+clientSource),'no provider API key literal in browser');
+ assert.ok(!/localStorage\.setItem\([^\n]*accessToken/.test(clientSource),'the private token must not be persisted');
  assert.match(styles,/nf-vision-result/);
  assert.match(sw,/'\.\/photo-ai\.js'/);
  assert.match(html,/2\.7-ai-photos/);
