@@ -68,7 +68,7 @@ export function buildAiDishDiaryEntry({meal,date,mealType,model}){
  }
  const low=Number(meal.calorieLow),high=Number(meal.calorieHigh);
  const validRange=Number.isFinite(low)&&Number.isFinite(high)&&low>=1&&
-  high<=4500&&low<=high;
+  high<=4500&&low<=values.calories&&values.calories<=high;
  const range=validRange?{low:Math.round(low),high:Math.round(high)}:null;
  return {date,meal:mealType,name,grams:values.estimatedGrams,
   calories:values.calories,protein:values.protein,carbs:values.carbs,
