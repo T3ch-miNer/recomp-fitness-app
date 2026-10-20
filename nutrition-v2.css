@@ -58,3 +58,37 @@ body.nf-open{overflow:hidden}
 .nf-barcode-visual{height:66px}
 .nf-camera video{max-height:260px;object-fit:cover;border:1px solid var(--line)}
 @media(max-width:380px){.nf-product-fields{gap:9px}.nf-product-edit{padding:12px}}
+
+/* Personal AI photo scan: visually distinct from free on-device recognition. */
+.nf-vision-panel{display:grid;gap:12px;margin:14px 0;padding:16px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:18px;background:var(--panel)}
+.nf-vision-heading{display:grid;gap:5px}
+.nf-vision-heading b{font-size:15px;color:var(--text)}
+.nf-vision-heading span{font-size:12px;line-height:1.5;color:var(--muted)}
+.nf-vision-panel .nf-field{min-width:0}
+.nf-vision-panel .nf-field input{width:100%;max-width:100%;font-size:15px;box-sizing:border-box}
+.nf-vision-panel .nf-muted-note{font-size:11px;line-height:1.55;margin:0}
+.nf-vision-panel .nf-primary{min-height:48px;width:100%}
+.nf-vision-results{display:grid;gap:10px;padding-top:8px;border-top:1px solid var(--line)}
+.nf-vision-results>b{font-size:13px}
+.nf-vision-result{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2)}
+.nf-vision-result>div{display:grid;gap:5px;min-width:0;flex:1}
+.nf-vision-result b{font-size:13px;color:var(--text);line-height:1.35}
+.nf-vision-result small{font-size:11px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+.nf-vision-result .nf-outlined{flex:none;min-height:40px;font-size:12px}
+@media(max-width:380px){.nf-vision-result{align-items:stretch;flex-wrap:wrap}.nf-vision-result .nf-outlined{flex:1 1 100%}}
+
+/* Recomp v2.7 — visually separated, editable whole-dish AI nutrition estimate. */
+.nf-ai-dish{display:grid;gap:14px;border:1px solid color-mix(in srgb,var(--accent) 47%,var(--line));background:var(--panel);border-radius:16px;padding:15px;min-width:0}
+.nf-dish-top h3{color:var(--text);font-size:19px;letter-spacing:-.025em;margin:5px 0 4px}
+.nf-dish-top small{color:var(--muted);font-size:11px;line-height:1.45}
+.nf-ai-dish .nf-field{min-width:0}
+.nf-ai-dish .nf-field span{color:var(--muted);font-size:11px;font-weight:650}
+.nf-ai-dish input{min-width:0;width:100%;max-width:100%;font-size:16px}
+.nf-dish-kcal{padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;display:grid;gap:6px}
+.nf-dish-kcal>span,.nf-dish-kcal>small{font-size:11px;color:var(--muted);line-height:1.4}
+.nf-dish-kcal>strong{font-size:29px;color:var(--text);letter-spacing:-.05em}
+.nf-dish-kcal>strong small{font-size:14px;font-weight:500}
+.nf-dish-macros{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nf-dish-macros .nf-field:first-child{grid-column:1/-1}
+.nf-dish-assumptions{color:var(--muted);background:var(--panel2);padding:12px;border-radius:12px;font-size:12px;line-height:1.5;margin:0}
+.nf-dish-assumptions b{color:var(--text)}

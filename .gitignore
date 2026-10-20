@@ -1,0 +1,11 @@
+# Local secrets, never upload to public GitHub
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+photo-scan-worker/.env
+photo-scan-worker/.env.*
+photo-scan-worker/.dev.vars
+photo-scan-worker/.dev.vars.*
+node_modules/
+.wrangler/

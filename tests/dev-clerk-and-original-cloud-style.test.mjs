@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const clerkSource=read('clerk-auth.js');
 const clerk=await import('data:text/javascript;base64,'+Buffer.from(clerkSource).toString('base64'));
-const nav=read('nav-cloud.css');
+const nav=read('nav-capsule.css');
 const premium=read('premium.css');
 const onboard=read('first-run.js');
 const app=read('app.js');
@@ -48,22 +48,19 @@ test('guest remains optional and development warning appears in first-run and Se
  assert.ok(!/deleteDatabase|\bindexedDB\b|uploadSnapshot|downloadSnapshot/.test(clerkSource));
 });
 
-test('cloud keeps its shape but restores the original premium mint colours and labels',()=>{
- assert.match(app,/dock-cloud-surface/);
- assert.match(nav,/\.dock-cloud-surface path/);
- assert.match(nav,/fill:var\(--nav-float\)/);
- assert.match(nav,/color:var\(--accent\)!important/);
- assert.match(nav,/color:var\(--muted\)!important/);
+test('mobile dock restores the rounded capsule rather than the cloud',()=>{
+ assert.doesNotMatch(app,/dock-cloud-surface/);
+ assert.match(nav,/border-radius:999px!important/);
+ assert.match(nav,/\.bottom-btn\.active/);
+ assert.match(nav,/#c5adff/);
  assert.match(nav,/\.bottom-btn span/);
- assert.match(nav,/clip:auto!important/);
- assert.match(nav,/font-size:10\.5px!important/);
+ assert.match(nav,/clip:rect/);
  assert.match(premium,/--nav-float:/);
  assert.match(premium,/--accent-glow:/);
- assert.ok(!nav.includes('#cdb7ff'),'purple buttons must be removed');
 });
 
 test('offline app shell caches the same modules without changing IndexedDB',()=>{
- for(const path of ['./clerk-auth.js','./nav-cloud.css','./first-run.js','./first-run.css']){
+ for(const path of ['./clerk-auth.js','./nav-capsule.css','./first-run.js','./first-run.css']){
   assert.ok(sw.includes("'"+path+"'"));
  }
  const db=read('db.js');

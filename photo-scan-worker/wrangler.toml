@@ -1,0 +1,6 @@
+# Recomp photo AI personal gateway on Cloudflare Workers.
+# HF_TOKEN and SCAN_ACCESS_TOKEN must be Cloudflare Worker secrets,
+# NEVER plaintext variables in wrangler.toml or checked into GitHub.
+name = "recomp-photo-scan"
+main = "worker.js"
+compatibility_date = "2026-10-20"

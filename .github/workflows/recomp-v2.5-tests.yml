@@ -8,6 +8,7 @@ on:
       - feature/v2.5.5-workout-back-inline-dialogs-20261020
       - feature/v2.5.6-fts-round-based-giant-sets-20261020
       - feature/v2.6-giant-set-final-release-20261020
+      - feature/v2.7-private-ai-photo-meals-20261020
   pull_request:
     paths:
       - 'app.js'
@@ -24,12 +25,17 @@ on:
       - 'db.js'
       - 'food-db.js'
       - 'nutrition-v2.js'
+      - 'photo-ai.js'
+      - 'photo-scan-worker/**'
       - 'food-recognition-worker.js'
       - 'meal-planner.js'
       - 'health-connect.js'
       - 'first-run.js'
       - 'clerk-auth.js'
-      - 'nav-cloud.css'
+      - 'goal-draft.js'
+      - 'settings-layout.css'
+      - 'index.html'
+      - 'sw.js'
       - 'first-run.css'
       - 'recipe-estimates.js'
       - 'nav-capsule.css'
@@ -51,7 +57,7 @@ jobs:
           node-version: '22'
       - name: Check ES module syntax
         run: |
-          for file in app.js giant-sets.js giant-set-view.js fts-workouts.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
+          for file in goal-draft.js photo-ai.js photo-scan-worker/worker.js app.js giant-sets.js giant-set-view.js fts-workouts.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
             node --input-type=module --check < "$file"
           done
       - name: Test meal planner, recipe integration, barcodes and local storage

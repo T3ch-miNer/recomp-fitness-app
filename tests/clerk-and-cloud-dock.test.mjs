@@ -4,24 +4,26 @@ import {readFileSync} from 'node:fs';
 
 const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const markup=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const css=readFileSync(new URL('../nav-cloud.css',import.meta.url),'utf8');
+const css=readFileSync(new URL('../nav-capsule.css',import.meta.url),'utf8');
 const clerk=readFileSync(new URL('../clerk-auth.js',import.meta.url),'utf8');
 const onboarding=readFileSync(new URL('../first-run.js',import.meta.url),'utf8');
 const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 
-test('mobile navigation has a real cloud silhouette plus four accessible icon controls',()=>{
- assert.match(js,/dock-cloud-surface/);
- assert.match(css,/dock-cloud-surface path/);
+test('mobile navigation returns to the pre-cloud capsule with four accessible controls',()=>{
+ assert.doesNotMatch(js,/dock-cloud-surface/);
+ assert.match(css,/border-radius:999px!important/);
  assert.match(css,/\.bottom-btn\.active/);
  assert.match(css,/prefers-reduced-motion/);
- assert.match(css,/calc\(7px \+ env\(safe-area-inset-bottom\)\)/);
+ assert.match(css,/calc\(13px \+ env\(safe-area-inset-bottom\)\)/);
  assert.ok(js.includes('aria-label="${label}"'));
  assert.match(js,/\['home','home','Home'\]/);
  assert.match(js,/\['workouts','dumbbell','Workouts'\]/);
  assert.match(js,/\['nutrition','food','Nutrition'\]/);
  assert.match(js,/\['body','chart','Body'\]/);
- assert.match(markup,/nav-cloud\.css/);
- assert.match(sw,/nav-cloud\.css/);
+ assert.match(markup,/nav-capsule\.css/);
+ assert.doesNotMatch(markup,/nav-cloud\.css/);
+ assert.match(sw,/nav-capsule\.css/);
+ assert.doesNotMatch(sw,/nav-cloud\.css/);
 });
 
 test('Clerk account is optional and separated from existing private backups',()=>{
@@ -50,5 +52,5 @@ test('Clerk integration requires a public key; no secrets or record migration',(
  assert.ok(!/indexedDB|deleteDatabase|uploadSnapshot|downloadSnapshot/.test(clerk));
  assert.ok(!/fetch\(.*health/.test(clerk));
  assert.match(sw,/clerk-auth\.js/);
- assert.ok(markup.includes('src="./app.js?v=2.6-giant-set-rounds"'));
+ assert.ok(markup.includes('src="./app.js?v=2.7-settings-hub"'));
 });
