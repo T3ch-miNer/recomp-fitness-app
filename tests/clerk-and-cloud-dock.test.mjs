@@ -15,7 +15,7 @@ test('mobile navigation has a real cloud silhouette plus four accessible icon co
  assert.match(css,/\.bottom-btn\.active/);
  assert.match(css,/prefers-reduced-motion/);
  assert.match(css,/calc\(7px \+ env\(safe-area-inset-bottom\)\)/);
- assert.match(js,/aria-label="${label}"/);
+ assert.ok(js.includes('aria-label="${label}"'));
  assert.match(js,/\['home','home','Home'\]/);
  assert.match(js,/\['workouts','dumbbell','Workouts'\]/);
  assert.match(js,/\['nutrition','food','Nutrition'\]/);
