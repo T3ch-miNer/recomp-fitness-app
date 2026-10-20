@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {getPhotoAiEndpoint,scanPhotoWithWorker} from './photo-ai.js';
+import {getPhotoAiEndpoint,getPhotoAiSessionToken,rememberPhotoAiSessionToken,scanPhotoWithWorker} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -26,7 +26,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoFoods=[],suggestions=[],recognising=false;
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
- let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken='',aiItems=[],aiScanning=false,aiAbort=null,aiRequestId=0;
+ let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken=getPhotoAiSessionToken(),aiItems=[],aiScanning=false,aiAbort=null,aiRequestId=0;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
@@ -76,7 +76,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    <div class="nf-vision-heading"><b>AI Scan · identify separate foods</b><span>Optional · uses a privately configured OpenAI Worker · billed to the owner's API account</span></div>
    <label class="nf-field"><span>Secure Worker URL (not a secret)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
    <label class="nf-field"><span>Private scan access token</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="${aiAccessToken?'Token entered for this scan session':'Enter the Worker access token'}"></label>
-   <p class="nf-muted-note">OpenAI API keys are never entered into Recomp. The access token stays in memory only. Tapping AI Scan sends this resized photo to the Worker and OpenAI for analysis; your food diary is unchanged until you approve items. This may incur API charges.</p>
+   <p class="nf-muted-note">OpenAI API keys are never entered into Recomp. The access token stays in memory until Recomp reloads, never in persistent storage. Tapping AI Scan sends this resized photo to the Worker and OpenAI for analysis; your food diary is unchanged until you approve items. This may incur API charges.</p>
    <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">${aiScanning?'Cancel AI Scan':'AI Scan this photo'}</button>
    ${aiScanning?'<p class="nf-status" role="status">Analysing the visible foods securely…</p>':''}
    ${aiItems.length?`<div class="nf-vision-results"><b>Foods suggested by AI · not confirmed</b>
@@ -113,6 +113,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   if(!imageFile||disposed||aiScanning)return;
   if(!aiEndpoint.trim()){notice='Enter your secure Worker URL first. The Worker must be configured by the app owner.';render();return;}
   if(!aiAccessToken){notice='Enter the private Worker access token (not an OpenAI API key).';render();return;}
+  try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){notice=String(error.message);render();return;}
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
   aiScanning=true;aiItems=[];notice='Preparing one compressed image for secure analysis…';render();
   try{
