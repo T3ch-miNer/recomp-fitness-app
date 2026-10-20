@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {DEFAULT_PHOTO_AI_ENDPOINT,savePhotoAiEndpoint,getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,explainPhotoAiFailure,buildAiDishDiaryEntry} from './photo-ai.js';
+import {DEFAULT_PHOTO_AI_ENDPOINT,savePhotoAiEndpoint,getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,checkPhotoAiConnection,explainPhotoAiFailure,buildAiDishDiaryEntry} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -87,9 +87,11 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">
      ${aiScanning?'Cancel recognition':!aiAccessToken?'Connect scanner & recognise':aiStatus==='error'?'Retry Hugging Face recognition':'Recognise this dish'}
    </button>
+   <button type="button" class="nf-outlined nf-ai-check-connection" data-nf="ai-check-connection" ${aiScanning?'disabled':''}>Check Worker access without sending a photo</button>
    ${aiMessage?`<div id="nf-ai-scan-status" class="nf-ai-scan-status nf-ai-scan-status-${aiStatus}" role="${aiStatus==='error'?'alert':'status'}" aria-live="polite">
       <strong>${aiStatus==='error'?'Recognition failed':aiStatus==='success'?'Dish identified':aiStatus==='working'?'Analysing your dish':'Scanner information'}</strong>
       <span>${esc(aiMessage)}</span>
+      ${aiStatus==='error'?`<small>Worker URL in use: ${esc(aiEndpoint)}</small>`:''}
       ${aiStatus==='error'&&aiIssue==='access'?'<button type="button" class="nf-inline-link" data-nf="change-ai-access">Enter a new Worker access code</button>':''}
       ${aiStatus==='error'&&aiIssue==='connection'?'<small>Check your internet connection and Worker URL in Scanner settings, then retry.</small>':''}
     </div>`:''}
@@ -160,6 +162,32 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
   if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();
   // The explicit photo choice triggers a single scan if scanner access is configured.
   if(aiAccessToken)void scanWithAi();
+ }
+ async function checkScannerConnection(){
+  if(disposed||aiScanning)return;
+  if(!aiAccessToken){aiStatus='error';aiIssue='access';aiMessage='Enter your private Worker access code first.';render();return;}
+  const rememberAfterCheck=Boolean(host.querySelector('#nf-ai-remember')?.checked);
+  const token=++aiRequestId;
+  const controller=new AbortController();
+  aiAbort=controller;aiScanning=true;aiStatus='working';aiIssue='';
+  aiMessage='Checking whether the Worker accepts your code. No photo is being uploaded.';
+  render();
+  try{
+   const result=await checkPhotoAiConnection({endpoint:aiEndpoint,accessToken:aiAccessToken,signal:controller.signal});
+   if(disposed||token!==aiRequestId)return;
+   aiStatus='ready';aiIssue='';
+   let memoryWarning='';
+   if(rememberAfterCheck){try{savePhotoAiDeviceToken(aiAccessToken);}catch{memoryWarning=' The code could not be saved on this device.';}}
+   aiMessage='Worker access confirmed. Model: '+result.model+'. Now tap Recognise this dish.'+memoryWarning;
+  }catch(error){
+   if(!disposed&&token===aiRequestId){
+    const failure=explainPhotoAiFailure(error);
+    aiStatus=failure.issue==='cancelled'?'idle':'error';
+    aiIssue=failure.issue;aiMessage=failure.message;
+   }
+  }finally{
+   if(token===aiRequestId){aiScanning=false;aiAbort=null;if(!disposed)render();}
+  }
  }
  async function scanWithAi(){
   if(!imageFile||disposed||aiScanning)return;
@@ -374,6 +402,7 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
     aiStatus='idle';aiIssue='';aiMessage='The default Recomp Worker URL has been restored. Try recognition again.';
     render();return;
    }
+  if(a==='ai-check-connection'){await checkScannerConnection();return;}
   if(a==='ai-scan'){await scanWithAi();return;}
    if(a==='ai-cancel'){stopAiScan();aiStatus='idle';aiIssue='';aiMessage='Recognition cancelled. Nothing was saved.';render();return;}
    if(a==='save-ai-meal'){
