@@ -15,13 +15,13 @@ export function showFirstRunWelcome({onGuest,onGoogle}){
   <div class="first-run-icon" aria-hidden="true">✦</div>
   <div class="first-run-eyebrow">YOUR FITNESS. YOUR RULES.</div>
   <h1 id="first-run-title">Start strong.</h1>
-  <p id="first-run-description">Track workouts, food and progress privately. You can start straight away without an account, or connect Google for optional cloud backup.</p>
+  <p id="first-run-description">Explore Recomp with sample data. Continue without signing in to try the new design. Google login is available later in the full app after setup.</p>
   <div class="first-run-actions">
     <button class="first-run-google" type="button" data-first-run="google"><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
     <button class="first-run-guest" type="button" data-first-run="guest">Continue without signing in <span aria-hidden="true">→</span></button>
   </div>
   <p class="first-run-error" id="first-run-error" role="status" aria-live="polite" hidden></p>
-  <p class="first-run-privacy">Your fitness records stay on this device. You can connect Google later from Settings.</p>
+  <p class="first-run-privacy">This is a temporary demo: entries disappear on reload. Use sample information only. Google sign-in is disabled here.</p>
  </section>`;
  document.body.appendChild(overlay);
  const guest=overlay.querySelector('[data-first-run="guest"]');
