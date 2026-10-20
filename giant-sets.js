@@ -42,10 +42,8 @@ export function pickGiantCursor(session,groups){
   const g=groups.find(group=>group.id===preferred.group);
   if(g&&Number.isInteger(preferred.round)&&preferred.round>=0&&preferred.round<g.rounds&&
      g.items.some(item=>item.index===preferred.index)){
-   const selected=g.items.find(item=>item.index===preferred.index).exercise.sets[preferred.round];
-   if(!selected?.done || !firstIncompleteStep(groups))return {...preferred};
-   const next=nextIncompleteStep(groups,preferred);
-   if(next)return next;
+   // Honour manual selection even for a completed set, so Undo remains reachable.
+   return {...preferred};
   }
  }
  return firstIncompleteStep(groups)||{group:groups[0]?.id||'',round:0,index:groups[0]?.items[0]?.index??0};
