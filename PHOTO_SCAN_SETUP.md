@@ -20,8 +20,8 @@ Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted s
 4. In the Worker's **Settings → Variables and Secrets**, create two **Secret** entries:
    - `HF_TOKEN`: the Hugging Face fine-grained inference token, created at <https://huggingface.co/settings/tokens>.
    - `SCAN_ACCESS_TOKEN`: a **different** randomly generated private token of 32 or more characters. Do not use the Hugging Face token as this token. Do not check either token into GitHub.
-5. Your public Worker address will look like `https://recomp-photo-scan.YOUR-SUBDOMAIN.workers.dev`. The Recomp UI accepts the root address and appends `/scan` automatically.
-6. After the scanner has been reviewed and published, open **Recomp → Nutrition → Photo meal**, choose a photo, provide the **public Worker URL** and the **separate Worker access token**, and tap **AI Scan this photo**.
+5. Recomp's public Worker address is already preconfigured as `https://recomp-photo-scan.rahul-dbz95.workers.dev/scan` (provided by the app owner). This address is public, and you can still change it in the app if you later redeploy.
+6. After the scanner has been reviewed and published, open **Recomp → Nutrition → Photo meal**, choose a photo, confirm the prefilled Worker URL, enter **only your separate Worker access token** (not the Hugging Face token), and tap **AI Scan this photo**.
 7. Review the food items suggested by the model. Tap **Find food** to select a corresponding food from Recomp's existing catalogue, **correct the cooked weight**, and save only after review.
 
 A CLI alternative, if you already use Wrangler:
