@@ -181,7 +181,7 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
    const result=await scanPhotoWithWorker({endpoint:aiEndpoint,accessToken:aiAccessToken,imageDataUrl:image,signal});
    if(disposed||token!==aiRequestId)return;
    aiMeal=result.meal;aiModel=result.model;
-   aiStatus='success';aiIssue='';
+   aiStatus=aiMeal?'success':'error';aiIssue=aiMeal?'':'photo';
    let storageWarning='';
    if(rememberOnSuccess){try{savePhotoAiDeviceToken(aiAccessToken);}catch{storageWarning=' Scanner access could not be remembered on this device.';}}
    aiMessage=(aiMeal?'Hugging Face suggested a dish. Review its name and nutrition before saving.':'No recognisable dish was found. Retry with a clearer photo or log the meal manually.')+storageWarning;
