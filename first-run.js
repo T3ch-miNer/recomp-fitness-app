@@ -5,7 +5,7 @@ export function shouldOfferFirstRun({hasSavedState=false,hasChoice=false,hasSess
  return !hasSavedState && !hasChoice && !hasSession && !hasOAuthCallback;
 }
 
-export function showFirstRunWelcome({onGuest,onGoogle}){
+export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true}){
  if(document.getElementById('recomp-first-run'))return;
  if(typeof onGuest!=='function'||typeof onGoogle!=='function')throw new Error('First-run actions are required.');
  const overlay=document.createElement('div');
@@ -17,9 +17,10 @@ export function showFirstRunWelcome({onGuest,onGoogle}){
   <h1 id="first-run-title">Start strong.</h1>
   <p id="first-run-description">Track workouts, nutrition and progress without an account. Optional Google sign-in uses Clerk when configured. Cloud backup is a separate feature.</p>
   <div class="first-run-actions">
-    <button class="first-run-google" type="button" data-first-run="google"><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
+    <button class="first-run-google" type="button" data-first-run="google" ${googleEnabled?'':'disabled aria-disabled="true" title="Google sign-in is coming later"'}><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
     <button class="first-run-guest" type="button" data-first-run="guest">Continue without signing in <span aria-hidden="true">→</span></button>
   </div>
+  ${googleEnabled?'':'<p class="first-run-google-note">Google sign-in is coming later. You can track everything privately as a guest.</p>'}
   <p class="first-run-error" id="first-run-error" role="status" aria-live="polite" hidden></p>
   <p class="first-run-privacy">Your fitness records stay on this device. You can connect Google later from Settings.</p>
  </section>`;
