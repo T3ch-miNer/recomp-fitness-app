@@ -17,6 +17,18 @@ jobs:
         run: node --test tests/preview-safety.test.mjs tests/first-run.test.mjs
       - name: Verify nutrition and UX regression tests still pass
         run: node --test tests/food-db.test.mjs tests/meal-planner-integration.test.mjs tests/health-ui-and-macros.test.mjs meal-planner.test.mjs
+      - name: Check that external preview serves a standalone HTML page
+        run: |
+          url="https://raw.githack.com/${{ github.repository }}/${{ github.sha }}/index.html"
+          for i in 1 2 3 4; do
+            if curl --fail --silent --show-error --location --max-time 15 "$url" | grep -q "DEMO PREVIEW"; then
+              echo "Preview HTML is reachable through the demo proxy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Preview CDN could not be verified"
+          exit 1
       - name: Check browser module syntax
         run: |
           for file in app.js cloud.js db.js first-run.js nutrition-v2.js food-db.js meal-planner.js recipe-estimates.js health-connect.js sw.js; do
