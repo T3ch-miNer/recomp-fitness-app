@@ -15,6 +15,24 @@ const mockAi=()=>new Response(JSON.stringify({choices:[{message:{content:JSON.st
   {name:'Rice',visualEvidence:'White grains',portionHint:'One scoop',uncertain:false}
  ]})}}]}),{status:200});
 
+// This is a synthetic router catalogue, not a claim about current live HF inventory.
+const routerCatalog={data:[
+ {id:'Qwen/Qwen3-VL-4B-Instruct',architecture:{input_modalities:['text','image']},
+  providers:[{status:'error',provider:'featherless-ai'}]},
+ {id:'Qwen/Qwen2.5-VL-3B-Instruct',architecture:{input_modalities:['text','image']},
+  providers:[{status:'live',provider:'featherless-ai',pricing:{input:0.2,output:0.5}}]},
+ {id:'Qwen/Qwen3-VL-8B-Instruct',architecture:{input_modalities:['text','image']},
+  providers:[{status:'live',provider:'novita',pricing:{input:0.35,output:0.7}}]},
+ {id:'openai/gpt-oss-120b',architecture:{input_modalities:['text']},
+  providers:[{status:'live',provider:'groq',pricing:{input:0.5,output:1}}]}
+]};
+const mockCatalog=()=>new Response(JSON.stringify(routerCatalog),{status:200});
+const routed=chat=>async(url,opts)=>{
+ if(url==='https://router.huggingface.co/v1/models')return mockCatalog();
+ if(url==='https://router.huggingface.co/v1/chat/completions')return chat(url,opts);
+ throw Error('Unexpected provider request: '+url);
+};
+
 test('photo scan client accepts one trusted HTTPS endpoint and rejects API secrets',async()=>{
  assert.throws(()=>client.savePhotoAiEndpoint('http://unsafe.example.com/scan'),/HTTPS/);
  assert.throws(()=>client.savePhotoAiEndpoint('https://user:secret@unsafe.example.com/scan'),/HTTPS/);
@@ -67,6 +85,8 @@ test('private Worker test page requires deliberate photo selection and never per
  assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
  const html=await page.text();
  assert.match(html,/Test food recognition/);
+ assert.match(html,/Check Hugging Face vision connection/);
+ assert.match(html,/fetch\('\/models'/);
  assert.match(html,/SCAN_ACCESS_TOKEN/);
  assert.match(html,/type="file"/);
  assert.match(html,/fetch\('\/scan'/);
@@ -76,7 +96,7 @@ test('private Worker test page requires deliberate photo selection and never per
   method:'POST',headers:{Origin:'https://recomp-food-ai.rahul-dbz95.workers.dev',
    Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({image})
  });
- const accepted=await worker.handleScan(localRequest,env,async()=>mockAi());
+ const accepted=await worker.handleScan(localRequest,env,routed(async()=>mockAi()));
  assert.equal(accepted.status,200);
  assert.equal((await accepted.json()).items.length,2);
  const cross=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/scan',{
@@ -87,42 +107,93 @@ test('private Worker test page requires deliberate photo selection and never per
  assert.equal(cross.status,403);
 });
 
+test('model catalogue only selects live image-capable providers, excluding stale 4B and text models',async()=>{
+ const models=worker.pickVisionModels(routerCatalog);
+ assert.deepEqual(models.map(m=>m.id),['Qwen/Qwen2.5-VL-3B-Instruct','Qwen/Qwen3-VL-8B-Instruct']);
+ const unauthenticated=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/models'),env,()=>{throw Error('must not call router');});
+ assert.equal(unauthenticated.status,401);
+ let calls=0;
+ const connected=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/models',{headers:{Authorization:'Bearer '+accessToken}}),env,async(url,opts)=>{
+  calls++;
+  assert.equal(url,'https://router.huggingface.co/v1/models');
+  assert.equal(opts.headers.Authorization,'Bearer '+env.HF_TOKEN);
+  return mockCatalog();
+ });
+ assert.equal(calls,1);
+ assert.equal(connected.status,200);
+ const body=await connected.json();
+ assert.equal(body.selected,'Qwen/Qwen2.5-VL-3B-Instruct');
+ assert.equal(body.models.length,2);
+ assert.ok(!JSON.stringify(body).includes('hf_FAKE'));
+});
+
 test('Worker calls Hugging Face vision chat API after consent and returns separate foods',async()=>{
  let calls=0;
- const reply=await worker.handleScan(request(),env,async(url,options)=>{
+ const reply=await worker.handleScan(request(),env,routed(async(url,options)=>{
   calls++;
   assert.equal(url,'https://router.huggingface.co/v1/chat/completions');
   assert.equal(options.headers.Authorization,'Bearer '+env.HF_TOKEN);
-  const requestBody=JSON.parse(options.body);
-  assert.equal(requestBody.model,'Qwen/Qwen3-VL-4B-Instruct');
-  assert.equal(requestBody.messages[0].content[1].type,'image_url');
-  assert.equal(requestBody.messages[0].content[1].image_url.url,image);
-  assert.match(requestBody.messages[0].content[0].text,/separate foods/);
+  const body=JSON.parse(options.body);
+  assert.equal(body.model,'Qwen/Qwen2.5-VL-3B-Instruct');
+  assert.equal(body.messages[0].content[1].type,'image_url');
+  assert.equal(body.messages[0].content[1].image_url.url,image);
+  assert.match(body.messages[0].content[0].text,/separate foods/);
   return mockAi();
- });
+ }));
  assert.equal(calls,1);
  assert.equal(reply.status,200);
  const body=await reply.json();
  assert.equal(body.items.length,2);
+ assert.equal(body.model,'Qwen/Qwen2.5-VL-3B-Instruct');
  assert.equal(body.items[0].name,'Dal');
  assert.equal(body.items[0].uncertain,true);
  assert.equal(body.items[1].name,'Rice');
  assert.ok(!JSON.stringify(body).includes('hf_FAKE'));
 });
 
-test('Worker rejects unavailable models, billing exhaustion and malformed food JSON without logging',async()=>{
- const unavailable=await worker.handleScan(request(),env,async()=>new Response('{}',{status:404}));
+
+test('Worker only retries a model routing failure once and never repeats credit failures',async()=>{
+ let attempts=[];
+ const unavailable=await worker.handleScan(request(),env,routed(async(url,opts)=>{
+  attempts.push(JSON.parse(opts.body).model);
+  return new Response('{}',{status:404});
+ }));
  assert.equal(unavailable.status,502);
- assert.match((await unavailable.json()).error,/not available/);
- const noCredits=await worker.handleScan(request(),env,async()=>new Response('{}',{status:402}));
+ assert.match((await unavailable.json()).error,/rejected/);
+ assert.deepEqual(attempts,['Qwen/Qwen2.5-VL-3B-Instruct','Qwen/Qwen3-VL-8B-Instruct']);
+ attempts=[];
+ const recovered=await worker.handleScan(request(),env,routed(async(url,opts)=>{
+  const model=JSON.parse(opts.body).model;
+  attempts.push(model);
+  return model==='Qwen/Qwen2.5-VL-3B-Instruct'?new Response('{}',{status:404}):mockAi();
+ }));
+ assert.equal(recovered.status,200);
+ assert.equal((await recovered.json()).model,'Qwen/Qwen3-VL-8B-Instruct');
+ assert.equal(attempts.length,2);
+ attempts=[];
+ const noCredits=await worker.handleScan(request(),env,routed(async(url,opts)=>{
+  attempts.push(JSON.parse(opts.body).model);
+  return new Response('{}',{status:402});
+ }));
  assert.equal(noCredits.status,402);
  assert.match((await noCredits.json()).error,/credits/);
- const invalid=await worker.handleScan(request(),env,async()=>new Response(JSON.stringify({choices:[{message:{content:'not JSON'}}]}),{status:200}));
+ assert.equal(attempts.length,1,'never repeat a potentially billed request after quota rejection');
+});
+
+test('Worker handles invalid response, missing HF token and unavailable image models safely',async()=>{
+ const invalid=await worker.handleScan(request(),env,routed(async()=>new Response(JSON.stringify({choices:[{message:{content:'not JSON'}}]}),{status:200})));
  assert.equal(invalid.status,502);
  assert.match((await invalid.json()).error,/usable food list/);
  const missing=await worker.handleScan(request(),{SCAN_ACCESS_TOKEN:accessToken},async()=>{throw Error('must not send');});
  assert.equal(missing.status,503);
+ const none=await worker.handleScan(request(),env,async(url)=>{
+  if(url==='https://router.huggingface.co/v1/models')return new Response(JSON.stringify({data:[routerCatalog.data[0]]}),{status:200});
+  throw Error('must not infer on unsupported models');
+ });
+ assert.equal(none.status,503);
+ assert.match((await none.json()).error,/No live image-capable/);
 });
+
 
 test('food-photo review never autosaves suggestions and retains free manual path',()=>{
  assert.match(nutrition,/aiScanning\?'ai-cancel':'ai-scan'/);
