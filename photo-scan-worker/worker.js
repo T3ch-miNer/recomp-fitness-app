@@ -97,7 +97,8 @@ export async function handleScan(request,env,fetchImpl=fetch){
  if(!['/scan','/models'].includes(path))return json({error:'Not found'},404,origin);
  if((path==='/scan'&&request.method!=='POST')||(path==='/models'&&request.method!=='GET'))
   return json({error:'Method not allowed'},405,origin);
- if(!isAllowedOrigin(origin))return json({error:'Origin is not allowed.'},403);
+ // Same-origin GET requests omit Origin in some browsers. Token is still required.
+ if(!isAllowedOrigin(origin)&&!(path==='/models'&&!origin&&new URL(request.url).origin===TEST_ORIGIN))return json({error:'Origin is not allowed.'},403);
  if(!env?.HF_TOKEN||!env?.SCAN_ACCESS_TOKEN)return json({error:'Scanner is not configured. Add Hugging Face and access-token Worker secrets.'},503,origin);
  if(request.headers.get('Authorization')!=='Bearer '+env.SCAN_ACCESS_TOKEN)return json({error:'Incorrect private scanner access token.'},401,origin);
  // Check model availability without a billed photo inference call.
