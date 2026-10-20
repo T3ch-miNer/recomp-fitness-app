@@ -55,6 +55,10 @@ test('irregular or single-exercise groups are left in Detailed View, not falsely
  for(const group of groups)assert.ok(group.items.every(item=>item.exercise.sets.length===group.rounds));
  const ungrouped=logic.ungroupedExerciseIndices(session,groups);
  assert.equal(ungrouped.length+groups.flatMap(g=>g.items).length,session.exercises.length);
+ assert.equal(groups.some(g=>g.id==='B'),false,
+  'Workout 4 descending 20–15–10–5 twice is not eight simple giant-set rounds');
+ assert.ok(ungrouped.some(i=>session.exercises[i].group==='B'),
+  'All pyramid set values remain accessible in Detailed View');
  const custom={exercises:[{name:'Only movement',group:'A',sets:[{done:false}]}]};
  assert.equal(logic.getGiantGroups(custom).length,0);
 });
@@ -109,9 +113,9 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
 });
 test('PWA caches new round tracker and keeps existing premium colours',()=>{
  for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css'])assert.ok(sw.includes("'./"+name+"'"));
- assert.match(sw,/recomp-shell-v2\.5\.6-giant-set-rounds/);
- assert.match(index,/giant-sets\.css\?v=2\.5\.6/);
- assert.match(index,/app\.js\?v=2\.5\.6-giant-set-rounds/);
+ assert.match(sw,/recomp-shell-v2\.6-giant-set-rounds/);
+ assert.match(index,/giant-sets\.css\?v=2\.6/);
+ assert.match(index,/app\.js\?v=2\.6-giant-set-rounds/);
  assert.match(css,/var\(--accent\)/);
  assert.match(css,/var\(--panel\)/);
 });
