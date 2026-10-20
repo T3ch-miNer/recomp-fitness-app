@@ -3,7 +3,7 @@
 // The public endpoint URL can be remembered; access passphrase is memory-only.
 const URL_KEY='recomp-photo-ai-endpoint-v1';
 // Public Worker address supplied by the Recomp owner. No credentials live here.
-export const DEFAULT_PHOTO_AI_ENDPOINT='https://recomp-photo-scan.rahul-dbz95.workers.dev/scan';
+export const DEFAULT_PHOTO_AI_ENDPOINT='https://recomp-food-ai.rahul-dbz95.workers.dev/scan';
 let sessionAccessToken='';
 export function getPhotoAiSessionToken(){return sessionAccessToken;}
 export function rememberPhotoAiSessionToken(value){
