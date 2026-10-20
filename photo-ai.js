@@ -48,6 +48,36 @@ export function normalisePhotoMeal(body){
   throw Error('Invalid nutrition uncertainty range.');
  return {meal,model:String(body.model||'').slice(0,100)};
 }
+// Pure diary builder: one reviewed whole-dish estimate becomes ONE entry.
+// No image, provider key, or unreviewed ingredient list is stored.
+export function buildAiDishDiaryEntry({meal,date,mealType,model}){
+ if(!meal||typeof meal!=='object')throw Error('Scan and review a dish first.');
+ const name=String(meal.name||'').trim(),serving=String(meal.servingDescription||'').trim();
+ if(name.length<3||name.length>100||serving.length<3||serving.length>110)
+  throw Error('Review the dish name and serving.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date))||
+   Number.isNaN(Date.parse(String(date)+'T12:00:00')))throw Error('Choose a valid date.');
+ if(!['Breakfast','Lunch','Dinner','Snack'].includes(mealType))throw Error('Choose a meal.');
+ const max={estimatedGrams:3000,calories:4500,protein:350,carbs:700,fat:350,fibre:130};
+ const values={};
+ for(const [key,limit] of Object.entries(max)){
+  const v=meal[key],min=key==='calories'?1:key==='estimatedGrams'?50:0;
+  if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>limit)
+   throw Error('Check the '+key+' estimate.');
+  values[key]=Math.round(v);
+ }
+ const low=Number(meal.calorieLow),high=Number(meal.calorieHigh);
+ const validRange=Number.isFinite(low)&&Number.isFinite(high)&&low>=1&&
+  high<=4500&&low<=high;
+ const range=validRange?{low:Math.round(low),high:Math.round(high)}:null;
+ return {date,meal:mealType,name,grams:values.estimatedGrams,
+  calories:values.calories,protein:values.protein,carbs:values.carbs,
+  fat:values.fat,fibre:values.fibre,
+  source:'AI photo estimate (Hugging Face; user reviewed)',aiEstimate:true,
+  aiModel:String(model||'').slice(0,100),servingDescription:serving,
+  aiCalorieRange:range,aiAssumptions:String(meal.assumptions||'').slice(0,340),
+  aiUncertain:meal.uncertain!==false};
+}
 export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
  if(!accessToken||typeof accessToken!=='string'||accessToken.length<12||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');
