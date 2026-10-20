@@ -2,12 +2,20 @@
 // The owner deploys a separate Worker with OPENAI_API_KEY in encrypted secrets.
 // The public endpoint URL can be remembered; access passphrase is memory-only.
 const URL_KEY='recomp-photo-ai-endpoint-v1';
+let sessionAccessToken='';
+export function getPhotoAiSessionToken(){return sessionAccessToken;}
+export function rememberPhotoAiSessionToken(value){
+ const token=String(value||'');
+ if(token && (token.length<12||token.length>256||/^sk[-_]/i.test(token)))throw Error('Use a private Worker access token, not an OpenAI API key.');
+ sessionAccessToken=token;
+ return Boolean(token);
+}
 export function getPhotoAiEndpoint(){try{return localStorage.getItem(URL_KEY)||'';}catch{return '';}}
 export function savePhotoAiEndpoint(value){
  const input=String(value||'').trim();
  const url=new URL(input);
  if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||!url.hostname||/\s/.test(input))throw Error('Enter a secure HTTPS scan endpoint without credentials or query parameters.');
- const clean=url.origin+url.pathname;
+ const clean=url.origin+(url.pathname==='/'?'/scan':url.pathname);
  try{localStorage.setItem(URL_KEY,clean);}catch{}
  return clean;
 }
