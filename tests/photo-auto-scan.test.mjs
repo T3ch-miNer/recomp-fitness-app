@@ -65,3 +65,57 @@ test('provider key remains server-side, and private Worker still demands a separ
  assert.doesNotMatch(photoSource,/HF_TOKEN\s*=/);
  assert.doesNotMatch(ui,/HF_TOKEN\s*=/);
 });
+
+test('scanner errors are classified into recoverable messages without exposing any private token',()=>{
+ const token='private-worker-scan-code-test-only-1234';
+ const badCode=client.explainPhotoAiFailure(Error('Incorrect private scanner access token.'));
+ assert.equal(badCode.issue,'access');
+ assert.match(badCode.message,/Change scanner access code/i);
+ const network=client.explainPhotoAiFailure(Error('Secure scanner unavailable. Check the Worker URL and internet connection.'));
+ assert.equal(network.issue,'connection');
+ assert.match(network.message,/Worker URL/);
+ const credits=client.explainPhotoAiFailure(Error('Hugging Face credits are exhausted.'));
+ assert.equal(credits.issue,'provider');
+ assert.match(credits.message,/credits/);
+ const config=client.explainPhotoAiFailure(Error('Scanner is not configured.'));
+ assert.equal(config.issue,'configuration');
+ assert.match(config.message,/Cloudflare/);
+ assert.ok(!client.explainPhotoAiFailure(Error('Scanner unavailable.')).message.includes(token));
+});
+
+test('failed photo scans show status next to scan button with a way to change stale credentials',()=>{
+ const photoPanel=ui.slice(ui.indexOf('function photoReview(){'),ui.indexOf('function photo(){'));
+ const scanButton=photoPanel.indexOf('data-nf="${aiScanning');
+ const status=photoPanel.indexOf('id="nf-ai-scan-status"');
+ const catalogue=photoPanel.indexOf('class="nf-catalogue-mode"');
+ assert.ok(scanButton>=0&&status>scanButton&&catalogue>status,'error appears directly after scan, before catalogue');
+ assert.match(photoPanel,/nf-ai-scan-status-error|nf-ai-scan-status-\$\{aiStatus\}/);
+ assert.match(photoPanel,/data-nf="change-ai-access"/);
+ assert.match(photoPanel,/data-nf="reset-ai-endpoint"/);
+ assert.match(photoPanel,/Log foods manually instead/);
+ assert.match(photoPanel,/photoSeparateMode\?\x60<div class="nf-catalogue-mode">/);
+ assert.match(ui,/if\(!photoSeparateMode\)return ''/);
+ assert.match(ui,/const failure=explainPhotoAiFailure\(error\)/);
+ assert.match(ui,/fallback\.decode\(\)/);
+ const css=read('nutrition-v2.css');
+ assert.match(css,/\.nf-ai-scan-status-error/);
+ assert.match(css,/\.nf-ai-scan-status-working/);
+});
+
+test('retry and result updates preserve the Android photo modal scroll position',()=>{
+ const start=ui.indexOf('function render(){');
+ const end=ui.indexOf('function go(mode)',start);
+ assert.ok(start>=0&&end>start,'render function located');
+ const renderFunction=ui.slice(start,end);
+ assert.match(renderFunction,/previousContent\.scrollTop/);
+ assert.match(renderFunction,/lastRenderedPage===page/);
+ assert.match(renderFunction,/lastRenderedPhotoStep===photoStep/);
+ assert.match(renderFunction,/content\.scrollTop=previousScroll/);
+ assert.match(renderFunction,/advancedWasOpen/);
+ assert.match(renderFunction,/settings\.open=true/);
+ const scanFunction=ui.slice(ui.indexOf('async function scanWithAi()'),ui.indexOf('async function recognise()'));
+ assert.match(scanFunction,/aiStatus='working'/);
+ assert.match(scanFunction,/aiStatus=aiMeal\?'success':'error'/);
+ assert.match(scanFunction,/finally\{if\(token===aiRequestId\)/);
+ assert.ok(!scanFunction.includes('saveEntries('),'retry must not automatically save a meal');
+});

@@ -105,3 +105,23 @@ body.nf-open{overflow:hidden}
 .nf-ai-advanced .nf-ai-action{margin:8px 0 5px}
 .nf-vision-panel>.nf-muted-note .nf-inline-link{font-size:11px}
 .nf-ai-advanced summary:focus-visible,.nf-ai-remember-option input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+
+/* Keep the Hugging Face result or error beside the scan button rather than below the food catalogue. */
+.nf-ai-scan-status{
+ display:grid;gap:7px;padding:13px 14px;border:1px solid var(--line);
+ background:var(--panel2);border-radius:13px;min-width:0;
+ color:var(--text);font-size:12px;line-height:1.55;
+}
+.nf-ai-scan-status strong{font-size:13px;font-weight:750}
+.nf-ai-scan-status span,.nf-ai-scan-status small{overflow-wrap:anywhere}
+.nf-ai-scan-status small{color:var(--muted);font-size:11px}
+.nf-ai-scan-status-error{
+ border-color:color-mix(in srgb,var(--red) 54%,var(--line));
+ background:color-mix(in srgb,var(--red) 10%,var(--panel));
+}
+.nf-ai-scan-status-error strong{color:var(--red)}
+.nf-ai-scan-status-success{border-color:color-mix(in srgb,var(--accent) 48%,var(--line))}
+.nf-ai-scan-status-working{border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
+.nf-vision-panel .nf-ai-change-access{justify-self:start;text-align:left}
+.nf-vision-panel button:disabled{cursor:wait}

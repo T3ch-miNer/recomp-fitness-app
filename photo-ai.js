@@ -98,6 +98,24 @@ export function buildAiDishDiaryEntry({meal,date,mealType,model}){
   aiCalorieRange:range,aiAssumptions:String(meal.assumptions||'').slice(0,340),
   aiUncertain:meal.uncertain!==false};
 }
+
+/** Turn a failed Worker/provider request into a useful, non-secret browser message. */
+export function explainPhotoAiFailure(error){
+ const raw=String(error?.message||'The image scan failed.').slice(0,230);
+ const lower=raw.toLowerCase();
+ if(error?.name==='AbortError')return {issue:'cancelled',message:'Recognition cancelled. No meal was saved.'};
+ if(/incorrect private scanner access token|private scan access token|worker access token/.test(lower))
+  return {issue:'access',message:'Your private Worker access code was not accepted. Choose Change scanner access code and enter it again.'};
+ if(/secure scanner unavailable|failed to fetch|networkerror|load failed|internet|connection/.test(lower))
+  return {issue:'connection',message:'Could not contact the photo scanner. Check your connection and Worker URL, then retry.'};
+ if(/image|jpeg|decode|bitmap|oversized photo/.test(lower)&&!/model|hugging face/.test(lower))
+  return {issue:'photo',message:raw+'. Try a JPEG or PNG photo if the image cannot be processed.'};
+ if(/credits|billing|payment|quota|rate.limit|429|402/.test(lower))
+  return {issue:'provider',message:raw+'. Hugging Face availability and credits need checking.'};
+ if(/origin is not allowed|scanner is not configured|worker.*older/.test(lower))
+  return {issue:'configuration',message:raw+' The Cloudflare Worker configuration or deployment needs checking.'};
+ return {issue:'provider',message:raw};
+}
 export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
  if(!accessToken||typeof accessToken!=='string'||accessToken.length<12||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');

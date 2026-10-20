@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
+import {DEFAULT_PHOTO_AI_ENDPOINT,savePhotoAiEndpoint,getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,explainPhotoAiFailure,buildAiDishDiaryEntry} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -27,6 +27,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
  let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken=getPhotoAiSessionToken(),aiMeal=null,aiModel='',aiScanning=false,aiAbort=null,aiRequestId=0;
+ let aiStatus='idle',aiMessage='',aiIssue='';
+ let lastRenderedPage=null,lastRenderedPhotoStep=null;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
@@ -69,7 +71,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  <div class="nf-photo-pickers"><button type="button" class="nf-photo-pick" data-nf="gallery"><span>${ico('photo')}</span><b>Choose from gallery</b></button><button type="button" class="nf-photo-pick" data-nf="take"><span>${ico('camera')}</span><b>Take photo</b></button></div>
  <p class="nf-muted-note">Choosing a photo automatically sends a resized copy through your private Worker to Hugging Face if scanner access has been set up. This may use paid inference credits. If access is not set up, you'll be prompted once. Nothing is added to your food diary until you approve it.</p>`;}
  function photoTotals(){let t=Object.fromEntries(nutrients.map(k=>[k,0]));for(const entry of photoFoods){const food=findFood(entry.id);if(!food||!(Number(entry.grams)>0))continue;try{const a=amount(food,entry.grams);nutrients.forEach(k=>t[k]+=a[k]);}catch{}}return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated meal total</span><strong>${fmt(t.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(t.protein)}g</b><small>Protein</small></span><span><b>${fmt(t.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(t.fat)}g</b><small>Fat</small></span><span><b>${fmt(t.fibre)}g</b><small>Fibre</small></span></div></div>`;}
- function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
+ function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>${aiScanning?'Analysing your meal':aiMeal?'Dish recognised':'Photo added'}</b><span>${aiScanning?'Hugging Face is estimating nutrition':aiMeal?'Review your dish below':'Check the scan status below'}</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
  <section class="nf-vision-panel" aria-label="Hugging Face automatic photo recognition">
    <div class="nf-vision-heading"><b>Hugging Face · automatic dish recognition</b><span>Whole dish name, serving and estimated calories/macros</span></div>
    <p class="nf-muted-note">Hugging Face estimates the main foreground plate only, including its sides, not unrelated meals in the background. Check the suggested dish and portions before saving.</p>
@@ -81,12 +83,19 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    </div>`:''}
    ${aiAccessToken&&!getPhotoAiSavedAccessToken()?`<label class="nf-ai-remember-option"><input id="nf-ai-remember" type="checkbox" checked><span>Remember access after a successful scan</span></label>`:''}
    ${getPhotoAiSavedAccessToken()?`<p class="nf-muted-note">Scanner access is remembered on this device. <button type="button" class="nf-inline-link" data-nf="forget-ai-access">Forget saved access</button></p>`:''}
+   ${aiAccessToken?`<button type="button" class="nf-inline-link nf-ai-change-access" data-nf="change-ai-access">Change scanner access code</button>`:''}
    <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">
-     ${aiScanning?'Cancel recognition':!aiAccessToken?'Connect scanner & recognise':'Retry Hugging Face recognition'}
+     ${aiScanning?'Cancel recognition':!aiAccessToken?'Connect scanner & recognise':aiStatus==='error'?'Retry Hugging Face recognition':'Recognise this dish'}
    </button>
-   ${aiScanning?'<p class="nf-status" role="status">Automatically analysing your dish with Hugging Face…</p>':''}
+   ${aiMessage?`<div id="nf-ai-scan-status" class="nf-ai-scan-status nf-ai-scan-status-${aiStatus}" role="${aiStatus==='error'?'alert':'status'}" aria-live="polite">
+      <strong>${aiStatus==='error'?'Recognition failed':aiStatus==='success'?'Dish identified':aiStatus==='working'?'Analysing your dish':'Scanner information'}</strong>
+      <span>${esc(aiMessage)}</span>
+      ${aiStatus==='error'&&aiIssue==='access'?'<button type="button" class="nf-inline-link" data-nf="change-ai-access">Enter a new Worker access code</button>':''}
+      ${aiStatus==='error'&&aiIssue==='connection'?'<small>Check your internet connection and Worker URL in Scanner settings, then retry.</small>':''}
+    </div>`:''}
    <details class="nf-ai-advanced"><summary>Scanner settings and local fallback</summary>
      <label class="nf-field"><span>Worker URL (public)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
+     <button type="button" class="nf-inline-link" data-nf="reset-ai-endpoint">Use default Recomp Worker URL</button>
      <div class="nf-ai-action"><div><b>On-device recognition</b><small>Alternative · local, model download required</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify locally'}</button></div>
      ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
    </details>
@@ -104,8 +113,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
    
   </section>
 
- ${aiMeal?`<button type="button" class="nf-text-action nf-ai-switch" data-nf="toggle-photo-alternative">${photoSeparateMode?'Back to whole-dish logging':'Prefer individual ingredients? Switch to catalogue logging'}</button>`:''}
- ${!aiMeal||photoSeparateMode?`<div class="nf-catalogue-mode">
+ <button type="button" class="nf-text-action nf-ai-switch" data-nf="toggle-photo-alternative">${photoSeparateMode?(aiMeal?'Back to whole-dish logging':'Back to Hugging Face scanner'):(aiMeal?'Prefer individual ingredients? Switch to catalogue logging':'Log foods manually instead')}</button>
+ ${photoSeparateMode?`<div class="nf-catalogue-mode">
  <p class="nf-muted-note">${aiMeal?'Alternative logging method: selecting individual ingredients will replace the whole-dish estimate, not add to it.':''}</p>
 ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
@@ -126,44 +135,67 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
  if(page==='photo'&&photoStep==='review'){
   if(aiMeal&&!photoSeparateMode)return `<button type="button" class="nf-primary" data-nf="save-ai-meal" ${saving?'disabled':''}>${saving?'Saving…':'Save reviewed dish estimate'}</button>`;
   if(aiMeal&&photoSeparateMode)return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||!photoFoods.length?'disabled':''}>${saving?'Saving…':`Save ${photoFoods.length} separate catalogue food${photoFoods.length===1?'':'s'}`}</button>`;
+  if(!photoSeparateMode)return '';
   return `<button type="button" class="nf-primary" data-nf="save-photo" ${saving||photoFoods.length===0?'disabled':''}>${saving?'Saving…':`Add ${photoFoods.length} ${photoFoods.length===1?'food':'foods'} to diary`}</button>`;
  }
  return '';
  }
  function render(){if(disposed)return;
+  // Preserve position through a scan's working, result and error updates. A full
+  // overlay rebuild previously jumped to the top whenever Retry was pressed.
+  const previousContent=host.querySelector('.nf-content');
+  const sameView=Boolean(previousContent&&lastRenderedPage===page&&(page!=='photo'||lastRenderedPhotoStep===photoStep));
+  const previousScroll=sameView?previousContent.scrollTop:0;
+  const advancedWasOpen=Boolean(sameView&&host.querySelector('.nf-ai-advanced')?.open);
   host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"><input class="nf-sr" id="nf-barcode-image" type="file" accept="image/*" aria-label="Select a barcode photograph"></div>`;
+  lastRenderedPage=page;lastRenderedPhotoStep=photoStep;
+  if(advancedWasOpen){const settings=host.querySelector('.nf-ai-advanced');if(settings)settings.open=true;}
+  if(sameView){const content=host.querySelector('.nf-content');if(content)content.scrollTop=previousScroll;}
  }
- function go(mode){stopAiScan();stopCamera();page=mode;notice='';render();}
- function back(){stopAiScan();if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
+ function go(mode){stopAiScan();stopCamera();page=mode;notice='';aiStatus='idle';aiMessage='';aiIssue='';render();}
+ function back(){stopAiScan();aiStatus='idle';aiMessage='';aiIssue='';if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
- function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
+ function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';aiIssue='';aiStatus='idle';aiMessage='';photoSeparateMode=false;if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
   if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();
   // The explicit photo choice triggers a single scan if scanner access is configured.
   if(aiAccessToken)void scanWithAi();
  }
  async function scanWithAi(){
   if(!imageFile||disposed||aiScanning)return;
-  if(!aiEndpoint.trim()){notice='Enter your secure Worker URL first. The Worker must be configured by the app owner.';render();return;}
-  if(!aiAccessToken){notice='Enter your separate Worker scanner access once, then choose Remember on this device to skip this step next time.';render();return;}
-  try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){notice=String(error.message);render();return;}
+  if(!aiEndpoint.trim()){aiStatus='error';aiIssue='connection';aiMessage='Enter or reset your Worker URL under Scanner settings.';render();return;}
+  if(!aiAccessToken){aiStatus='error';aiIssue='access';aiMessage='Enter your separate private Worker code above to recognise this dish.';render();return;}
+  try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){const failure=explainPhotoAiFailure(error);aiStatus='error';aiIssue=failure.issue;aiMessage=failure.message;render();return;}
   const rememberOnSuccess=Boolean(host.querySelector('#nf-ai-remember')?.checked);
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
-  aiScanning=true;aiMeal=null;aiModel='';photoSeparateMode=false;notice='Preparing one compressed image for secure dish analysis…';render();
+  aiScanning=true;aiMeal=null;aiModel='';photoSeparateMode=false;aiStatus='working';aiIssue='';aiMessage='Automatically analysing your dish with Hugging Face…';notice='';render();
   try{
-   const bitmap=await createImageBitmap(imageFile);
-   if(disposed||token!==aiRequestId){bitmap.close();return;}
-   const scale=Math.min(1,1120/Math.max(bitmap.width,bitmap.height));
-   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+   let bitmap=null,imageSource=null;
+   // Some Android gallery formats fail createImageBitmap while an ordinary image still decodes.
+   if(typeof createImageBitmap==='function'){
+    try{bitmap=await createImageBitmap(imageFile);}catch{ /* Try browser image decoding. */ }
+   }
+   if(bitmap)imageSource=bitmap;
+   else{
+    const fallback=new Image();fallback.src=imageURL;
+    try{await fallback.decode();}catch{throw Error('Could not decode the selected photo. Try a JPG or PNG image.');}
+    imageSource=fallback;
+   }
+   if(disposed||token!==aiRequestId){bitmap?.close();return;}
+   const scale=Math.min(1,1120/Math.max(imageSource.width||imageSource.naturalWidth,imageSource.height||imageSource.naturalHeight));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round((imageSource.width||imageSource.naturalWidth)*scale));
+   canvas.height=Math.max(1,Math.round((imageSource.height||imageSource.naturalHeight)*scale));
+   canvas.getContext('2d').drawImage(imageSource,0,0,canvas.width,canvas.height);bitmap?.close();
    const image=canvas.toDataURL('image/jpeg',.72);
    const result=await scanPhotoWithWorker({endpoint:aiEndpoint,accessToken:aiAccessToken,imageDataUrl:image,signal});
    if(disposed||token!==aiRequestId)return;
    aiMeal=result.meal;aiModel=result.model;
+   aiStatus=aiMeal?'success':'error';aiIssue=aiMeal?'':'photo';
    let storageWarning='';
    if(rememberOnSuccess){try{savePhotoAiDeviceToken(aiAccessToken);}catch{storageWarning=' Scanner access could not be remembered on this device.';}}
-   notice=(aiMeal?'Hugging Face recognised a possible dish. Review all values before saving.':'No recognisable dish found. You can add foods manually.')+storageWarning;
-  }catch(error){if(!disposed&&token===aiRequestId)notice=error?.name==='AbortError'?'AI Scan cancelled.':String(error?.message||'AI scan unavailable. Manual search still works.').slice(0,210);}
+   aiMessage=(aiMeal?'Hugging Face suggested a dish. Review its name and nutrition before saving.':'No recognisable dish was found. Retry with a clearer photo or log the meal manually.')+storageWarning;
+  }catch(error){if(!disposed&&token===aiRequestId){const failure=explainPhotoAiFailure(error);aiStatus=failure.issue==='cancelled'?'idle':'error';aiIssue=failure.issue;aiMessage=failure.message;}}
   finally{if(token===aiRequestId){aiScanning=false;aiAbort=null;if(!disposed)render();}}
  }
  async function recognise(){
@@ -329,12 +361,21 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
     const missing=selected.source==='Open Food Facts'?nutrients.filter(k=>selected.per100?.[k]==null):[];
     await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id,missingNutrition:missing}]);return;
    }
-  if(a==='toggle-photo-alternative'&&page==='photo'&&aiMeal){photoSeparateMode=!photoSeparateMode;render();return;}
-  if(a==='change-photo'){stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
+  if(a==='toggle-photo-alternative'&&page==='photo'){photoSeparateMode=!photoSeparateMode;render();return;}
+  if(a==='change-photo'){stopAiScan();aiMeal=null;aiModel='';aiStatus='idle';aiIssue='';aiMessage='';photoSeparateMode=false;photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
-  if(a==='forget-ai-access'){stopAiScan();forgetPhotoAiDeviceToken();aiAccessToken='';notice='Saved scanner access cleared from this device.';render();return;}
+  if(a==='forget-ai-access'||a==='change-ai-access'){
+    stopAiScan();forgetPhotoAiDeviceToken();aiAccessToken='';aiMeal=null;
+    aiStatus='idle';aiIssue='';aiMessage=a==='change-ai-access'?'Enter your private Worker access code to reconnect.':'Saved scanner access was cleared from this device.';
+    render();host.querySelector('#nf-ai-token')?.focus();return;
+   }
+   if(a==='reset-ai-endpoint'){
+    aiEndpoint=savePhotoAiEndpoint(DEFAULT_PHOTO_AI_ENDPOINT);
+    aiStatus='idle';aiIssue='';aiMessage='The default Recomp Worker URL has been restored. Try recognition again.';
+    render();return;
+   }
   if(a==='ai-scan'){await scanWithAi();return;}
-   if(a==='ai-cancel'){stopAiScan();notice='AI Scan cancelled. No data was logged.';render();return;}
+   if(a==='ai-cancel'){stopAiScan();aiStatus='idle';aiIssue='';aiMessage='Recognition cancelled. Nothing was saved.';render();return;}
    if(a==='save-ai-meal'){
     validate();
     const entry=buildAiDishDiaryEntry({meal:aiMeal,date,mealType:selectedMeal,model:aiModel});
