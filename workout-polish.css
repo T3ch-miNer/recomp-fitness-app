@@ -40,3 +40,11 @@
 .recomp-confirm-actions .btn:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 @media(max-width:350px){.recomp-confirm-dialog{padding:19px}.recomp-confirm-actions{gap:7px}}
 @media(prefers-reduced-motion:reduce){.recomp-confirm-shade{scroll-behavior:auto}}
+
+/* Clipboard-permission fallback for grocery lists: copy manually in Recomp. */
+.recomp-confirm-dialog textarea.recomp-copy-text{
+ width:100%;height:clamp(170px,35vh,285px)!important;
+ padding:12px;font-family:var(--font-ui,system-ui,sans-serif);
+ font-size:13px;line-height:1.5;resize:vertical;margin:0 0 17px;
+ background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:12px;
+}
