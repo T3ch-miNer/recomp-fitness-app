@@ -111,7 +111,7 @@ test('PWA caches new round tracker and keeps existing premium colours',()=>{
  for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css'])assert.ok(sw.includes("'./"+name+"'"));
  assert.match(sw,/recomp-shell-v2\.6-giant-set-rounds/);
  assert.match(index,/giant-sets\.css\?v=2\.6/);
- assert.match(index,/app\.js\?v=2\.5\.6-giant-set-rounds/);
+ assert.match(index,/app\.js\?v=2\.6-giant-set-rounds/);
  assert.match(css,/var\(--accent\)/);
  assert.match(css,/var\(--panel\)/);
 });
