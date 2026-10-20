@@ -72,7 +72,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
  <section class="nf-vision-panel" aria-label="Hugging Face automatic photo recognition">
    <div class="nf-vision-heading"><b>Hugging Face · automatic dish recognition</b><span>Whole dish name, serving and estimated calories/macros</span></div>
-   <p class="nf-muted-note">Hugging Face estimates the main foreground plate and its sides, not unrelated meals in the background. Check the suggested dish and portions before saving.</p>
+   <p class="nf-muted-note">Hugging Face estimates the main foreground plate only, including its sides, not unrelated meals in the background. Check the suggested dish and portions before saving.</p>
    ${!aiAccessToken?`<div class="nf-ai-access-setup">
      <p class="nf-status" role="status">One-time scanner setup is needed before automatic recognition can work.</p>
      <label class="nf-field"><span>Private Worker access code · enter once on this device</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="Your separate Worker access code"></label>
