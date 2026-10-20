@@ -73,10 +73,10 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  <div class="nf-ai-action"><div><b>Recognise foods</b><small>Optional · local, first use downloads a model</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify'}</button></div>
  ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
  <section class="nf-vision-panel" aria-label="Optional private AI image scan">
-   <div class="nf-vision-heading"><b>AI Scan · identify separate foods</b><span>Optional · uses a privately configured OpenAI Worker · billed to the owner's API account</span></div>
+   <div class="nf-vision-heading"><b>AI Scan · identify separate foods</b><span>Optional · uses a privately configured Hugging Face Worker · billed to the owner's API account</span></div>
    <label class="nf-field"><span>Secure Worker URL (not a secret)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
    <label class="nf-field"><span>Private scan access token</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="${aiAccessToken?'Token entered for this scan session':'Enter the Worker access token'}"></label>
-   <p class="nf-muted-note">OpenAI API keys are never entered into Recomp. The access token stays in memory until Recomp reloads, never in persistent storage. Tapping AI Scan sends this resized photo to the Worker and OpenAI for analysis; your food diary is unchanged until you approve items. This may incur API charges.</p>
+   <p class="nf-muted-note">Hugging Face API tokens are never entered into Recomp. The access token stays in memory until Recomp reloads, never in persistent storage. Tapping AI Scan sends this resized photo to the Worker and Hugging Face for analysis; your food diary is unchanged until you approve items. This may incur API charges.</p>
    <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">${aiScanning?'Cancel AI Scan':'AI Scan this photo'}</button>
    ${aiScanning?'<p class="nf-status" role="status">Analysing the visible foods securely…</p>':''}
    ${aiItems.length?`<div class="nf-vision-results"><b>Foods suggested by AI · not confirmed</b>
@@ -112,7 +112,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  async function scanWithAi(){
   if(!imageFile||disposed||aiScanning)return;
   if(!aiEndpoint.trim()){notice='Enter your secure Worker URL first. The Worker must be configured by the app owner.';render();return;}
-  if(!aiAccessToken){notice='Enter the private Worker access token (not an OpenAI API key).';render();return;}
+  if(!aiAccessToken){notice='Enter the private Worker access token (not a Hugging Face API token).';render();return;}
   try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){notice=String(error.message);render();return;}
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
   aiScanning=true;aiItems=[];notice='Preparing one compressed image for secure analysis…';render();
