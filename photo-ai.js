@@ -1,12 +1,12 @@
-// Recomp optional photo-vision client. Never send an OpenAI API key from a browser.
-// The owner deploys a separate Worker with OPENAI_API_KEY in encrypted secrets.
+// Recomp optional photo-vision client. Never send a Hugging Face provider token from a browser.
+// The owner deploys a separate Worker with HF_TOKEN in encrypted secrets.
 // The public endpoint URL can be remembered; access passphrase is memory-only.
 const URL_KEY='recomp-photo-ai-endpoint-v1';
 let sessionAccessToken='';
 export function getPhotoAiSessionToken(){return sessionAccessToken;}
 export function rememberPhotoAiSessionToken(value){
  const token=String(value||'');
- if(token && (token.length<12||token.length>256||/^sk[-_]/i.test(token)))throw Error('Use a private Worker access token, not an OpenAI API key.');
+ if(token && (token.length<12||token.length>256||/^sk[-_]/i.test(token)))throw Error('Use a private Worker access token, not a provider API key.');
  sessionAccessToken=token;
  return Boolean(token);
 }
@@ -32,7 +32,7 @@ export function normalisePhotoItems(body){
 export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
  if(!accessToken||typeof accessToken!=='string'||accessToken.length<12||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');
- if(/^sk[-_]/i.test(accessToken))throw Error('Do not paste an OpenAI API key into Recomp. Use a separate Worker access token.');
+ if(/^(?:sk[-_]|hf_)/i.test(accessToken))throw Error('Do not paste a Hugging Face or OpenAI API token into Recomp. Use a separate Worker access token.');
  if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(String(imageDataUrl))||imageDataUrl.length>2_800_000)throw Error('Invalid or oversized photo. Try a smaller image.');
  let response;
  try{response=await fetchImpl(safeEndpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify({image:imageDataUrl}),signal,cache:'no-store',credentials:'omit'});}
