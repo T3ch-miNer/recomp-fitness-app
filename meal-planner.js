@@ -1,5 +1,6 @@
 import {FOOD_ITEMS,nutrientsForGrams} from './food-db.js';
 import {estimateBatchNutrition} from './recipe-estimates.js';
+import {confirmStandalone,showCopyPanel} from './confirmation-dialog.js';
 // Recomp recipe book and weekly batch-cooking planner.
 // Data lives in the existing app state, so device backups and cloud snapshots include it.
 const defaultExclusions = 'tomato, citrus, coffee, tofu, soya';
@@ -279,18 +280,18 @@ export function openMealPlanner({state,save,log,notify}) {
   if(kind==='details'){view='detail';editing=element.dataset.id;message='';render();return;}
   if(kind==='remove'){
    const rec=recipeById(p,element.dataset.id);
-   if(rec&&confirm('Delete '+rec.name+'? It will be removed from all planned weeks.')) {
+   if(rec&&await confirmStandalone('Delete '+rec.name+'? It will be removed from all planned weeks.',{title:'Delete recipe?',approveLabel:'Delete recipe',danger:true})) {
     p.recipes=p.recipes.filter(x=>x.id!==rec.id);
     for(const arr of Object.values(p.weeks))for(let i=0;i<arr.length;i++)if(arr[i]===rec.id)arr[i]='';
     await persist('Recipe removed');
    }
   }
-  if(kind==='clear-week'&&confirm('Clear dinners for this week?')){p.weeks[week]=Array(7).fill('');await persist('Week cleared');}
+  if(kind==='clear-week'&&await confirmStandalone('Clear dinners for this week?',{title:'Clear week?',approveLabel:'Clear dinners',danger:true})){p.weeks[week]=Array(7).fill('');await persist('Week cleared');}
   if(kind==='copy-week'){const old=p.weeks[addDays(week,-7)]||[];if(!old.some(Boolean)){message='No previous week to copy.';render();return;}p.weeks[week]=Array.from({length:7},(_,i)=>recipeById(p,old[i])?old[i]:'');await persist('Previous dinners copied');}
   if(kind==='copy-groceries'){
    const list=shoppingText(p,week);
    try{if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');await navigator.clipboard.writeText(list);message='Grocery list copied.';render();}
-   catch{window.prompt('Copy your grocery list',list);}
+   catch{showCopyPanel(list);}
   }
   if(kind==='log-batch'){
    const i=Number(element.dataset.day),recipe=recipeById(p,activePlan()[i]);
@@ -319,7 +320,7 @@ export function openMealPlanner({state,save,log,notify}) {
    if(target.id==='mp-show-avoided'){showAvoided=target.checked;render();}
    if(target.dataset.mpSelect==='assign'){
     const i=Number(target.dataset.day),rid=target.value,rec=recipeById(p,rid);
-    if(rec&&avoidedIngredients(rec,p.exclusions).length&&!confirm('This recipe contains an avoided ingredient: '+avoidedIngredients(rec,p.exclusions).join(', ')+'. Plan it anyway?')){render();return;}
+    if(rec&&avoidedIngredients(rec,p.exclusions).length&&!await confirmStandalone('This recipe contains an avoided ingredient: '+avoidedIngredients(rec,p.exclusions).join(', ')+'. Plan it anyway?',{title:'Check ingredients',approveLabel:'Plan anyway',danger:false})){render();return;}
     if(!p.weeks[week])p.weeks[week]=Array(7).fill('');
     p.weeks[week][i]=rid;await persist('Dinner planned');
    }

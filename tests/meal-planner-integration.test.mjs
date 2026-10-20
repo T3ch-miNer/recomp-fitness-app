@@ -6,9 +6,11 @@ const foodSource=await readFile(new URL('../food-db.js',import.meta.url),'utf8')
 const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource).toString('base64');
 const foodDb=await import(foodUrl);
 const plannerSource=await readFile(new URL('../meal-planner.js',import.meta.url),'utf8');
+const confirmSource=await readFile(new URL('../confirmation-dialog.js',import.meta.url),'utf8');
+const confirmUrl='data:text/javascript;base64,'+Buffer.from(confirmSource).toString('base64');
 const estimatesSource=await readFile(new URL('../recipe-estimates.js',import.meta.url),'utf8');
 const estimatesUrl='data:text/javascript;base64,'+Buffer.from(estimatesSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
-const plannerUrl='data:text/javascript;base64,'+Buffer.from(plannerSource.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'")).toString('base64');
+const plannerUrl='data:text/javascript;base64,'+Buffer.from(plannerSource.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'").replace("from './confirmation-dialog.js'","from '"+confirmUrl+"'")).toString('base64');
 const {catalogueRecipeFromFood,groceryItems,parseIngredients}=await import(plannerUrl);
 const keys=['calories','protein','carbs','fat','fibre'];
 

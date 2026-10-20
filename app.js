@@ -1,6 +1,10 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import {FTS_WORKOUTS,mergeFtsWorkouts} from './fts-workouts.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
+import {createWorkoutBackGuard} from './workout-back.js';
+import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
+import {renderGiantSetView} from './giant-set-view.js';
+import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
@@ -108,6 +112,7 @@ const INITIAL = () => ({
  photos:[],workoutHistory:[],session:null,templates:structuredClone(FTS_WORKOUTS),ftsWorkoutImportVersion:1,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
+let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
 let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
@@ -276,7 +281,7 @@ async function syncNativeActivity(){
  const date=today(),previous=state.activity.find(x=>x.date===date);
  const next=await readHealthConnectDay(date);
  if(previous&&previous.source!=='Health Connect'&&(Number(previous.steps)>0||Number(previous.activeCalories)>0)){
-  if(!confirm("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
+  if(!await confirmInApp("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
  }
  if(next.steps===0&&next.activeCalories===0&&previous&&(previous.steps||previous.activeCalories)){
   notify('No activity returned from Health Connect; existing manual values were kept.');return;
@@ -490,7 +495,7 @@ function workoutView(){
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
 function restLeft(){let r=state.session?.rest;return r?(r.paused?Math.ceil(r.remainingMs/1000):Math.max(0,Math.ceil((r.endsAt-Date.now())/1000))):0;}
 function clock(seconds){return `${String(Math.floor(Math.max(0,seconds)/60)).padStart(2,'0')}:${String(Math.max(0,seconds)%60).padStart(2,'0')}`;}
-function activeWorkoutView(){const s=state.session;if(!s) return workoutView();const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<div class="row space" style="margin-bottom:16px"><button class="btn" data-action="minimise-workout">${svg('minimise','tiny-icon')} Minimise</button><span class="pill"><span class="status-dot" style="display:inline-block"></span> Session saved</span><button class="btn danger" data-action="discard-workout">Discard</button></div><div class="top"><div><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead">${svg('timer','tiny-icon')} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg('dumbbell')}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${s.instructions?`<div class="card" style="margin-bottom:14px"><b>Coach notes from FTS</b><p class="small muted" style="white-space:pre-line;margin:8px 0 0">${escapeHtml(s.instructions)}</p></div>`:''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>Rest in progress</b><small>Tap to reopen your countdown</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join('')}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
+function activeWorkoutView(){const s=state.session;if(!s) return workoutView();const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<div class="row space" style="margin-bottom:16px"><button class="btn" data-action="minimise-workout">${svg('minimise','tiny-icon')} Minimise</button><span class="pill"><span class="status-dot" style="display:inline-block"></span> Session saved</span><button class="btn danger" data-action="discard-workout">Discard</button></div><div class="top"><div><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead">${svg('timer','tiny-icon')} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg('dumbbell')}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?(roundMode?`<details class="giant-coach-notes"><summary>Coach notes from FTS · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:`<div class="card" style="margin-bottom:14px"><b>Coach notes from FTS</b><p class="small muted" style="white-space:pre-line;margin:8px 0 0">${escapeHtml(s.instructions)}</p></div>`):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested break between giant-set rounds':'Rest in progress'}</b><small>${s.rest.suggested?'60 seconds suggested · skip whenever ready':'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
 function settingsView(){const cfg=cloud.getConfig(),ses=cloud.getSession(),clerkUser=getClerkAccount(),clerkReady=isClerkLoginAvailable(),clerkDev=isClerkDevelopmentMode();return `${heading('Under the hood.','Targets, data and vibes. Tune to taste.')}<div class="card"><h2 class="section-title">Daily targets</h2><p class="small muted">Change any target without losing past entries.</p><form id="settings-goals"><div class="field-row">${[['calories','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbohydrates (g)'],['fat','Fat (g)'],['fibre','Fibre (g)'],['water','Water (ml)'],['steps','Steps']].map(([k,label])=>`<div class="field"><label class="label" for="goal-${k}">${label}</label><input class="input" id="goal-${k}" name="${k}" type="number" min="0" value="${escapeHtml(state.goals[k])}"/></div>`).join('')}</div><button class="btn primary" type="submit">Save goals</button></form></div>
 <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Build a routine that belongs to you.</div></div><button class="btn" data-action="add-task">${svg('plus','tiny-icon')} Add task</button></div><div class="card task-manager">${state.tasks.map(t=>`<div class="task-manage-row"><span class="task-manage-label">${escapeHtml(t.label)}${t.auto?'<small>Auto-linked to your logs, but you can tick manually</small>':'<small>Manually completed from the dashboard</small>'}</span>${t.auto?'<span class="pill">AUTO</span>':''}<button class="btn ghost" data-action="edit-task" data-id="${escapeHtml(t.id)}" aria-label="Edit ${escapeHtml(t.label)}">${svg('edit','tiny-icon')}</button><button class="btn ghost danger" data-action="delete-task" data-id="${escapeHtml(t.id)}" aria-label="Delete ${escapeHtml(t.label)}">${svg('trash','tiny-icon')}</button></div>`).join('')}</div>
 <div class="section-head"><h2 class="section-title">Galaxy Watch and activity</h2></div><div class="card"><p class="small muted">${nativeHealthAvailable()?'Health Connect is ready to request step and active calorie permissions on your Android device.':'Google Fit is being retired. Health Connect is the Android path for compatible Google Fit and Samsung Health data, but browser-only PWAs cannot read it directly.'}</p><div class="row wrap"><button class="btn" data-action="activity">${svg('pencil','tiny-icon')} Enter steps &amp; active calories</button>${nativeHealthAvailable()?'<button class="btn primary" data-action="refresh-steps">Sync from Health Connect</button>':''}</div><p class="hint">Read-only access, requested when you tap Sync. Your activity stays local unless you opt in to a cloud backup. Google sign-in never grants health permissions.</p></div>
@@ -505,6 +510,21 @@ const REST_CIRC=2*Math.PI*88;
 function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(state.session.exercises?.[r.exerciseIndex]?.restSeconds,60));return Math.min(1,restLeft()/total);}
 function restOverlay(){if(!restSheet||!state.session?.rest)return '';const r=state.session.rest;return `<div class="sheet-backdrop" data-action="close-rest"></div><section class="timer-sheet" role="dialog" aria-label="Rest timer"><div class="sheet-handle"></div><div class="row space"><h2 class="section-title">Catch your breath</h2><button class="btn ghost" data-action="close-rest">${svg('x')}</button></div><div class="timer-ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-track" cx="100" cy="100" r="88"/><circle class="ring-bar" id="rest-ring-bar" cx="100" cy="100" r="88" stroke-dasharray="${REST_CIRC.toFixed(1)}" stroke-dashoffset="${(REST_CIRC*(1-restFraction())).toFixed(1)}"/></svg><div class="timer-number" id="main-timer">${clock(restLeft())}</div></div><p class="muted small" style="text-align:center;margin-top:-8px">${r.paused?'Timer paused':'Breathe. The weights are not going anywhere.'}</p><div class="timer-actions"><button class="btn" data-action="timer-minus">−15 sec</button><button class="btn" data-action="timer-pause">${svg(r.paused?'play':'pause','tiny-icon')} ${r.paused?'Resume':'Pause'}</button><button class="btn" data-action="timer-plus">+15 sec</button></div><button class="btn block" style="margin-top:15px" data-action="timer-skip">Skip rest</button><p class="hint" style="text-align:center">Countdown is saved if you minimise or reopen the app.</p></section>`;}
 function modalField(key,label,value='',type='text',other=''){return `<div class="field"><label for="modal-${key}" class="label">${label}</label><input class="input" id="modal-${key}" name="${key}" type="${type}" ${other} value="${escapeHtml(value)}"/></div>`;}
+function confirmInApp(message,{title='Please confirm',approveLabel='Confirm',danger=true}={}){
+ return new Promise(resolve=>{
+  if(confirmation){resolve(false);return;}
+  confirmation={message,title,approveLabel,danger,resolve};
+  render();
+  document.querySelector('[data-action="confirm-cancel"]')?.focus();
+ });
+}
+function settleConfirmation(approved){
+ const pending=confirmation;
+ if(!pending)return;
+ confirmation=null;
+ render();
+ pending.resolve(Boolean(approved));
+}
 function modalShell(title,content,formName='',button='Save'){return `<div class="modal-shade" data-action="close-modal"><div class="modal" role="dialog" aria-label="${escapeHtml(title)}"><div class="modal-title"><h2 class="section-title">${title}</h2><button class="btn round" data-action="close-modal" aria-label="Close">${svg('x')}</button></div>${formName?`<form id="${formName}">${content}<button class="btn primary block" type="submit">${button}</button></form>`:content}</div></div>`;}
 function templateById(id){return state.templates.find(t=>t.id===id);}
 function templateEditorView(t){
@@ -658,9 +678,10 @@ function syncDock(visible){
 function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.5.3 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.5.6 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
+workoutBackGuard?.arm();
 }
 function setTab(dest,swipeDirection=null){toggleFoodMenu(false);
  if(tab===dest)return;
@@ -677,11 +698,43 @@ function beginWorkout(id){
  haptic('success');persist().catch(console.error);
 }
 function setRest(exIndex){const s=state.session,e=s.exercises[exIndex];s.rest={exerciseIndex:exIndex,endsAt:Date.now()+e.restSeconds*1000,paused:false,remainingMs:e.restSeconds*1000,id:uid()};restAlertedFor=null;restSheet=true;}
-function tickSet(exI,setI){const s=state.session,e=s?.exercises?.[exI],set=e?.sets[setI];if(!set)return;set.done=!set.done;set.completedAt=set.done?new Date().toISOString():null;set.exerciseName=set.done?e.name:null;
- if(set.done){haptic('check');const all=e.sets.every(x=>x.done);if(all){s.rest=null;restSheet=false;const next=s.exercises.findIndex((x,i)=>i>exI && x.sets.some(a=>!a.done));if(next!==-1){s.activeIndex=next;exerciseOpen=next;}else{const first=s.exercises.findIndex(x=>x.sets.some(a=>!a.done));if(first!==-1){s.activeIndex=first;exerciseOpen=first;}}}else if(e.restSeconds>0){setRest(exI);}}
- persist().then(render);
+function tickSet(exI,setI){
+ const s=state.session,e=s?.exercises?.[exI],set=e?.sets?.[setI];if(!set)return;
+ const groups=s.giantView==='detailed'?[]:getGiantGroups(s);
+ const group=groups.find(g=>g.items.some(item=>item.index===exI));
+ const roundWasDone=group?isRoundDone(group,setI):false;
+ set.done=!set.done;
+ set.completedAt=set.done?new Date().toISOString():null;
+ set.exerciseName=set.done?e.name:null;
+ if(group){
+  // The same saved set is used in both views. Advance A1 → A2 → A3, then round 2.
+  // Never mark any other set complete automatically.
+  const current={group:group.id,round:setI,index:exI};
+  if(set.done){
+   haptic('check');
+   const roundNowDone=isRoundDone(group,setI);
+   if(!roundWasDone&&roundNowDone&&setI<group.rounds-1){
+    // FTS did not specify a fixed rest. This is a skippable 60 s suggestion.
+    const seconds=60;
+    s.rest={exerciseIndex:exI,endsAt:Date.now()+seconds*1000,paused:false,remainingMs:seconds*1000,id:uid(),suggested:true,giantGroup:group.id,round:setI};
+    restSheet=false;restAlertedFor=null;
+   }
+   const next=nextIncompleteStep(groups,current);
+   s.giantCursor=next||current;
+   s.activeIndex=s.giantCursor.index;exerciseOpen=s.giantCursor.index;
+  }else{s.giantCursor=current;s.activeIndex=exI;exerciseOpen=exI;}
+ }else if(set.done){
+  // Keep the established per-exercise workflow for non-giant sets / Detailed View.
+  haptic('check');
+  const all=e.sets.every(x=>x.done);
+  if(all){s.rest=null;restSheet=false;const next=s.exercises.findIndex((x,i)=>i>exI&&x.sets.some(a=>!a.done));
+   if(next!==-1){s.activeIndex=next;exerciseOpen=next;}
+   else{const first=s.exercises.findIndex(x=>x.sets.some(a=>!x.done));if(first!==-1){s.activeIndex=first;exerciseOpen=first;}}
+  }else if(e.restSeconds>0)setRest(exI);
+ }
+ persist().then(render).catch(console.error);
 }
-function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
+async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -740,11 +793,13 @@ function makePhotoJpeg(file){return new Promise((resolve,reject)=>{const img=new
 async function download(name,blob){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
 function toDataUrl(blob){return new Promise((res,rej)=>{let reader=new FileReader();reader.onload=()=>res(reader.result);reader.onerror=()=>rej(reader.error);reader.readAsDataURL(blob);});}
 async function exportData(){notify('Preparing private backup…');const photos=[];for(const p of state.photos){const blob=await getPhoto(p.id);if(blob)photos.push({id:p.id,data:await toDataUrl(blob)});}const safeState=structuredClone(state);delete safeState.dirty;await download(`recomp-backup-${today()}.json`,new Blob([JSON.stringify({format:'recomp-backup-v1',exportedAt:new Date().toISOString(),state:safeState,photos})],{type:'application/json'}));notify('Backup exported. Store it privately.');}
-async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!confirm('Restore this backup? This replaces your current local fitness data.'))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
+async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!await confirmInApp('Restore this backup? This replaces your current local fitness data.',{title:'Replace local data?',approveLabel:'Restore backup'}))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
 async function pushCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const ses=await cloud.usableSession();if(!ses)throw new Error('Sign in with Google first');for(const photo of state.photos){if(photo.cloudPath)continue;const blob=await getPhoto(photo.id);if(!blob)continue;photo.cloudPath=await cloud.uploadPhoto(photo.id,blob);}const syncedAt=new Date().toISOString();await cloud.uploadSnapshot({...state,lastSync:syncedAt,dirty:false});state.lastSync=syncedAt;state.dirty=false;await put('state',state);render();notify('Private cloud backup completed');}
-async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!confirm('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.'))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
+async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!await confirmInApp('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.',{title:'Replace local data?',approveLabel:'Restore cloud backup'}))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
 async function handleAction(el,event){const a=el.dataset.action;if(a==='close-modal' && el.classList.contains('modal-shade') && event.target!==el)return;
  switch(a){
+ case 'confirm-accept':settleConfirmation(true);break;
+ case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
  case 'toggle-theme':{
@@ -770,7 +825,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
  case 'delete-guide-item':{
   const item=mealGuideItems().find(x=>x.id===el.dataset.id);
-  if(item&&confirm(`Delete “${item.label}” from your meal guide? This won't change your food diary.`)){
+  if(item&&await confirmInApp(`Delete “${item.label}” from your meal guide? This won't change your food diary.`)){
    mealGuideActionsId=null;state.mealGuideItems=mealGuideItems().filter(x=>x.id!==item.id);await commit();haptic('check');notify('Guide entry deleted');
   }break;
  }
@@ -804,29 +859,56 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'activity':modal={type:'activity'};render();break;
  case 'add-task':modal={type:'task'};render();break;
  case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
- case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
+ case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
  case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
- case 'delete-food':if(confirm('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
- case 'delete-weight':if(confirm('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
- case 'delete-photo':if(confirm('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
+ case 'delete-food':if(await confirmInApp('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
+ case 'delete-weight':if(await confirmInApp('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
+ case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
  case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
  case 'create-template':modal={type:'new-template'};render();break;
  case 'edit-template':planActionsId=null;modal={type:'edit-template',id:el.dataset.id};render();break;
  case 'rename-template':modal={type:'rename-template',id:el.dataset.id};render();break;
- case 'delete-template':{const t=templateById(el.dataset.id);if(t&&confirm(`Delete plan “${t.name}” and its exercise list? Saved sessions won't change.`)){state.templates=state.templates.filter(x=>x.id!==t.id);modal=null;await commit();notify('Plan deleted. History is intact.');}break;}
+ case 'delete-template':{const t=templateById(el.dataset.id);if(t&&await confirmInApp(`Delete plan “${t.name}” and its exercise list? Saved sessions won't change.`)){state.templates=state.templates.filter(x=>x.id!==t.id);modal=null;await commit();notify('Plan deleted. History is intact.');}break;}
  case 'add-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:null};render();break;
  case 'edit-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:Number(el.dataset.index)};render();break;
- case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&confirm(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
+ case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&await confirmInApp(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
  case 'keep-workout':modal=null;render();break;
  case 'switch-save':await switchWorkoutTo(el.dataset.id,true);break;
- case 'switch-discard':if(confirm(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
+ case 'switch-discard':if(await confirmInApp(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
  case 'start-workout':setTab('workouts');break;
  case 'resume-workout':if(state.session){resumeWorkout();}break;
  case 'minimise-workout':if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
- case 'discard-workout':if(confirm('Discard this unfinished workout? Completed sets will not be added to history.')){state.session=null;restSheet=false;await commit();}break;
+ case 'discard-workout':if(await confirmInApp('Discard this unfinished workout? Completed sets will not be added to history.',{title:'Discard workout?',approveLabel:'Discard workout'})){state.session=null;restSheet=false;await commit();}break;
+ case 'giant-view':{
+  const s=state.session;if(!s)break;
+  s.giantView=el.dataset.mode==='detailed'?'detailed':'rounds';
+  if(s.giantView==='rounds'&&!s.giantCursor)s.giantCursor=pickGiantCursor(s,getGiantGroups(s));
+  render();await persist();break;
+ }
+ case 'giant-group':{
+  const s=state.session,group=getGiantGroups(s).find(g=>g.id===el.dataset.group);if(!s||!group)break;
+  let chosen=null;
+  for(let round=0;round<group.rounds&&!chosen;round++)
+   for(const item of group.items)if(!item.exercise.sets[round].done){chosen={group:group.id,round,index:item.index};break;}
+  s.giantCursor=chosen||{group:group.id,round:group.rounds-1,index:group.items[0].index};
+  s.activeIndex=s.giantCursor.index;render();await persist();break;
+ }
+ case 'giant-round':{
+  const s=state.session;if(!s)break;
+  const groups=getGiantGroups(s),cursor=pickGiantCursor(s,groups),group=groups.find(g=>g.id===cursor.group);if(!group)break;
+  const round=Number(el.dataset.round);if(!Number.isInteger(round)||round<0||round>=group.rounds)break;
+  const item=group.items.find(it=>!it.exercise.sets[round].done)||group.items[0];
+  s.giantCursor={group:group.id,round,index:item.index};s.activeIndex=item.index;render();await persist();break;
+ }
+ case 'giant-exercise':{
+  const s=state.session,groups=getGiantGroups(s);if(!s||!groups.length)break;
+  const cursor=pickGiantCursor(s,groups),group=groups.find(g=>g.id===cursor.group);
+  const index=Number(el.dataset.ex);if(!group?.items.some(item=>item.index===index))break;
+  s.giantCursor={group:group.id,round:cursor.round,index};s.activeIndex=index;render();await persist();break;
+ }
  case 'expand-exercise':exerciseOpen=Number(el.dataset.index);if(state.session)state.session.activeIndex=exerciseOpen;await put('state',state);render();break;
  case 'tick-set':tickSet(Number(el.dataset.ex),Number(el.dataset.set));break;
  case 'add-session-exercise':if(state.session){modal={type:'session-exercise'};render();}break;
@@ -834,7 +916,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   const s=state.session,index=Number(el.dataset.index),exercise=s?.exercises?.[index];
   if(!exercise)break;
   const done=exercise.sets.filter(x=>x.done).length;
-  if(!confirm(`Remove “${exercise.name}” from this session? ${done?`${done} completed set(s) from this exercise will be lost.`:'Your saved plan will be unchanged.'}`))break;
+  if(!await confirmInApp(`Remove “${exercise.name}” from this session? ${done?`${done} completed set(s) from this exercise will be lost.`:'Your saved plan will be unchanged.'}`))break;
   s.exercises.splice(index,1);
   if(s.rest){if(s.rest.exerciseIndex===index){s.rest=null;restSheet=false;}else if(s.rest.exerciseIndex>index)s.rest.exerciseIndex-=1;}
   s.activeIndex=Math.max(0,Math.min(s.exercises.length-1,s.activeIndex>index?s.activeIndex-1:s.activeIndex));
@@ -850,7 +932,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'close-rest':restSheet=false;render();break;
  case 'open-rest':if(state.session?.rest){restSheet=true;haptic('tap');render();}break;
  case 'timer-plus':case 'timer-minus':case 'timer-pause':case 'timer-skip':timerControl(a);break;
- case 'finish-workout':finishWorkout();break;
+ case 'finish-workout':await finishWorkout();break;
  case 'configure-cloud':modal={type:'cloud'};render();break;
  case 'clerk-login':{
   if(!isClerkLoginAvailable()){notify('Clerk sign-in is not configured yet. Continue as a guest.');break;}
@@ -864,7 +946,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'google-login':{if(window.Capacitor?.isNativePlatform?.()){notify('Native Google OAuth deep links need Android testing. Sign in through the hosted website for now.');break;}if(!cloud.getConfig()){modal={type:'cloud'};render();notify('Configure your private Supabase project before Google sign-in.');break;}await cloud.startGoogleLogin();break;}
  case 'cloud-upload':await pushCloud();break;
  case 'cloud-download':await pullCloud();break;
- case 'cloud-logout':if(confirm('Sign out of cloud backup on this device? Your offline data will remain.')){cloud.signOut();render();}break;
+ case 'cloud-logout':if(await confirmInApp('Sign out of cloud backup on this device? Your offline data will remain.')){cloud.signOut();render();}break;
  case 'test-chime':await chime();notify('Chime test played, if audio is permitted');break;
  case 'notification-permission':if(typeof Notification==='undefined')notify('Notifications are not supported in this browser');else{let status=await Notification.requestPermission();notify('Notification permission: '+status);}break;
  case 'export-backup':await exportData();break;
@@ -1216,7 +1298,7 @@ document.addEventListener('touchcancel',()=>{if(swipeGesture?.frame)cancelAnimat
  });
  document.addEventListener('input',event=>{if(event.target.id==='compare-range'){const pct=Number(event.target.value);const layer=$('#compare-before-layer'),handle=$('#compare-handle');if(layer)layer.style.clipPath=`inset(0 ${100-pct}% 0 0)`;if(handle)handle.style.left=pct+'%';}});
 
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(confirmation){event.preventDefault();settleConfirmation(false);return;}if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
 // Do not interrupt a workout when an updated service worker becomes active.
 function showUpdateNotice(){
@@ -1261,6 +1343,28 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
+ // A same-page history entry allows Android / Chrome Back to minimise rather than exit.
+ // It also closes in-app overlays before minimising. The current session is persisted.
+ workoutBackGuard=createWorkoutBackGuard({
+  history:window.history,
+  subscribe:(name,callback)=>window.addEventListener(name,callback),
+  shouldGuard:()=>Boolean(state.session&&!state.session.minimized&&tab==='workouts'),
+  onBack:()=>{
+   if(confirmation){settleConfirmation(false);return true;}
+   if(modal){
+    if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);
+    leaveFoodModal().catch(console.warn);
+    modal=null;render();return true;
+   }
+   if(restSheet){restSheet=false;render();return true;}
+   if(state.session&&!state.session.minimized&&tab==='workouts'){
+    state.session.minimized=true;restSheet=false;
+    tab='home';state.lastTab='home';
+    render();persist().catch(console.error);
+   }
+   return false;
+  }
+ });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
