@@ -74,7 +74,7 @@ test('Worker calls only the OpenAI Responses vision API after consent and uses s
 });
 
 test('food-photo review never autosaves suggestions and retains free manual path',()=>{
- assert.match(nutrition,/data-nf="ai-scan"/);
+ assert.match(nutrition,/aiScanning\?'ai-cancel':'ai-scan'/);
  assert.match(nutrition,/scanPhotoWithWorker\(/);
  assert.match(nutrition,/data-nf="ai-find-food"/);
  assert.match(nutrition,/photoQuery=item\.name/);
