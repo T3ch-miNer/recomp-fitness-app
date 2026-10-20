@@ -18,9 +18,11 @@ export function getGiantGroups(session){
   // eight set entries per exercise. These are NOT eight ordinary giant
   // rounds. Keep their exact order and rep targets in Detailed View.
   // Respect the exercise's authored target, not editable historic reps.
-  const ladder=items.some(({exercise})=>
-   /(?:descending|ladder|pyramid|\\d+\\s*[-–—]\\s*\\d+\\s*[-–—]\\s*\\d+\\s*[-–—]\\s*\\d+)/i.test(
-    String(exercise.targetLabel||'')+' '+String(exercise.notes||'')));
+  const ladder=items.some(({exercise})=>{
+   const text=String(exercise.targetLabel||'')+' '+String(exercise.notes||'');
+   return /descending|ladder|pyramid/i.test(text) ||
+    /20[-–—]15[-–—]10[-–—]5/.test(text.replaceAll(' ',''));
+  });
   if(ladder)return [];
   return [{id,items,rounds}];
  });
