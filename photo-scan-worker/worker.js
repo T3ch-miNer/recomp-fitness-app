@@ -58,11 +58,13 @@ const json=(body,status=200,origin='')=>new Response(JSON.stringify(body),{statu
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',
  ...(isAllowedOrigin(origin)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{})
 }});
-const INSTRUCTIONS=`Analyse ONE photograph for a PERSONAL food diary. Identify up to TWELVE separate foods or visible edible components, including individual Indian dishes such as cooked rice, dal, roti, paneer curry, sabji, yoghurt and chutney. Only name foods visually supported by this photo. Do not invent ingredients, cooking methods, weights, nutritional information, or foods outside the frame. Treat visually similar curries as uncertain. If there is no recognisable food, return items: [].
+const INSTRUCTIONS=`You are a food-diary assistant examining ONE photo of ONE MEAL. Your PRIMARY job is to NAME THE COMPLETE DISH or MEAL, not enumerate its visible ingredients. Examples: a beef bibimbap / Korean beef rice bowl (not separate beef, corn, egg, rice); ramen bowl (not separate noodles, egg, broth); masala dosa with potato sabzi and chutney (one combined meal); pizza, pasta carbonara, thali, dal chawal. Prefer a specific recognizable cuisine/dish when reasonably supported by the image; if uncertain use a descriptive name like "Korean-style beef rice bowl", and mark uncertain. Do NOT force unrelated food into a Korean or Indian cuisine. Include sides/sauces visibly served as part of the single meal in the dish name or notes. If two clearly independent plated MEALS, choose one complete shared dish label such as "Two-course meal" and mention components; never double count.
 
-Reply with ONLY one valid JSON object of this shape, no prose or markdown:
-{"items":[{"name":"Dal","visualEvidence":"Yellow food in bowl","portionHint":"Small bowl","uncertain":true}]}
-Each field must be included. The evidence must say what is visible, not imply invisible ingredients. Use everyday food names and plain-language estimated serving descriptions, not grams. The user must personally review everything.`;
+Also provide a CAUTIOUS nutritional estimate for the ENTIRE photographed serving (not per ingredient or per 100 g) based on typical cooked recipes/restaurant servings and visible approximate volume. Estimated total kcal, protein/carbs/fat/fibre in grams, and a plausibly broad lower/upper kcal range reflecting uncertainty in oil, sauces, hidden ingredients, bowl depth and actual portion size. These values are only guesses and NEVER measured or verified; do not imply false precision. Use whole-number rounded estimates. Do not pretend to see under toppings or inside food. Do not invent dietary restrictions or specific ingredients. If the photo isn't identifiable as food, set meal to null. Provide estimatedGrams as a rough visual guess (100 to 2000) and servingDescription such as "one medium restaurant bowl" or "one large masala dosa with sides". Distinguish label from assumptions and uncertainty. For mixed dishes use ONE combined estimate, not ingredient-by-ingredient totals.
+
+Return ONLY this JSON object with exactly these keys, no code fences, no commentary:
+{"meal":{"name":"Korean-style beef rice bowl","servingDescription":"One medium restaurant bowl","estimatedGrams":500,"calories":720,"protein":32,"carbs":85,"fat":28,"fibre":7,"calorieLow":500,"calorieHigh":1000,"uncertain":true,"assumptions":"Rice may be beneath toppings. Sauce, oil and serving weight are unknown."}}
+Numbers above are examples only, NOT expected values for any given photo. Every key is required. Use "meal":null only when there is no recognisable meal.`;
 export function buildHfRequest(image,model=MODEL_PREFERENCES[0]){
  return {model,max_tokens:950,temperature:0.1,stream:false,messages:[{
   role:'user',content:[
@@ -71,18 +73,38 @@ export function buildHfRequest(image,model=MODEL_PREFERENCES[0]){
   ]
  }]};
 }
-function parseFoodList(text){
- if(typeof text!=='string'||text.length>20000)throw Error('Invalid model output');
- // Some vision providers return fenced JSON even when asked not to.
+const MAX_NUTRIENTS={calories:4500,protein:350,carbs:700,fat:350,fibre:130};
+const numeric=(value,min,max)=>{
+ if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)return null;
+ return Math.round(value);
+};
+export function parseDishEstimate(text){
+ if(typeof text!=='string'||text.length>24000)throw Error('Invalid model output');
  const trimmed=text.trim().replace(/^\x60\x60\x60(?:json)?\s*/i,'').replace(/\s*\x60\x60\x60$/,'');
- const parsed=JSON.parse(trimmed);
- if(!parsed||!Array.isArray(parsed.items))throw Error('No food list');
- return parsed.items.slice(0,12).flatMap(x=>{
-  const name=String(x?.name||'').trim().slice(0,90);
-  return name.length<2?[]:[{name,visualEvidence:String(x.visualEvidence||'').slice(0,140),
-   portionHint:String(x.portionHint||'').slice(0,100),uncertain:Boolean(x.uncertain)}];
- });
+ const data=JSON.parse(trimmed);
+ if(!data||!Object.hasOwn(data,'meal'))throw Error('Missing meal');
+ if(data.meal===null)return null;
+ const meal=data.meal;
+ if(!meal||typeof meal!=='object'||Array.isArray(meal))throw Error('Invalid meal');
+ const name=typeof meal.name==='string'?meal.name.trim().slice(0,100):'';
+ const servingDescription=typeof meal.servingDescription==='string'?meal.servingDescription.trim().slice(0,110):'';
+ if(name.length<3||servingDescription.length<3)throw Error('Dish name or serving missing');
+ const n={};
+ for(const [key,max] of Object.entries(MAX_NUTRIENTS)){
+  n[key]=numeric(meal[key],key==='calories'?1:0,max);
+  if(n[key]===null)throw Error('Invalid nutrition estimate');
+ }
+ const calorieLow=numeric(meal.calorieLow,1,4500);
+ const calorieHigh=numeric(meal.calorieHigh,1,4500);
+ if(calorieLow===null||calorieHigh===null||calorieLow>n.calories||calorieHigh<n.calories)
+  throw Error('Invalid calorie uncertainty range');
+ const estimatedGrams=numeric(meal.estimatedGrams,50,3000);
+ if(estimatedGrams===null)throw Error('Invalid serving weight estimate');
+ return {name,servingDescription,estimatedGrams,...n,calorieLow,calorieHigh,
+  uncertain:meal.uncertain!==false,
+  assumptions:typeof meal.assumptions==='string'?meal.assumptions.trim().slice(0,340):''};
 }
+
 const TEST_HTML="<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\n<meta name=\"robots\" content=\"noindex,nofollow\">\n<title>Recomp | Private AI Photo Test</title>\n<style>\n:root{color-scheme:dark;font-family:system-ui,-apple-system,Arial,sans-serif;background:#080d0e;color:#eaf5f1}\n*{box-sizing:border-box}body{margin:0;padding:20px 12px;min-height:100vh}\nmain{max-width:570px;margin:auto}.eyebrow{color:#8fd6b8;letter-spacing:.14em;font-size:11px;font-weight:750}\nh1{margin:10px 0;font-size:27px;letter-spacing:-.035em}p{color:#a8bcb6;font-size:14px;line-height:1.6}\n.card{background:#11191b;border:1px solid #283c37;border-radius:19px;padding:19px;margin:16px 0;display:grid;gap:13px}\nlabel{display:grid;gap:7px;font-size:13px;font-weight:680}\ninput{width:100%;border:1px solid #3a5950;border-radius:12px;background:#081011;color:white;padding:13px;font:inherit;font-size:16px}\nbutton{min-height:47px;border:0;border-radius:12px;padding:11px 14px;background:#89dfb7;color:#10231b;font:inherit;font-weight:750;cursor:pointer}\nbutton:disabled{opacity:.58;cursor:wait}\n.small{font-size:12px}.status{color:#a9dbbd;margin:0;overflow-wrap:anywhere}\n.result{padding:13px;border:1px solid #3b6352;border-radius:13px;background:#182922}\n.result b{display:block;margin-bottom:5px}.result p{margin:0}.warning{color:#ffde9a}\n.hidden{display:none}footer{font-size:12px;color:#a8bcb6;line-height:1.5}\n</style>\n</head>\n<body><main>\n<div class=\"eyebrow\">RECOMP · PRIVATE TEST</div>\n<h1>AI Meal Scanner</h1>\n<p>Test the Cloudflare Worker and Hugging Face model before publishing Recomp v2.7. This page is hosted by your own Worker; it doesn't change your food diary or any saved workouts.</p>\n<section class=\"card\">\n<form id=\"scan-form\" style=\"display:grid;gap:15px\" autocomplete=\"off\">\n<label>1. Private Worker scan access token <input id=\"token\" type=\"password\" autocomplete=\"off\" spellcheck=\"false\" required placeholder=\"SCAN_ACCESS_TOKEN value\"></label>\n<label>2. Food photo <input id=\"photo\" type=\"file\" accept=\"image/*\" required></label>\n<button id=\"scan\" type=\"submit\">Test food recognition</button>\n<button id=\"check-models\" type=\"button\" style=\"background:#243e35;color:#daf6e7;border:1px solid #497461\">Check Hugging Face vision connection (free)</button>\n</form>\n<p class=\"small\">Do NOT enter your Hugging Face HF_TOKEN here. Use only your separate SCAN_ACCESS_TOKEN. Nothing is sent until you press Test. Hugging Face may charge inference credits for this request.</p>\n<p id=\"status\" class=\"status\" role=\"status\" aria-live=\"polite\">Ready when you are.</p>\n</section>\n<section class=\"card hidden\" id=\"results\"><div class=\"eyebrow\">SUGGESTED FOODS · REVIEW ONLY</div><div id=\"foods\" style=\"display:grid;gap:9px\"></div><p class=\"small\">AI cannot accurately determine hidden ingredients, cooking oil or exact gram weights. These are suggestions only and will NOT be saved in Recomp.</p></section>\n<footer>Photo is resized in your browser, sent directly to this Worker, and forwarded to the configured Hugging Face inference provider. The page keeps no saved token, photo or diary data. Don't test images with people or private documents.</footer>\n</main>\n<script>\n(function(){\n var form=document.getElementById('scan-form');\n var button=document.getElementById('scan');\n var status=document.getElementById('status');\n var box=document.getElementById('results');\n var list=document.getElementById('foods');\n document.getElementById('check-models').addEventListener('click',async function(){\n  var token=document.getElementById('token').value;\n  if(!token){status.textContent='Enter your separate Worker access token first.';return;}\n  status.textContent='Checking live Hugging Face vision models without sending a photo…';\n  try{\n   var response=await fetch('/models',{headers:{'Authorization':'Bearer '+token},cache:'no-store'});\n   var data=await response.json();\n   if(!response.ok)throw Error(data.error||'Connection test failed.');\n   status.textContent='Connection ready: '+data.selected+' ('+data.models.length+' image models available). Now try a photo.';\n  }catch(error){status.textContent='Connection failed: '+error.message;}\n });\n form.addEventListener('submit',async function(event){\n  event.preventDefault();\n  var token=document.getElementById('token').value;\n  var photo=document.getElementById('photo').files[0];\n  if(!token||!photo)return;\n  if(photo.size>18*1024*1024){status.textContent='Choose a photograph smaller than 18 MB.';return;}\n  button.disabled=true;box.classList.add('hidden');list.replaceChildren();\n  status.textContent='Preparing a smaller photo in this browser…';\n  var bitmap=null;\n  try{\n   if(!photo.type.startsWith('image/'))throw Error('Choose an image file.');\n   bitmap=await createImageBitmap(photo);\n   var scale=Math.min(1,1120/Math.max(bitmap.width,bitmap.height));\n   var canvas=document.createElement('canvas');\n   canvas.width=Math.max(1,Math.round(bitmap.width*scale));\n   canvas.height=Math.max(1,Math.round(bitmap.height*scale));\n   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);\n   bitmap.close();bitmap=null;\n   var image=canvas.toDataURL('image/jpeg',0.72);\n   canvas.width=0;canvas.height=0;\n   if(image.length>2800000)throw Error('Compressed photo is too large. Try a smaller image.');\n   status.textContent='Asking Hugging Face to identify the visible foods…';\n   var response=await fetch('/scan',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({image:image}),cache:'no-store',credentials:'same-origin'});\n   image=null;\n   var data=await response.json();\n   if(!response.ok)throw Error(data.error||'Scan failed ('+response.status+').');\n   if(!Array.isArray(data.items))throw Error('Scanner returned an invalid food list.');\n   box.classList.remove('hidden');\n   if(!data.items.length){status.textContent='The model could not identify clear food items.';return;}\n   for(var i=0;i<data.items.length;i++){\n    var item=data.items[i],card=document.createElement('article');card.className='result';\n    var heading=document.createElement('b');heading.textContent=item.name+(item.uncertain?' · uncertain':'');\n    var notes=document.createElement('p');notes.textContent=(item.visualEvidence||'')+(item.portionHint?' · Looks like '+item.portionHint:'');\n    card.append(heading,notes);list.appendChild(card);\n   }\n   status.textContent='Success with '+(data.model||'Hugging Face vision')+'! Found '+data.items.length+' possible food item(s). Check accuracy before logging.';\n  }catch(err){status.textContent='Scan failed: '+(err&&err.message?err.message:'Please try again.');}\n  finally{if(bitmap)bitmap.close();button.disabled=false;}\n });\n}());\n</script>\n</body></html>";
 export async function handleScan(request,env,fetchImpl=fetch){
  const origin=request.headers.get('Origin')||'';
@@ -141,10 +163,10 @@ export async function handleScan(request,env,fetchImpl=fetch){
    'Hugging Face could not analyse the photo (HTTP '+status+').'},status===402?402:502,origin);
  }
  let output;try{output=await response.json();}catch{return json({error:'Unreadable response from image recognition.'},502,origin);}
- let items;
- try{items=parseFoodList(output?.choices?.[0]?.message?.content);}catch{
-  return json({error:'The vision model did not return a usable food list. Try a clearer photo or search foods manually.'},502,origin);
+ let meal;
+ try{meal=parseDishEstimate(output?.choices?.[0]?.message?.content);}catch{
+  return json({error:'The vision model did not return a valid dish and nutrition estimate. Try again or enter the meal manually.'},502,origin);
  }
- return json({items,model:selected},200,origin);
+ return json({meal,model:selected,estimateSource:'AI photo estimate — not measured'},200,origin);
 }
 export default {async fetch(request,env){return handleScan(request,env);}};
