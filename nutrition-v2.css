@@ -125,3 +125,11 @@ body.nf-open{overflow:hidden}
 .nf-ai-scan-status-working{border-color:color-mix(in srgb,var(--accent) 28%,var(--line))}
 .nf-vision-panel .nf-ai-change-access{justify-self:start;text-align:left}
 .nf-vision-panel button:disabled{cursor:wait}
+
+
+/* Verify the Worker code without uploading a meal or invoking paid vision inference. */
+.nf-vision-panel .nf-ai-check-connection{
+ width:100%;min-height:42px;text-align:center;font-size:12px;
+ border-color:var(--line);background:var(--panel2);color:var(--text);
+}
+.nf-vision-panel .nf-ai-check-connection:disabled{opacity:.6}
