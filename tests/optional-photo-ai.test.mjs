@@ -20,7 +20,7 @@ test('photo scan client accepts one trusted HTTPS endpoint and rejects API secre
  assert.throws(()=>client.savePhotoAiEndpoint('https://user:secret@unsafe.example.com/scan'),/HTTPS/);
  const stored={};
  globalThis.localStorage={getItem:k=>stored[k],setItem:(k,v)=>stored[k]=v};
- assert.equal(client.getPhotoAiEndpoint(),'https://recomp-photo-scan.rahul-dbz95.workers.dev/scan','public Worker preconfigured without storing a key');
+ assert.equal(client.getPhotoAiEndpoint(),'https://recomp-food-ai.rahul-dbz95.workers.dev/scan','public Worker preconfigured without storing a key');
  assert.equal(client.getPhotoAiSessionToken(),'');
  assert.throws(()=>client.rememberPhotoAiSessionToken('sk-prohibited'),/provider API key/);
  assert.equal(client.rememberPhotoAiSessionToken(accessToken),true);
