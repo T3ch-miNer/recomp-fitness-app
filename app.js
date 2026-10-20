@@ -1,5 +1,6 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import {FTS_WORKOUTS,mergeFtsWorkouts} from './fts-workouts.js';
+import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
@@ -620,7 +621,7 @@ if(modal.type==='task')return modalShell('Add a daily task',`${modalField('name'
 if(modal.type==='rest-setting'){let e=state.session.exercises[modal.index];return modalShell('Exercise rest time',`${modalField('seconds','Rest duration (seconds)',e.restSeconds,'number','min="0" max="1800" step="15" required')}`,'form-rest-setting','Save duration');}
 if(modal.type==='swap'){let e=state.session.exercises[modal.index];return modalShell('Swap exercise',`<p class="muted small">Replacing <b>${escapeHtml(e.name)}</b>. Your completed sets and their values will stay in the session, but progression history is separate for each exercise.</p><div class="field"><label class="label">Suggested alternatives</label><select class="input" name="exercise">${[...e.alts,e.name].map(x=>`<option>${escapeHtml(x)}</option>`).join('')}</select></div>${modalField('custom','Or enter another exercise name','')}`,'form-swap','Replace exercise');}
 if(modal.type==='notes'){let e=state.session.exercises[modal.index];return modalShell('Exercise notes',`<div class="field"><label class="label">Form cues or reminders</label><textarea class="input" name="notes" rows="5" maxlength="500">${escapeHtml(e.notes||'')}</textarea></div>`,'form-notes','Save note');}
-if(modal.type==='video'){const e=state.session.exercises[modal.index];let title=escapeHtml(e.name);let url='https://www.youtube.com/results?search_query='+encodeURIComponent('Muscle and Strength '+e.name+' exercise');return modalShell('Exercise demonstration',`<h3>${title}</h3><div class="outline-banner">In-app YouTube playback will be enabled when the verified Muscle & Strength video ID is added to the exercise library. Video embedding depends on the video owner's settings.</div><p class="small">For now, find the demonstration on YouTube:</p><a class="btn primary" href="${url}" target="_blank" rel="noopener noreferrer">Find ${title} video ${svg('arrow','tiny-icon')}</a>`);}
+if(modal.type==='video')return modalShell('Exercise demonstration',renderExerciseDemonstration(state.session?.exercises?.[modal.index],{playing:modal.playing}));
 if(modal.type==='clerk')return modalShell('Set up Clerk sign-in',`${modalField('key','Clerk publishable key (pk_test_ or pk_live_)','','text','required autocomplete="off" spellcheck="false"')}<p class="hint">Paste only the public publishable key from your Clerk Dashboard. This enables your own phone to test the sign-in flow. For all users, set the key in clerk-auth.js before releasing. Do not use a secret key here.</p>`,'form-clerk','Save publishable key');
 if(modal.type==='cloud'){const cfg=cloud.getConfig();return modalShell('Configure private cloud',`${modalField('url','Supabase project URL',cfg?.url||'','url','placeholder="https://your-project.supabase.co" required')}${modalField('key','Supabase public publishable/anon key',cfg?.key||'','text','required')}<p class="hint">Use only a Supabase public publishable/anon key, never a service-role or secret key. Google OAuth must first be enabled in your Google Cloud and Supabase projects. Sign-in is optional and does not erase local records.</p>`,'form-cloud','Save cloud configuration');}
 if(modal.type==='workout-summary')return modalShell('Session banked',`<div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><button class="btn primary block" data-action="close-modal">Continue</button>`);
@@ -844,7 +845,8 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'rest-setting':modal={type:'rest-setting',index:Number(el.dataset.index)};render();break;
  case 'swap-exercise':modal={type:'swap',index:Number(el.dataset.index)};render();break;
  case 'exercise-notes':modal={type:'notes',index:Number(el.dataset.index)};render();break;
- case 'exercise-video':modal={type:'video',index:Number(el.dataset.index)};render();break;
+ case 'exercise-video':modal={type:'video',index:Number(el.dataset.index),playing:false};render();break;
+ case 'load-exercise-video':if(modal?.type==='video'){modal.playing=true;render();}break;
  case 'close-rest':restSheet=false;render();break;
  case 'open-rest':if(state.session?.rest){restSheet=true;haptic('tap');render();}break;
  case 'timer-plus':case 'timer-minus':case 'timer-pause':case 'timer-skip':timerControl(a);break;
