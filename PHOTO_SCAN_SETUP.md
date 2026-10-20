@@ -8,7 +8,7 @@ Recomp remains on **free GitHub Pages**. AI detection is entirely optional; manu
 
 For a personal beta, Hugging Face Inference Providers lets you experiment with a hosted multimodal model without an OpenAI API subscription. Its current free allowance is **$0.10 per month** in inference credits (subject to change). Extra usage may require payment. The Cloudflare free Worker tier is suitable for a small personal proxy.
 
-We start with **Qwen/Qwen3-VL-4B-Instruct**, listed with Featherless AI as an inference provider. Provider/model availability and speed can change; a real test is required before assuming this combination works for your meal photos. This is NOT an unlimited free service.
+**Update after the first real photo test:** Qwen3-VL-4B-Instruct returned a provider/model rejection for two valid meal photos. Recomp now checks the **live Hugging Face vision-model catalogue** before each AI scan, prefers compatible affordable models such as Qwen2.5-VL-3B-Instruct when available, and can try one alternative on a model-routing rejection. The actual model used is shown in test results. Provider availability is not guaranteed and the free allowance is NOT unlimited.
 
 Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted secret**. Never paste it into the public Recomp app or GitHub. The Recomp browser only uses a separate personal Worker access token held **in RAM**, with the public Worker endpoint saved for convenience. Don't share either private token.
 
@@ -43,10 +43,10 @@ The owner has deployed `recomp-food-ai` and confirmed that both Worker secrets e
 1. In Cloudflare, select **Workers & Pages → recomp-food-ai → Edit code**.
 2. Replace the editor contents with the **latest** [photo-scan-worker/worker.js](./photo-scan-worker/worker.js) from the v2.7 draft and click **Deploy**. The latest code includes a self-contained `/test` page; older deployments will return `Not found` for `/test`.
 3. Open **<https://recomp-food-ai.rahul-dbz95.workers.dev/test>** in a normal browser tab. The root path `/` may still say `{"error":"Not found"}` — that is expected.
-4. Enter only your separate `SCAN_ACCESS_TOKEN` value in the password box. **Never enter `HF_TOKEN` in a browser or share it in chat.**
-5. Choose a non-sensitive meal photo (preferably rice, dal and/or roti), then click **Test food recognition**. You authorise sending a resized copy to your Worker and Hugging Face by pressing that button.
+4. Enter only your separate `SCAN_ACCESS_TOKEN` value in the password box. **Never enter `HF_TOKEN` in a browser or share it in chat.** Click **Check Hugging Face vision connection (free)** first. The test page then lists the chosen currently available image-capable model, or reports a token/provider error without sending a photograph.
+5. Once the connection check succeeds, choose a non-sensitive meal photo (preferably rice, dal and/or roti), then click **Test food recognition**. You authorise sending a resized copy to your Worker and Hugging Face by pressing that button.
 6. You should see a list of proposed foods, visible evidence and uncertainty markers. A response such as `credits exhausted`, `token needs updating` or `model not available` is useful troubleshooting information—do not send credentials to anybody.
-7. Report whether the list accurately describes the photo, or share only the text of an error (with tokens and personal information hidden).
+7. The owner's two reference photos include a Korean rice bowl (beef, egg, corn, edamame, sprouts and greens) and masala dosa with potato sabzi and green chutney. Report whether the suggestions match these visible items, or share only the displayed error text (hide credentials and personal information).
 
 The `/test` page performs no writes to Recomp's storage or diaries and stores no credentials. Delete or disable the test page after verification if you prefer a smaller public footprint. It requires the separate private access token for actual inference.
 
