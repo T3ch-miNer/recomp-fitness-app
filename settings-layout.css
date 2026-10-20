@@ -2,7 +2,7 @@
 .settings-hub{width:100%;max-width:860px;margin:0 auto 22px}
 .settings-shortcuts{
  display:flex;align-items:center;gap:9px;
- overflow-x:auto;overscroll-behaviour-x:contain;scrollbar-width:none;
+ overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;
  padding:3px 2px 12px;margin:0 0 9px;
 }
 .settings-shortcuts::-webkit-scrollbar{display:none}
