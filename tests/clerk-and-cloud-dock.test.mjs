@@ -37,10 +37,14 @@ test('Clerk account is optional and separated from existing private backups',()=
  assert.match(onboarding,/Optional Google sign-in uses Clerk/);
  assert.match(js,/await openClerkSignIn\(\)/);
  assert.match(js,/No authentication/);
+ assert.match(js,/clerkClient\.addListener/);
+ assert.match(js,/getElementById\('recomp-first-run'\)\?\.remove\(\)/);
 });
 
 test('Clerk integration requires a public key; no secrets or record migration',()=>{
- assert.match(clerk,/CLERK_PUBLISHABLE_KEY=''/);
+ // A public Clerk key may be configured later; no test should require it to stay blank.
+ assert.match(clerk,/export const CLERK_PUBLISHABLE_KEY=/);
+ assert.match(clerk,/const KEY='recomp-clerk-publishable-key-v1'/);
  assert.match(clerk,/pk_\(test\|live\)/);
  assert.ok(!/sk_(?:test|live)_[A-Za-z0-9]+/.test(clerk));
  assert.ok(!/indexedDB|deleteDatabase|uploadSnapshot|downloadSnapshot/.test(clerk));
