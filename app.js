@@ -4,6 +4,7 @@ import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
+import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 
 const $ = s => document.querySelector(s);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -1214,7 +1215,8 @@ function showUpdateNotice(){
 }
 async function init(){try{
  const saved=await get('state');
- state=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:INITIAL();
+ const hadSavedState=Boolean(saved&&typeof saved==='object'&&!Array.isArray(saved));
+ state=hadSavedState?saved:INITIAL();
  const defaults=INITIAL();
  // Safely repair an old or partial schema in memory, preserving all existing logs.
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
@@ -1260,7 +1262,26 @@ if('serviceWorker' in navigator && location.protocol!=='file:'){
    });
   }).catch(err=>console.warn('Offline install unavailable',err));
  }
-try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogleLogin();notify('Google Sign-In connected. Open Settings to back up your data.');render();}}catch(err){notify('Google Sign-In: '+err.message);}
+try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogleLogin();try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}notify('Google Sign-In connected. Open Settings to back up your data.');render();}}catch(err){notify('Google Sign-In: '+err.message);}
+ // Guest-first welcome is only for genuinely new installations. Never interrupt
+ // users who already have IndexedDB fitness records, even without a Google session.
+ let firstRunChoice=false;
+ try{firstRunChoice=Boolean(localStorage.getItem(FIRST_RUN_KEY));}catch{}
+ if(shouldOfferFirstRun({
+  hasSavedState:hadSavedState,
+  hasChoice:firstRunChoice,
+  hasSession:Boolean(cloud.getSession()),
+  hasOAuthCallback:new URLSearchParams(location.search).has('code')
+ })){
+  showFirstRunWelcome({
+   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}},
+   onGoogle:async()=>{
+    if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in needs native Android OAuth setup. Continue without signing in for now.';
+    if(!cloud.getConfig())return 'Google sign-in needs the app owner to configure Supabase and Google OAuth. You can continue without signing in and connect later from Settings → Cloud backup.';
+    await cloud.startGoogleLogin();
+   }
+  });
+ }
 setInterval(timerTick,500);
 setInterval(async()=>{if(!state.dirty||localStorage.getItem('recomp-auto-sync')!=='yes'||!navigator.onLine||!cloud.getSession())return;try{await pushCloud();}catch(e){console.warn('Auto-sync waiting:',e.message);}},60000);
 }catch(err){console.error(err);document.body.innerHTML=`<div style="max-width:500px;margin:10vh auto;padding:25px"><h1>Unable to open Recomp</h1><p>${escapeHtml(err.message)}</p><p>Your locally stored data has not been cleared. Try reloading. If the problem continues, do not clear site data, as it may contain your only copy of your records.</p><button id="recomp-retry" type="button" style="padding:12px 24px;border-radius:12px;background:#75eac4;color:#09241c;font:inherit">Reload Recomp</button></div>`;document.getElementById('recomp-retry')?.addEventListener('click',()=>location.reload());}}
