@@ -627,7 +627,7 @@ function syncDock(visible){
  const pages=[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']];
  if(!dock){
   dock=document.createElement('nav');dock.id='recomp-bottom-dock';dock.className='bottom-nav premium-dock';dock.setAttribute('aria-label','Main navigation');
-  dock.innerHTML='<span class="dock-selection" aria-hidden="true"></span>'+pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button" aria-label="${label}" title="${label}">${svg(ico)}<span>${label}</span></button>`).join('');
+  dock.innerHTML='<svg class="dock-cloud-surface" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true"><path d="M 7 54 C 7 27 21 9 47 7 C 74 5 91 17 100 39 C 109 18 126 7 149 7 C 175 7 191 19 200 39 C 210 17 226 7 250 7 C 276 7 292 20 300 39 C 310 17 327 6 352 8 C 380 10 393 28 393 54 L 393 66 C 393 86 381 96 360 96 L 40 96 C 19 96 7 85 7 66 Z"/></svg><span class="dock-selection" aria-hidden="true"></span>'+pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button" aria-label="${label}" title="${label}">${svg(ico)}<span>${label}</span></button>`).join('');
   dock.style.setProperty('--active-tab-index',String(Math.max(0,pages.findIndex(([id])=>id===tab))));
   document.body.appendChild(dock);
  }
