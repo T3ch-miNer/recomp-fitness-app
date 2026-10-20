@@ -47,6 +47,7 @@ export function showFirstRunWelcome({onGuest,onGoogle}){
   try{
    const status=await onGoogle();
    if(typeof status==='string'&&status){error.textContent=status;error.hidden=false;}
+   else overlay.remove(); // Clerk sign-in has opened: avoid covering its modal.
   }catch(err){error.textContent=err?.message||'Google login could not start. You can continue without signing in.';error.hidden=false;}
   finally{google.disabled=false;google.removeAttribute('aria-busy');}
  });
