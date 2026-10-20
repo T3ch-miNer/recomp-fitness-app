@@ -247,6 +247,11 @@ test('prompt requires whole dishes rather than individual ingredients, with unce
  assert.match(instruction,/NAME THE COMPLETE DISH/);
  assert.match(instruction,/ramen bowl/);
  assert.match(instruction,/masala dosa/);
+ assert.match(instruction,/IMPORTANT MULTIPLE-PLATES RULE/);
+ assert.match(instruction,/closest\/foreground plate or bowl/);
+ assert.match(instruction,/EXCLUDE all other diners/);
+ assert.match(instruction,/SAME tray\/thali/);
+ assert.match(instruction,/Never combine separate meals/);
  assert.match(instruction,/calorieLow/);
  assert.match(instruction,/fibre/);
  assert.match(instruction,/hidden ingredients/);
@@ -280,6 +285,7 @@ test('food-photo review never autosaves suggestions and retains free manual path
  assert.match(nutrition,/saveEntries\(entries\)/);
  assert.match(nutrition,/Don't log those again as separate ingredients/);
  assert.match(nutrition,/nf-ai-calorie-range/);
+ assert.match(nutrition,/main foreground plate only/);
  assert.match(nutrition,/data-nf="save-photo"/);
  assert.ok(!/(?:sk[-_]|hf_)[A-Za-z0-9]{20,}/.test(nutrition+clientSource),'no provider key literal in browser');
  assert.throws(()=>client.rememberPhotoAiSessionToken('hf_forbidden'),/provider API key/);
