@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {getPhotoAiEndpoint,getPhotoAiSessionToken,rememberPhotoAiSessionToken,scanPhotoWithWorker} from './photo-ai.js';
+import {getPhotoAiEndpoint,getPhotoAiSessionToken,rememberPhotoAiSessionToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -310,23 +310,9 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   if(a==='ai-scan'){await scanWithAi();return;}
    if(a==='ai-cancel'){stopAiScan();notice='AI Scan cancelled. No data was logged.';render();return;}
    if(a==='save-ai-meal'){
-     validate();
-     if(!aiMeal)throw Error('Scan a dish first.');
-     const name=String(aiMeal.name||'').trim(),serving=String(aiMeal.servingDescription||'').trim();
-     if(name.length<3||name.length>100||serving.length<3||serving.length>110)throw Error('Review the dish name and serving.');
-     const max={calories:4500,protein:350,carbs:700,fat:350,fibre:130,estimatedGrams:3000};
-     for(const [key,limit] of Object.entries(max)){
-      const value=aiMeal[key];
-      if(typeof value!=='number'||!Number.isFinite(value)||value<(key==='calories'?1:key==='estimatedGrams'?50:0)||value>limit)
-       throw Error('Check the '+key+' estimate.');
-     }
-     const entry={date,meal:selectedMeal,name,grams:Math.round(aiMeal.estimatedGrams),
-      calories:Math.round(aiMeal.calories),protein:Math.round(aiMeal.protein),
-      carbs:Math.round(aiMeal.carbs),fat:Math.round(aiMeal.fat),fibre:Math.round(aiMeal.fibre),
-      source:'AI photo estimate (Hugging Face; user reviewed)',aiEstimate:true,
-      aiModel,servingDescription:serving,aiCalorieRange:{low:aiMeal.calorieLow,high:aiMeal.calorieHigh},
-      aiAssumptions:aiMeal.assumptions,aiUncertain:aiMeal.uncertain};
-     await saveEntries([entry]);return;
+    validate();
+    const entry=buildAiDishDiaryEntry({meal:aiMeal,date,mealType:selectedMeal,model:aiModel});
+    await saveEntries([entry]);return;
    }
    if(a==='recognise'){await recognise();return;}if(a==='cancel-recognition'){stopRecognition();notice='Recognition stopped. Add foods manually below.';render();return;}if(a==='save-photo'){
    validate();const entries=photoFoods.map(item=>{const food=findFood(item.id);if(!food)throw Error('Food no longer available.');if(!(Number(item.grams)>0&&Number(item.grams)<=5000))throw Error('Check the grams for '+food.name+'.');return {...amount(food,item.grams),date,meal:selectedMeal,name:food.name,grams:Number(item.grams),source:'Recomp sample recipe estimate',foodId:food.id};});await saveEntries(entries);return;
