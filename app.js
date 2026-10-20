@@ -417,7 +417,7 @@ function mealGuideView(){
 }
 function foodDiaryEntryRow(entry){
  const id=escapeHtml(entry.id);
- const origin=entry.aiEstimate?' · AI estimate':entry.foodSource==='openfoodfacts'?' · Barcode':entry.nutritionEdited?' · Edited':'';
+ const origin=entry.aiEstimate?' · AI estimate'+(entry.nutritionEdited?' · adjusted':''):entry.foodSource==='openfoodfacts'?' · Barcode'+(entry.nutritionEdited?' · adjusted':''):entry.nutritionEdited?' · Edited':'';
  return `<div class="list-entry diary-entry"><span class="list-icon">${svg('food')}</span>
  <div class="diary-entry-copy"><strong>${escapeHtml(entry.name)}</strong>
  <small>${entry.grams?num(entry.grams)+' g · ':''}${num(entry.protein)} g protein · ${num(entry.carbs)} g carbs${origin}</small></div>
