@@ -119,3 +119,70 @@ test('retry and result updates preserve the Android photo modal scroll position'
  assert.match(scanFunction,/finally\{if\(token===aiRequestId\)/);
  assert.ok(!scanFunction.includes('saveEntries('),'retry must not automatically save a meal');
 });
+
+test('short codes that the Worker accepts are sent rather than wrongly rejected in Recomp',async()=>{
+ const oldStorage=globalThis.localStorage;
+ const saved=new Map();
+ globalThis.localStorage={getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,String(value)),removeItem:key=>saved.delete(key)};
+ try{
+  client.rememberPhotoAiSessionToken('');
+  const validWorkerCode='ab123';
+  assert.equal(client.rememberPhotoAiSessionToken(validWorkerCode),true);
+  assert.equal(client.getPhotoAiSessionToken(),validWorkerCode);
+  const dish={name:'Rice and lentil bowl',servingDescription:'One lunch bowl',estimatedGrams:480,
+    calories:650,protein:24,carbs:91,fat:18,fibre:13,calorieLow:500,calorieHigh:800,uncertain:true};
+  const food=await client.scanPhotoWithWorker({
+   endpoint:client.DEFAULT_PHOTO_AI_ENDPOINT,
+   accessToken:validWorkerCode,
+   imageDataUrl:'data:image/jpeg;base64,'+'a'.repeat(128),
+   fetchImpl:async(url,request)=>{
+    assert.equal(url,client.DEFAULT_PHOTO_AI_ENDPOINT);
+    assert.equal(request.headers.Authorization,'Bearer '+validWorkerCode);
+    return new Response(JSON.stringify({meal:dish,model:'vision-test'}),{status:200});
+   }
+  });
+  assert.equal(food.meal.name,dish.name);
+  assert.equal(client.savePhotoAiDeviceToken(validWorkerCode),true);
+  client.rememberPhotoAiSessionToken('');
+  assert.equal(client.getPhotoAiSessionToken(),validWorkerCode,'a previously valid short code should survive app restart');
+  client.forgetPhotoAiDeviceToken();
+  assert.equal(client.getPhotoAiSessionToken(),'');
+ }finally{
+  client.rememberPhotoAiSessionToken('');
+  if(oldStorage===undefined)delete globalThis.localStorage;
+  else globalThis.localStorage=oldStorage;
+ }
+});
+
+test('Worker authentication can be checked without sending photos or incurring image inference',async()=>{
+ const code='ab123';
+ const result=await client.checkPhotoAiConnection({
+  endpoint:client.DEFAULT_PHOTO_AI_ENDPOINT,
+  accessToken:code,
+  fetchImpl:async(url,options)=>{
+   assert.equal(url,'https://recomp-food-ai.rahul-dbz95.workers.dev/models');
+   assert.equal(options.method,'GET');
+   assert.equal(options.headers.Authorization,'Bearer '+code);
+   assert.ok(!options.body,'do not send a photo when checking access');
+   return new Response(JSON.stringify({selected:'Qwen vision'}),{status:200});
+  }
+ });
+ assert.equal(result.model,'Qwen vision');
+ let error;
+ try{
+  await client.checkPhotoAiConnection({
+   endpoint:client.DEFAULT_PHOTO_AI_ENDPOINT,accessToken:code,
+   fetchImpl:async()=>new Response(JSON.stringify({error:'Incorrect private scanner access token.'}),{status:401})
+  });
+ }catch(e){error=e;}
+ assert.ok(error);
+ assert.equal(error.httpStatus,401);
+ const outcome=client.explainPhotoAiFailure(error);
+ assert.equal(outcome.issue,'access');
+ assert.match(outcome.message,/HTTP 401/);
+ assert.match(outcome.message,/Worker URL/);
+ assert.ok(!outcome.message.includes(code),'never echo private code in error messages');
+ assert.match(ui,/data-nf="ai-check-connection"/);
+ assert.match(ui,/checkScannerConnection\(\)/);
+ assert.match(ui,/checkPhotoAiConnection\(/);
+});
