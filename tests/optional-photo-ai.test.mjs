@@ -136,7 +136,7 @@ test('Worker calls Hugging Face vision chat API after consent and returns separa
   assert.equal(body.model,'Qwen/Qwen2.5-VL-3B-Instruct');
   assert.equal(body.messages[0].content[1].type,'image_url');
   assert.equal(body.messages[0].content[1].image_url.url,image);
-  assert.match(body.messages[0].content[0].text,/separate foods/);
+  assert.match(body.messages[0].content[0].text,/NAME THE COMPLETE DISH/);
   return mockAi();
  }));
  assert.equal(calls,1);
