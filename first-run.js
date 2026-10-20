@@ -15,7 +15,7 @@ export function showFirstRunWelcome({onGuest,onGoogle}){
   <div class="first-run-icon" aria-hidden="true">✦</div>
   <div class="first-run-eyebrow">YOUR FITNESS. YOUR RULES.</div>
   <h1 id="first-run-title">Start strong.</h1>
-  <p id="first-run-description">Track workouts, food and progress privately. You can start straight away without an account, or connect Google for optional cloud backup.</p>
+  <p id="first-run-description">Track workouts, nutrition and progress without an account. Optional Google sign-in uses Clerk when configured. Cloud backup is a separate feature.</p>
   <div class="first-run-actions">
     <button class="first-run-google" type="button" data-first-run="google"><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
     <button class="first-run-guest" type="button" data-first-run="guest">Continue without signing in <span aria-hidden="true">→</span></button>
