@@ -1,6 +1,8 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import {FTS_WORKOUTS,mergeFtsWorkouts} from './fts-workouts.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
+import {createWorkoutBackGuard} from './workout-back.js';
+import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
@@ -108,6 +110,7 @@ const INITIAL = () => ({
  photos:[],workoutHistory:[],session:null,templates:structuredClone(FTS_WORKOUTS),ftsWorkoutImportVersion:1,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
+let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
 let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
@@ -276,7 +279,7 @@ async function syncNativeActivity(){
  const date=today(),previous=state.activity.find(x=>x.date===date);
  const next=await readHealthConnectDay(date);
  if(previous&&previous.source!=='Health Connect'&&(Number(previous.steps)>0||Number(previous.activeCalories)>0)){
-  if(!confirm("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
+  if(!await confirmInApp("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
  }
  if(next.steps===0&&next.activeCalories===0&&previous&&(previous.steps||previous.activeCalories)){
   notify('No activity returned from Health Connect; existing manual values were kept.');return;
@@ -505,6 +508,21 @@ const REST_CIRC=2*Math.PI*88;
 function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(state.session.exercises?.[r.exerciseIndex]?.restSeconds,60));return Math.min(1,restLeft()/total);}
 function restOverlay(){if(!restSheet||!state.session?.rest)return '';const r=state.session.rest;return `<div class="sheet-backdrop" data-action="close-rest"></div><section class="timer-sheet" role="dialog" aria-label="Rest timer"><div class="sheet-handle"></div><div class="row space"><h2 class="section-title">Catch your breath</h2><button class="btn ghost" data-action="close-rest">${svg('x')}</button></div><div class="timer-ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-track" cx="100" cy="100" r="88"/><circle class="ring-bar" id="rest-ring-bar" cx="100" cy="100" r="88" stroke-dasharray="${REST_CIRC.toFixed(1)}" stroke-dashoffset="${(REST_CIRC*(1-restFraction())).toFixed(1)}"/></svg><div class="timer-number" id="main-timer">${clock(restLeft())}</div></div><p class="muted small" style="text-align:center;margin-top:-8px">${r.paused?'Timer paused':'Breathe. The weights are not going anywhere.'}</p><div class="timer-actions"><button class="btn" data-action="timer-minus">−15 sec</button><button class="btn" data-action="timer-pause">${svg(r.paused?'play':'pause','tiny-icon')} ${r.paused?'Resume':'Pause'}</button><button class="btn" data-action="timer-plus">+15 sec</button></div><button class="btn block" style="margin-top:15px" data-action="timer-skip">Skip rest</button><p class="hint" style="text-align:center">Countdown is saved if you minimise or reopen the app.</p></section>`;}
 function modalField(key,label,value='',type='text',other=''){return `<div class="field"><label for="modal-${key}" class="label">${label}</label><input class="input" id="modal-${key}" name="${key}" type="${type}" ${other} value="${escapeHtml(value)}"/></div>`;}
+function confirmInApp(message,{title='Please confirm',approveLabel='Confirm',danger=true}={}){
+ return new Promise(resolve=>{
+  if(confirmation){resolve(false);return;}
+  confirmation={message,title,approveLabel,danger,resolve};
+  render();
+  document.querySelector('[data-action="confirm-cancel"]')?.focus();
+ });
+}
+function settleConfirmation(approved){
+ const pending=confirmation;
+ if(!pending)return;
+ confirmation=null;
+ render();
+ pending.resolve(Boolean(approved));
+}
 function modalShell(title,content,formName='',button='Save'){return `<div class="modal-shade" data-action="close-modal"><div class="modal" role="dialog" aria-label="${escapeHtml(title)}"><div class="modal-title"><h2 class="section-title">${title}</h2><button class="btn round" data-action="close-modal" aria-label="Close">${svg('x')}</button></div>${formName?`<form id="${formName}">${content}<button class="btn primary block" type="submit">${button}</button></form>`:content}</div></div>`;}
 function templateById(id){return state.templates.find(t=>t.id===id);}
 function templateEditorView(t){
@@ -658,9 +676,10 @@ function syncDock(visible){
 function render(){foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.5.3 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.5.3 · Premium</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
+workoutBackGuard?.arm();
 }
 function setTab(dest,swipeDirection=null){toggleFoodMenu(false);
  if(tab===dest)return;
@@ -681,7 +700,7 @@ function tickSet(exI,setI){const s=state.session,e=s?.exercises?.[exI],set=e?.se
  if(set.done){haptic('check');const all=e.sets.every(x=>x.done);if(all){s.rest=null;restSheet=false;const next=s.exercises.findIndex((x,i)=>i>exI && x.sets.some(a=>!a.done));if(next!==-1){s.activeIndex=next;exerciseOpen=next;}else{const first=s.exercises.findIndex(x=>x.sets.some(a=>!a.done));if(first!==-1){s.activeIndex=first;exerciseOpen=first;}}}else if(e.restSeconds>0){setRest(exI);}}
  persist().then(render);
 }
-function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirm('Finish this workout and save your completed sets?'))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
+async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};commit();}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -740,11 +759,13 @@ function makePhotoJpeg(file){return new Promise((resolve,reject)=>{const img=new
 async function download(name,blob){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
 function toDataUrl(blob){return new Promise((res,rej)=>{let reader=new FileReader();reader.onload=()=>res(reader.result);reader.onerror=()=>rej(reader.error);reader.readAsDataURL(blob);});}
 async function exportData(){notify('Preparing private backup…');const photos=[];for(const p of state.photos){const blob=await getPhoto(p.id);if(blob)photos.push({id:p.id,data:await toDataUrl(blob)});}const safeState=structuredClone(state);delete safeState.dirty;await download(`recomp-backup-${today()}.json`,new Blob([JSON.stringify({format:'recomp-backup-v1',exportedAt:new Date().toISOString(),state:safeState,photos})],{type:'application/json'}));notify('Backup exported. Store it privately.');}
-async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!confirm('Restore this backup? This replaces your current local fitness data.'))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
+async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!await confirmInApp('Restore this backup? This replaces your current local fitness data.',{title:'Replace local data?',approveLabel:'Restore backup'}))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
 async function pushCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const ses=await cloud.usableSession();if(!ses)throw new Error('Sign in with Google first');for(const photo of state.photos){if(photo.cloudPath)continue;const blob=await getPhoto(photo.id);if(!blob)continue;photo.cloudPath=await cloud.uploadPhoto(photo.id,blob);}const syncedAt=new Date().toISOString();await cloud.uploadSnapshot({...state,lastSync:syncedAt,dirty:false});state.lastSync=syncedAt;state.dirty=false;await put('state',state);render();notify('Private cloud backup completed');}
-async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!confirm('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.'))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
+async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!await confirmInApp('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.',{title:'Replace local data?',approveLabel:'Restore cloud backup'}))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
 async function handleAction(el,event){const a=el.dataset.action;if(a==='close-modal' && el.classList.contains('modal-shade') && event.target!==el)return;
  switch(a){
+ case 'confirm-accept':settleConfirmation(true);break;
+ case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
  case 'toggle-theme':{
@@ -770,7 +791,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
  case 'delete-guide-item':{
   const item=mealGuideItems().find(x=>x.id===el.dataset.id);
-  if(item&&confirm(`Delete “${item.label}” from your meal guide? This won't change your food diary.`)){
+  if(item&&await confirmInApp(`Delete “${item.label}” from your meal guide? This won't change your food diary.`)){
    mealGuideActionsId=null;state.mealGuideItems=mealGuideItems().filter(x=>x.id!==item.id);await commit();haptic('check');notify('Guide entry deleted');
   }break;
  }
@@ -804,29 +825,29 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'activity':modal={type:'activity'};render();break;
  case 'add-task':modal={type:'task'};render();break;
  case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
- case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&confirm(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
+ case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
  case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
- case 'delete-food':if(confirm('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
- case 'delete-weight':if(confirm('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
- case 'delete-photo':if(confirm('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
+ case 'delete-food':if(await confirmInApp('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
+ case 'delete-weight':if(await confirmInApp('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
+ case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
  case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
  case 'create-template':modal={type:'new-template'};render();break;
  case 'edit-template':planActionsId=null;modal={type:'edit-template',id:el.dataset.id};render();break;
  case 'rename-template':modal={type:'rename-template',id:el.dataset.id};render();break;
- case 'delete-template':{const t=templateById(el.dataset.id);if(t&&confirm(`Delete plan “${t.name}” and its exercise list? Saved sessions won't change.`)){state.templates=state.templates.filter(x=>x.id!==t.id);modal=null;await commit();notify('Plan deleted. History is intact.');}break;}
+ case 'delete-template':{const t=templateById(el.dataset.id);if(t&&await confirmInApp(`Delete plan “${t.name}” and its exercise list? Saved sessions won't change.`)){state.templates=state.templates.filter(x=>x.id!==t.id);modal=null;await commit();notify('Plan deleted. History is intact.');}break;}
  case 'add-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:null};render();break;
  case 'edit-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:Number(el.dataset.index)};render();break;
- case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&confirm(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
+ case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&await confirmInApp(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
  case 'keep-workout':modal=null;render();break;
  case 'switch-save':await switchWorkoutTo(el.dataset.id,true);break;
- case 'switch-discard':if(confirm(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
+ case 'switch-discard':if(await confirmInApp(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
  case 'start-workout':setTab('workouts');break;
  case 'resume-workout':if(state.session){resumeWorkout();}break;
  case 'minimise-workout':if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
- case 'discard-workout':if(confirm('Discard this unfinished workout? Completed sets will not be added to history.')){state.session=null;restSheet=false;await commit();}break;
+ case 'discard-workout':if(await confirmInApp('Discard this unfinished workout? Completed sets will not be added to history.',{title:'Discard workout?',approveLabel:'Discard workout'})){state.session=null;restSheet=false;await commit();}break;
  case 'expand-exercise':exerciseOpen=Number(el.dataset.index);if(state.session)state.session.activeIndex=exerciseOpen;await put('state',state);render();break;
  case 'tick-set':tickSet(Number(el.dataset.ex),Number(el.dataset.set));break;
  case 'add-session-exercise':if(state.session){modal={type:'session-exercise'};render();}break;
@@ -834,7 +855,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   const s=state.session,index=Number(el.dataset.index),exercise=s?.exercises?.[index];
   if(!exercise)break;
   const done=exercise.sets.filter(x=>x.done).length;
-  if(!confirm(`Remove “${exercise.name}” from this session? ${done?`${done} completed set(s) from this exercise will be lost.`:'Your saved plan will be unchanged.'}`))break;
+  if(!await confirmInApp(`Remove “${exercise.name}” from this session? ${done?`${done} completed set(s) from this exercise will be lost.`:'Your saved plan will be unchanged.'}`))break;
   s.exercises.splice(index,1);
   if(s.rest){if(s.rest.exerciseIndex===index){s.rest=null;restSheet=false;}else if(s.rest.exerciseIndex>index)s.rest.exerciseIndex-=1;}
   s.activeIndex=Math.max(0,Math.min(s.exercises.length-1,s.activeIndex>index?s.activeIndex-1:s.activeIndex));
@@ -850,7 +871,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'close-rest':restSheet=false;render();break;
  case 'open-rest':if(state.session?.rest){restSheet=true;haptic('tap');render();}break;
  case 'timer-plus':case 'timer-minus':case 'timer-pause':case 'timer-skip':timerControl(a);break;
- case 'finish-workout':finishWorkout();break;
+ case 'finish-workout':await finishWorkout();break;
  case 'configure-cloud':modal={type:'cloud'};render();break;
  case 'clerk-login':{
   if(!isClerkLoginAvailable()){notify('Clerk sign-in is not configured yet. Continue as a guest.');break;}
@@ -864,7 +885,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'google-login':{if(window.Capacitor?.isNativePlatform?.()){notify('Native Google OAuth deep links need Android testing. Sign in through the hosted website for now.');break;}if(!cloud.getConfig()){modal={type:'cloud'};render();notify('Configure your private Supabase project before Google sign-in.');break;}await cloud.startGoogleLogin();break;}
  case 'cloud-upload':await pushCloud();break;
  case 'cloud-download':await pullCloud();break;
- case 'cloud-logout':if(confirm('Sign out of cloud backup on this device? Your offline data will remain.')){cloud.signOut();render();}break;
+ case 'cloud-logout':if(await confirmInApp('Sign out of cloud backup on this device? Your offline data will remain.')){cloud.signOut();render();}break;
  case 'test-chime':await chime();notify('Chime test played, if audio is permitted');break;
  case 'notification-permission':if(typeof Notification==='undefined')notify('Notifications are not supported in this browser');else{let status=await Notification.requestPermission();notify('Notification permission: '+status);}break;
  case 'export-backup':await exportData();break;
@@ -1216,7 +1237,7 @@ document.addEventListener('touchcancel',()=>{if(swipeGesture?.frame)cancelAnimat
  });
  document.addEventListener('input',event=>{if(event.target.id==='compare-range'){const pct=Number(event.target.value);const layer=$('#compare-before-layer'),handle=$('#compare-handle');if(layer)layer.style.clipPath=`inset(0 ${100-pct}% 0 0)`;if(handle)handle.style.left=pct+'%';}});
 
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(confirmation){event.preventDefault();settleConfirmation(false);return;}if(modal){if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);leaveFoodModal().catch(console.warn);modal=null;render();}else if(restSheet){restSheet=false;render();}}if((event.key==='Enter'||event.key===' ')&&event.target.classList?.contains('floating-workout')){event.preventDefault();event.target.click();}});
 
 // Do not interrupt a workout when an updated service worker becomes active.
 function showUpdateNotice(){
@@ -1261,6 +1282,28 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
+ // A same-page history entry allows Android / Chrome Back to minimise rather than exit.
+ // It also closes in-app overlays before minimising. The current session is persisted.
+ workoutBackGuard=createWorkoutBackGuard({
+  history:window.history,
+  subscribe:(name,callback)=>window.addEventListener(name,callback),
+  shouldGuard:()=>Boolean(state.session&&!state.session.minimized&&tab==='workouts'),
+  onBack:()=>{
+   if(confirmation){settleConfirmation(false);return true;}
+   if(modal){
+    if(modal.type==='photo-guide')stopGuideCamera().catch(console.warn);
+    leaveFoodModal().catch(console.warn);
+    modal=null;render();return true;
+   }
+   if(restSheet){restSheet=false;render();return true;}
+   if(state.session&&!state.session.minimized&&tab==='workouts'){
+    state.session.minimized=true;restSheet=false;
+    tab='home';state.lastTab='home';
+    render();persist().catch(console.error);
+   }
+   return false;
+  }
+ });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
