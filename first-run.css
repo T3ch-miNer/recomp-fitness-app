@@ -35,7 +35,8 @@
 .first-run-google-letter{font-size:22px;font-weight:850;color:#4285f4}
 .first-run-guest{background:linear-gradient(145deg,#bea5fc,#a58ae9);color:#190e2a}
 .first-run-actions button:focus-visible{outline:3px solid #b6ffe4;outline-offset:3px}
-.first-run-google:disabled{opacity:.6;cursor:wait}
+.first-run-google:disabled{opacity:.48;cursor:not-allowed;box-shadow:none}
+.first-run-card .first-run-google-note{font-size:12px;color:#d3c3f7;margin:12px 0 0}
 .first-run-card .first-run-error{
  margin:16px 0 0;border-radius:12px;padding:12px;text-align:left;
  color:#ffe5af;background:#4c392e;font-size:12px
