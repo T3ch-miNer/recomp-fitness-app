@@ -101,7 +101,9 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
  assert.match(app,/suggested:true,giantGroup/);
  assert.match(app,/const seconds=60/);
  assert.match(app,/s\.giantView==='detailed'/);
- assert.match(app,/\.set-input/);
+ assert.match(app,/class="input set-input"/);
+ assert.match(viewSource,/data-setfield="kg"/);
+ assert.match(viewSource,/data-setfield="reps"/);
  for(const k of ['deleteDatabase','recomp-fitness-v2'])assert.ok(!source.includes(k));
  assert.match(app,/await confirmInApp\('Discard this unfinished workout/);
 });
