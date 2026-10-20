@@ -5,7 +5,8 @@ import {readFileSync} from 'node:fs';
 const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const clerkSource=read('clerk-auth.js');
 const clerk=await import('data:text/javascript;base64,'+Buffer.from(clerkSource).toString('base64'));
-const nav=read('nav-capsule.css');
+const nav=read('premium.css');
+const index=read('index.html');
 const premium=read('premium.css');
 const onboard=read('first-run.js');
 const app=read('app.js');
@@ -48,19 +49,19 @@ test('guest remains optional and development warning appears in first-run and Se
  assert.ok(!/deleteDatabase|\bindexedDB\b|uploadSnapshot|downloadSnapshot/.test(clerkSource));
 });
 
-test('mobile dock restores the rounded capsule rather than the cloud',()=>{
+test('original dark glass dock uses mint accents and restores visible labels',()=>{
  assert.doesNotMatch(app,/dock-cloud-surface/);
- assert.match(nav,/border-radius:999px!important/);
- assert.match(nav,/\.bottom-btn\.active/);
- assert.match(nav,/#c5adff/);
- assert.match(nav,/\.bottom-btn span/);
- assert.match(nav,/clip:rect/);
- assert.match(premium,/--nav-float:/);
- assert.match(premium,/--accent-glow:/);
+ assert.match(nav,/--nav-float:rgba\(13,18,22,\.82\)/);
+ assert.match(nav,/color:var\(--accent\)/);
+ assert.match(nav,/#recomp-bottom-dock \.bottom-btn\.active \.icon/);
+ assert.match(nav,/--accent-glow:/);
+ assert.doesNotMatch(index,/nav-capsule\.css|nav-cloud\.css/);
+ assert.match(app,/dock-selection/);
+ assert.match(app,/<span>\$\{label\}<\/span>/);
 });
 
 test('offline app shell caches the same modules without changing IndexedDB',()=>{
- for(const path of ['./clerk-auth.js','./nav-capsule.css','./first-run.js','./first-run.css']){
+ for(const path of ['./clerk-auth.js','./premium.css','./first-run.js','./first-run.css']){
   assert.ok(sw.includes("'"+path+"'"));
  }
  const db=read('db.js');

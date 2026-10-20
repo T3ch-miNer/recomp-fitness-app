@@ -1,5 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
-import {getPhotoAiEndpoint,getPhotoAiSessionToken,rememberPhotoAiSessionToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
+import {getPhotoAiEndpoint,getPhotoAiSessionToken,getPhotoAiSavedAccessToken,rememberPhotoAiSessionToken,savePhotoAiDeviceToken,forgetPhotoAiDeviceToken,scanPhotoWithWorker,buildAiDishDiaryEntry} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -65,22 +65,32 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   return `<div class="nf-picked"><span class="nf-overline">${packaged?'PACKAGED FOOD · GERMAN LABEL':'INDIAN HOME-FOOD ESTIMATE'}</span><h3>${esc(selected?.name)}</h3><p>${packaged?`Open Food Facts · ${esc(selected?.brand||'Community product')} ${selected?.cached?'· Cached':''}${selected?.stores?' · Shops listed: '+esc(selected.stores):''}. Always check the packet.`:'Ingredients and cooking oil change the values.'}</p></div>
   ${mealDateFields()}<label class="nf-field nf-portion"><span>Portion eaten <em>(grams / ml)</em></span><div class="nf-quantity"><input id="nf-grams" type="number" inputmode="decimal" min="1" max="5000" step="1" value="${esc(grams)}" required><span>g / ml</span></div></label>${edit}<div id="nf-macros">${macros(selected,grams)}</div>${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}`;
  }
- function photoChoose(){return `<div class="nf-photo-lead"><span class="nf-photo-illustration" aria-hidden="true">${ico('photo')}</span><h3>Log a meal from a photo</h3><p>Start with a picture. We'll help you identify the foods, then you can review the portions.</p></div>
+ function photoChoose(){return `<div class="nf-photo-lead"><span class="nf-photo-illustration" aria-hidden="true">${ico('photo')}</span><h3>Log a meal from a photo</h3><p>Choose a photo and Hugging Face will identify the whole dish automatically. Review the estimate before adding it to your diary.</p></div>
  <div class="nf-photo-pickers"><button type="button" class="nf-photo-pick" data-nf="gallery"><span>${ico('photo')}</span><b>Choose from gallery</b></button><button type="button" class="nf-photo-pick" data-nf="take"><span>${ico('camera')}</span><b>Take photo</b></button></div>
- <p class="nf-muted-note">Manual and on-device recognition keep the image on your phone. Optional AI Scan uploads a compressed copy to your private Worker and Hugging Face only after you tap Scan. Packaged foods? Barcode scanning is more reliable.</p>`;}
+ <p class="nf-muted-note">Choosing a photo automatically sends a resized copy through your private Worker to Hugging Face if scanner access has been set up. This may use paid inference credits. If access is not set up, you'll be prompted once. Nothing is added to your food diary until you approve it.</p>`;}
  function photoTotals(){let t=Object.fromEntries(nutrients.map(k=>[k,0]));for(const entry of photoFoods){const food=findFood(entry.id);if(!food||!(Number(entry.grams)>0))continue;try{const a=amount(food,entry.grams);nutrients.forEach(k=>t[k]+=a[k]);}catch{}}return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated meal total</span><strong>${fmt(t.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(t.protein)}g</b><small>Protein</small></span><span><b>${fmt(t.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(t.fat)}g</b><small>Fat</small></span><span><b>${fmt(t.fibre)}g</b><small>Fibre</small></span></div></div>`;}
  function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
- <div class="nf-ai-action"><div><b>Recognise foods</b><small>Optional · local, first use downloads a model</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify'}</button></div>
- ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
- <section class="nf-vision-panel" aria-label="Optional private AI image scan">
-   <div class="nf-vision-heading"><b>AI Scan · recognise the whole dish</b><span>Dish name, serving and estimated calories/macros · uses your private Hugging Face Worker</span></div>
-   <p class="nf-muted-note">If several plates are in the photo, AI estimates the main foreground plate only, including its own side dishes. Meals belonging to other diners should not be counted. Confirm the plate and portions before saving.</p>
-   <label class="nf-field"><span>Secure Worker URL (not a secret)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
-   <label class="nf-field"><span>Private scan access token</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="${aiAccessToken?'Token entered for this scan session':'Enter the Worker access token'}"></label>
-   <p class="nf-muted-note">Hugging Face API tokens are never entered into Recomp. The access token stays in memory until Recomp reloads, never in persistent storage. Tapping AI Scan sends this resized photo to the Worker and Hugging Face for analysis; your food diary is unchanged until you approve items. Estimates are approximate and this scan may use paid Hugging Face credits.</p>
-   <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">${aiScanning?'Cancel AI Scan':'Scan dish & estimate nutrition'}</button>
-   ${aiScanning?'<p class="nf-status" role="status">Analysing the visible foods securely…</p>':''}
-   ${aiMeal?`<div class="nf-ai-dish">
+ <section class="nf-vision-panel" aria-label="Hugging Face automatic photo recognition">
+   <div class="nf-vision-heading"><b>Hugging Face · automatic dish recognition</b><span>Whole dish name, serving and estimated calories/macros</span></div>
+   <p class="nf-muted-note">Hugging Face estimates the main foreground plate only, including its sides, not unrelated meals in the background. Check the suggested dish and portions before saving.</p>
+   ${!aiAccessToken?`<div class="nf-ai-access-setup">
+     <p class="nf-status" role="status">One-time scanner setup is needed before automatic recognition can work.</p>
+     <label class="nf-field"><span>Private Worker access code · enter once on this device</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="Your separate Worker access code"></label>
+     <label class="nf-ai-remember-option"><input id="nf-ai-remember" type="checkbox" checked><span>Remember scanner access on this device</span></label>
+     <p class="nf-muted-note">This is NOT your Hugging Face API token. Remembering access stores the separate Worker code in this browser, so other people using this browser could scan with your paid credits. Don't enable it on shared devices.</p>
+   </div>`:''}
+   ${aiAccessToken&&!getPhotoAiSavedAccessToken()?`<label class="nf-ai-remember-option"><input id="nf-ai-remember" type="checkbox" checked><span>Remember access after a successful scan</span></label>`:''}
+   ${getPhotoAiSavedAccessToken()?`<p class="nf-muted-note">Scanner access is remembered on this device. <button type="button" class="nf-inline-link" data-nf="forget-ai-access">Forget saved access</button></p>`:''}
+   <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">
+     ${aiScanning?'Cancel recognition':!aiAccessToken?'Connect scanner & recognise':'Retry Hugging Face recognition'}
+   </button>
+   ${aiScanning?'<p class="nf-status" role="status">Automatically analysing your dish with Hugging Face…</p>':''}
+   <details class="nf-ai-advanced"><summary>Scanner settings and local fallback</summary>
+     <label class="nf-field"><span>Worker URL (public)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
+     <div class="nf-ai-action"><div><b>On-device recognition</b><small>Alternative · local, model download required</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify locally'}</button></div>
+     ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
+   </details>
+ ${aiMeal?`<div class="nf-ai-dish">
     <div class="nf-dish-top"><div><span class="nf-section-label">WHOLE DISH · AI ESTIMATE</span><h3>${esc(aiMeal.name)}</h3><small>${aiMeal.uncertain?'Dish identification is uncertain · ':''}${esc(aiModel||'Hugging Face vision')}</small></div></div>
     <p class="nf-muted-note">Review the name, portion and nutritional values. The image can't reveal exact weights, hidden oils or sauces. These are NOT measured values.</p>
     <label class="nf-field"><span>Dish name · editable</span><input data-nf-ai-field="name" value="${esc(aiMeal.name)}" maxlength="100" required></label>
@@ -123,17 +133,21 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
  function render(){if(disposed)return;
   host.innerHTML=`<div class="nf-sheet" role="dialog" aria-modal="true" aria-label="${title()}" tabindex="-1"><header class="nf-header"><div class="nf-header-side">${page!=='home'?'<button class="nf-icon-button" data-nf="back" aria-label="Go back">‹</button>':'<span class="nf-header-spacer"></span>'}</div><h2>${title()}</h2><button class="nf-icon-button nf-close" data-nf="close" aria-label="Close">×</button></header><div class="nf-content" id="nf-content">${page==='home'?home():page==='search'?search():page==='portion'?portion():page==='photo'?photo():barcodeView()}</div>${footer()?`<footer class="nf-footer">${footer()}</footer>`:''}<input class="nf-sr" id="nf-gallery-input" type="file" accept="image/*" aria-label="Choose a meal photo from gallery"><input class="nf-sr" id="nf-camera-input" type="file" accept="image/*" capture="environment" aria-label="Take meal photo"><input class="nf-sr" id="nf-barcode-image" type="file" accept="image/*" aria-label="Select a barcode photograph"></div>`;
  }
- function go(mode){stopCamera();page=mode;notice='';render();}
- function back(){if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
+ function go(mode){stopAiScan();stopCamera();page=mode;notice='';render();}
+ function back(){stopAiScan();if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
  function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
-  if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();}
+  if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();
+  // The explicit photo choice triggers a single scan if scanner access is configured.
+  if(aiAccessToken)void scanWithAi();
+ }
  async function scanWithAi(){
   if(!imageFile||disposed||aiScanning)return;
   if(!aiEndpoint.trim()){notice='Enter your secure Worker URL first. The Worker must be configured by the app owner.';render();return;}
-  if(!aiAccessToken){notice='Enter the private Worker access token (not a Hugging Face API token).';render();return;}
+  if(!aiAccessToken){notice='Enter your separate Worker scanner access once, then choose Remember on this device to skip this step next time.';render();return;}
   try{rememberPhotoAiSessionToken(aiAccessToken);}catch(error){notice=String(error.message);render();return;}
+  const rememberOnSuccess=Boolean(host.querySelector('#nf-ai-remember')?.checked);
   const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
   aiScanning=true;aiMeal=null;aiModel='';photoSeparateMode=false;notice='Preparing one compressed image for secure dish analysis…';render();
   try{
@@ -146,7 +160,9 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
    const result=await scanPhotoWithWorker({endpoint:aiEndpoint,accessToken:aiAccessToken,imageDataUrl:image,signal});
    if(disposed||token!==aiRequestId)return;
    aiMeal=result.meal;aiModel=result.model;
-   notice=aiMeal?'AI recognised a possible dish with estimated nutrition. Review every value before saving.':'No recognisable dish found. Search and add foods manually.';
+   let storageWarning='';
+   if(rememberOnSuccess){try{savePhotoAiDeviceToken(aiAccessToken);}catch{storageWarning=' Scanner access could not be remembered on this device.';}}
+   notice=(aiMeal?'Hugging Face recognised a possible dish. Review all values before saving.':'No recognisable dish found. You can add foods manually.')+storageWarning;
   }catch(error){if(!disposed&&token===aiRequestId)notice=error?.name==='AbortError'?'AI Scan cancelled.':String(error?.message||'AI scan unavailable. Manual search still works.').slice(0,210);}
   finally{if(token===aiRequestId){aiScanning=false;aiAbort=null;if(!disposed)render();}}
  }
@@ -316,6 +332,7 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
   if(a==='toggle-photo-alternative'&&page==='photo'&&aiMeal){photoSeparateMode=!photoSeparateMode;render();return;}
   if(a==='change-photo'){stopAiScan();aiMeal=null;aiModel='';photoSeparateMode=false;photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
+  if(a==='forget-ai-access'){stopAiScan();forgetPhotoAiDeviceToken();aiAccessToken='';notice='Saved scanner access cleared from this device.';render();return;}
   if(a==='ai-scan'){await scanWithAi();return;}
    if(a==='ai-cancel'){stopAiScan();notice='AI Scan cancelled. No data was logged.';render();return;}
    if(a==='save-ai-meal'){

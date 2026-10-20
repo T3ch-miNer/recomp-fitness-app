@@ -10,7 +10,7 @@ For a personal beta, Hugging Face Inference Providers lets you experiment with a
 
 **Update after the first real photo test:** Qwen3-VL-4B-Instruct returned a provider/model rejection for two valid meal photos. Recomp now checks the **live Hugging Face vision-model catalogue** before each AI scan, prefers compatible affordable models such as Qwen2.5-VL-3B-Instruct when available, and can try one alternative on a model-routing rejection. The actual model used is shown in test results. Provider availability is not guaranteed and the free allowance is NOT unlimited.
 
-Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted secret**. Never paste it into the public Recomp app or GitHub. The Recomp browser only uses a separate personal Worker access token held **in RAM**, with the public Worker endpoint saved for convenience. Don't share either private token.
+Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted secret**. Never paste it into the public Recomp app or GitHub. Recomp uses a separate personal Worker access token. It stays in RAM unless you explicitly enable **Remember scanner access on this device**. That opt-in saves the Worker-only access code in the browser so future photo selections scan automatically. The Hugging Face API token always stays in Cloudflare. Don't share either private token.
 
 ## Setup
 
@@ -21,7 +21,7 @@ Your **Hugging Face access token belongs only in a Cloudflare Worker encrypted s
    - `HF_TOKEN`: the Hugging Face fine-grained inference token, created at <https://huggingface.co/settings/tokens>.
    - `SCAN_ACCESS_TOKEN`: a **different** randomly generated private token of 32 or more characters. Do not use the Hugging Face token as this token. Do not check either token into GitHub.
 5. Recomp's public Worker address is already preconfigured as `https://recomp-food-ai.rahul-dbz95.workers.dev/scan` (provided by the app owner). This address is public, and you can still change it in the app if you later redeploy.
-6. After the scanner has been reviewed and published, open **Recomp → Nutrition → Photo meal**, choose a photo, confirm the prefilled Worker URL, enter **only your separate Worker access token** (not the Hugging Face token), and tap **AI Scan this photo**.
+6. Open **Recomp → Nutrition → Photo meal** and choose a photo. If your separate Worker access token is already available, recognition starts automatically. On first use, enter only your separate Worker access token, choose **Remember scanner access on this device** for a private browser, then tap **Connect scanner & recognise**. Future photo selections will scan without re-entering it.
 7. The new AI result suggests **one combined meal name** (e.g. Korean beef rice bowl, ramen, masala dosa with sides), approximate serving, kcal estimate and range, plus protein/carbs/fat/fibre for the **whole meal**. Correct all fields before tapping **Save reviewed dish estimate**. You can also ignore AI and use the ingredient-by-ingredient free catalogue instead.
 
 A CLI alternative, if you already use Wrangler:
@@ -52,8 +52,8 @@ The `/test` page performs no writes to Recomp's storage or diaries and stores no
 
 ## Privacy, costs and limitations
 
-- A photo is uploaded to your Cloudflare Worker and forwarded to the selected Hugging Face Inference Provider **only after** tapping AI Scan. A resized JPEG is used. A photo is not stored in your Recomp diary by default.
-- The app only persists the public Worker URL. It does **not** persist `HF_TOKEN` or `SCAN_ACCESS_TOKEN`; the separate access token stays in RAM for the current app session.
+- Choosing a photo triggers one automatic scan when private Worker access is available. This sends a resized JPEG to the Worker and Hugging Face and may consume paid inference credits. The photograph is not saved to your Recomp diary.
+- `HF_TOKEN` always stays in Cloudflare encrypted secrets, never in frontend code or browser storage. `SCAN_ACCESS_TOKEN` stays in RAM by default. Choosing **Remember scanner access on this device** explicitly saves only that separate Worker token in local browser storage. Anyone with access to that browser profile or same-origin scripts could use the token. Use **Forget saved access** to erase it.
 - Browsers send the separate Worker access token for authentication; it is distinct from the HF token and should still be kept private. The Worker permits only the official GitHub Pages origin for browser requests, but **CORS is not authentication**.
 - The Hugging Face provider may log or retain request data according to its policies. Avoid faces, documents, addresses or other sensitive content in meal photos; review your provider's terms.
 - Vision-language models can misidentify dishes, portions, hidden oil, ghee and sauces. **All macros are approximate AI guesses for the combined dish** (not USDA/label measurements). The user must review and can directly correct all values. Adjusting the approximate grams scales the suggested macros. Recomp saves one dish entry with an explicit AI-estimate source, no image and no automatic logging of toppings. The manual food-catalogue path remains independent.
