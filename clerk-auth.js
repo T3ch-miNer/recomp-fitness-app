@@ -11,14 +11,15 @@ export function getClerkKey(){
  if(CLERK_PUBLISHABLE_KEY)return CLERK_PUBLISHABLE_KEY;
  try{return localStorage.getItem(KEY)||'';}catch{return '';}
 }
-// GitHub Pages is Recomp's public release. Never use a Clerk development
-// instance as production authentication there, even when a user previously
-// configured a pk_test_ key in localStorage. This does not affect guest data.
+// Clerk development accounts are for testing only, including on GitHub Pages.
+// They use a different, weaker session architecture. Never describe this as
+// production authentication or connect it to real data backups automatically.
+export function isClerkDevelopmentMode(){
+ return getClerkKey().startsWith('pk_test_');
+}
 export function isClerkLoginAvailable(){
  const key=getClerkKey();
- if(!key)return false;
- const hostname=typeof location==='undefined'?'':String(location.hostname||'').toLowerCase();
- return !(key.startsWith('pk_test_') && (hostname==='github.io'||hostname.endsWith('.github.io')));
+ return Boolean(key && clerkDomain(key));
 }
 
 export function saveClerkKey(key){
@@ -51,7 +52,7 @@ function loadScript(url,key){
  });
 }
 export async function loadClerk(){
- if(!isClerkLoginAvailable())throw new Error('Google sign-in is not available on GitHub Pages until production Clerk is configured. Continue as a guest.');
+ if(!isClerkLoginAvailable())throw new Error('Clerk sign-in is not configured. Continue as a guest.');
  if(loading)return loading;
  const key=getClerkKey(),domain=clerkDomain(key);
  if(!domain)throw new Error('Clerk is not configured yet. Add your publishable key in Settings.');
