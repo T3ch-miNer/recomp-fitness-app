@@ -13,6 +13,7 @@ import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './h
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
+import {FOOD_DIARY_MEALS,FOOD_DIARY_MACROS,validDiaryDate,shiftDiaryDate,diaryTotals,scaledDiaryMacros,updateDiaryEntry,repeatDiaryEntry} from './food-diary.js';
 
 const $ = s => document.querySelector(s);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -124,6 +125,7 @@ let planActionsId=null,planHoldTimer=null,planHoldPoint=null;
 let mealGuideActionsId=null,mealGuideHoldTimer=null,mealGuideHoldPoint=null;
 let guideStream=null,guideView='Front',guideDate=today(),compareView='Front';
 let foodMenuOpen=false;
+let diaryDate=today(); // History browsing does not overwrite today's nutrition or saved records.
 // Transient camera/photo state. Food photographs are never written to IndexedDB or uploaded.
 let barcodeStream=null,barcodeFrame=0,barcodeBusy=false,barcodeLastRead=0;
 let foodPhotoUrl=null,photoMealItems=[],photoSearchQuery='';
@@ -413,7 +415,70 @@ function mealGuideView(){
   <p class="meal-guide-compact-note">Portion guide · Hold an entry to edit</p>
  </section>`;
 }
-function nutritionView(){const t=nutritionTotals(),entries=daily(state.food);const MACRO_COLOUR={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${MACRO_COLOUR[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');return `${heading('Fuel up.','Logging beats guessing. Every single time.')}<div class="mp-launch card"><div><b>Recipes & weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div><div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div><div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div><div style="margin-top:4px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.aiEstimate?' · AI photo estimate':f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">Empty plate, clean slate. Tap Add to fix that.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a few meals and your regulars will queue up here for one-tap repeats.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcode lookup is available. Photo recognition is optional; confirm foods and weights. Review cooking oil and ingredients before logging.</div>`;}
+function foodDiaryEntryRow(entry){
+ const id=escapeHtml(entry.id);
+ const origin=entry.aiEstimate?' · AI estimate':entry.foodSource==='openfoodfacts'?' · Barcode':entry.nutritionEdited?' · Edited':'';
+ return `<div class="list-entry diary-entry"><span class="list-icon">${svg('food')}</span>
+ <div class="diary-entry-copy"><strong>${escapeHtml(entry.name)}</strong>
+ <small>${entry.grams?num(entry.grams)+' g · ':''}${num(entry.protein)} g protein · ${num(entry.carbs)} g carbs${origin}</small></div>
+ <div class="diary-entry-actions">
+  <strong class="diary-kcal">${num(entry.calories)} <span>kcal</span></strong>
+  <div class="diary-row-buttons">
+   <button type="button" class="btn ghost diary-action" data-action="edit-food" data-id="${id}" aria-label="Edit ${escapeHtml(entry.name)}">${svg('edit','tiny-icon')} Edit</button>
+   <button type="button" class="btn ghost diary-action" data-action="repeat-food" data-id="${id}" aria-label="Repeat ${escapeHtml(entry.name)} today">${svg('refresh','tiny-icon')} Repeat</button>
+   <button type="button" class="btn ghost diary-action diary-delete" data-action="delete-food" data-id="${id}" aria-label="Delete ${escapeHtml(entry.name)}">${svg('trash','tiny-icon')}</button>
+  </div>
+ </div></div>`;
+}
+function foodDiaryHistory(){
+ const chosen=validDiaryDate(diaryDate)?diaryDate:today();
+ const isToday=chosen===today();
+ const logged=state.food.filter(entry=>entry.date===chosen);
+ const sum=diaryTotals(state.food,chosen);
+ return `<section class="diary-history" aria-label="Food diary by date">
+ <div class="card diary-date-card"><div class="diary-date-top">
+  <div><span class="eyebrow">MEAL HISTORY</span><h3>${isToday?'Today':escapeHtml(dateDisplay(chosen))}</h3><p class="small muted">${logged.length} ${logged.length===1?'food':'foods'} logged · ${num(sum.calories)} kcal · ${num(sum.protein)} g protein</p></div>
+  <div class="diary-date-controls">
+   <button type="button" class="btn ghost diary-date-arrow" data-action="diary-previous" aria-label="Previous day">${svg('chevron','tiny-icon')}</button>
+   <label class="diary-date-field"><span class="sr-only">Diary date</span><input type="date" id="food-diary-date" value="${chosen}" max="${today()}" aria-label="Choose diary date"></label>
+   <button type="button" class="btn ghost diary-date-arrow diary-next" data-action="diary-next" ${isToday?'disabled':''} aria-label="Next day">${svg('chevron','tiny-icon')}</button>
+  </div></div>
+  ${!isToday?`<button type="button" class="btn ghost diary-today" data-action="diary-today">Back to today</button>`:''}
+ </div>
+ ${FOOD_DIARY_MEALS.map(meal=>{
+  const foods=logged.filter(entry=>entry.meal===meal);
+  return `<div class="card diary-meal-card"><div class="row space diary-meal-head">
+   <h3 class="section-title">${meal}</h3>
+   <button type="button" class="btn ghost" data-action="add-food" data-meal="${meal}" aria-label="Add food to ${meal} on ${chosen}">${svg('plus','tiny-icon')} Add</button>
+  </div>
+  ${foods.length?foods.map(foodDiaryEntryRow).join(''):`<p class="hint diary-empty">No foods logged for ${meal.toLowerCase()}.</p>`}
+  </div>`;
+ }).join('')}
+ </section>`;
+}
+function foodDiaryQuickAdd(){
+ const ordered=[...state.food].map((entry,index)=>({...entry,_order:index}))
+  .sort((a,b)=>b.date.localeCompare(a.date)||b._order-a._order);
+ const recent=ordered.filter((entry,i,all)=>all.findIndex(x=>x.name.toLocaleLowerCase()===entry.name.toLocaleLowerCase())===i).slice(0,15);
+ return `<div class="card diary-recent-card"><div class="row space"><div><h3 class="section-title">Your regular meals</h3><p class="hint">Repeat a saved serving in one tap, then edit the portion if needed.</p></div></div>
+ ${recent.length?recent.map(entry=>`<div class="list-entry diary-recent-row"><div class="diary-entry-copy"><strong>${escapeHtml(entry.name)}</strong><small>${num(entry.calories)} kcal · ${num(entry.protein)} g protein${entry.grams?' · '+num(entry.grams)+' g':''}</small></div><button type="button" class="btn ghost" data-action="repeat-food" data-id="${escapeHtml(entry.id)}" aria-label="Repeat ${escapeHtml(entry.name)} today">Add today</button></div>`).join(''):'<p class="muted small">Log a few meals and your regulars will appear here for quick repeats.</p>'}
+ </div>`;
+}
+function nutritionView(){
+ const t=nutritionTotals();
+ const colours={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};
+ const bars=['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${colours[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');
+ return `${heading('Fuel up.','Logging beats guessing. Every single time.')}
+ <div class="mp-launch card"><div><b>Recipes &amp; weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div>
+ <div class="nutrition-guide-first">${mealGuideView()}</div>
+ <div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div>
+  <div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div>
+  <div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div>
+  <div style="margin-top:4px">${bars}</div></div>
+ <div class="tab-row"><button type="button" class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button type="button" class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>
+ ${nutritionPanel==='diary'?foodDiaryHistory():foodDiaryQuickAdd()}
+ <p class="hint diary-footnote">Whole-dish AI and catalogue nutrition are estimates, not measurements. Adjust your saved portions when you know the weight.</p>`;
+}
 const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
 function photoThumb(p){
  const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
@@ -625,9 +690,9 @@ function foodPortionView(){
  return modalShell('Log a food',`<form id="form-catalogue-food"><button type="button" class="food-back" data-action="food-back">${svg('chevron','tiny-icon')} Back to search</button><div class="food-picked"><span class="eyebrow">RECOMP INDIAN FOODS</span><h3>${escapeHtml(food.name)}</h3><p class="hint">Home-recipe estimate · ${escapeHtml(food.category)}</p></div><div class="field"><label class="label" for="food-grams">Cooked portion (grams)</label><div class="food-grams-row"><input class="input" id="food-grams" name="grams" type="number" inputmode="decimal" step="1" min="1" max="5000" required value="${grams}"/><span>g</span></div></div><div class="field"><label class="label" for="food-meal">Add to</label><select id="food-meal" name="meal" class="input">${['Breakfast','Lunch','Dinner','Snack'].map(name=>`<option value="${name}" ${name===meal?'selected':''}>${name}</option>`).join('')}</select></div><div class="field"><label class="label" for="food-date">Date</label><input class="input" id="food-date" name="date" type="date" value="${today()}" required/></div><div class="food-preview-macros" id="food-preview-macros">${foodNutritionPreview(vals)}</div><p class="hint">Estimates use representative ingredients. Some dishes include oil or ghee. Actual portions and cooking methods vary; you can use manual entry instead.</p><button class="btn primary block" type="submit">Add to food diary</button></form>`);
 }
 function foodNutritionPreview(values){return `<div class="food-calorie-head"><span>Estimated energy</span><b>${num(values.calories)} <small>kcal</small></b></div><div class="food-macro-grid">${[['protein','Protein'],['carbs','Carbs'],['fat','Fat'],['fibre','Fibre']].map(([key,label])=>`<div><b>${n(values[key]).toFixed(1)} g</b><span>${label}</span></div>`).join('')}</div>`;}
-function launchNutrition(mode='home', meal=null){
+function launchNutrition(mode='home', meal=null, targetDate=null){
  toggleFoodMenu(false);
- openNutrition({mode,meal:meal||mealForHour(),lookupProduct:lookupBarcode,
+ openNutrition({mode,meal:meal||mealForHour(),date:targetDate||today(),lookupProduct:lookupBarcode,
   save:async entries=>{
    // Save chosen dates, never replace existing diary rows.
    state.food.push(...entries.map(item=>({...item,id:uid(),foodSource:item.source==='Open Food Facts'?'openfoodfacts':'recomp-estimate-v1'})));
@@ -672,6 +737,19 @@ if(modal.type==='barcode-portion')return barcodePortionView();
 if(modal.type==='food-photo')return photoMealView();
 if(modal.type==='food-search')return foodSearchView();
 if(modal.type==='food-portion')return foodPortionView();
+if(modal.type==='edit-food'){
+ const entry=state.food.find(item=>item.id===modal.id);
+ if(!entry)return modalShell('Food not found','<p class="hint">This entry was deleted. Close and refresh the diary.</p>');
+ const grams=entry.grams==null?'':entry.grams;
+ return modalShell('Edit diary entry',
+ `${modalField('name','Food or dish name',entry.name,'text','required maxlength="100"')}
+ <div class="field-row"><div class="field"><label class="label" for="edit-food-meal">Meal</label><select class="input" id="edit-food-meal" name="meal">${FOOD_DIARY_MEALS.map(x=>`<option value="${x}" ${x===entry.meal?'selected':''}>${x}</option>`).join('')}</select></div>
+ ${modalField('date','Date',entry.date,'date','required')}</div>
+ ${modalField('grams','Portion eaten (g)',grams,'number','inputmode="decimal" min="1" max="5000" step="0.1" '+(grams===''?'placeholder="Optional if unknown"':''))}
+ ${grams!==''?`<p class="hint">Change the portion to recalculate nutrients from the original saved serving. You can then correct any value below.</p><button type="button" class="btn ghost diary-recalculate" data-action="recalculate-food" data-id="${escapeHtml(entry.id)}">Recalculate from original serving</button>`:'<p class="hint">No serving weight was recorded. Enter one if you know it, then adjust the nutrition amounts manually.</p>'}
+ <div class="field-row">${[['calories','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbs (g)'],['fat','Fat (g)'],['fibre','Fibre (g)']].map(([key,label])=>modalField(key,label,entry[key]??0,'number','required min="0" step="0.1" inputmode="decimal"')).join('')}</div>
+ <p class="hint">Saving updates only this entry. Other dates, original food sources and your personal targets stay unchanged.</p>`,'form-edit-food','Save changes');
+}
 if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food or meal name','','text','required maxlength="100"')}<div class="field"><label class="label">Meal</label><select class="input" name="meal">${['Breakfast','Lunch','Dinner','Snack'].map(m=>`<option ${m===(modal.meal||'Breakfast')?'selected':''}>${m}</option>`).join('')}</select></div><div class="field-row">${modalField('calories','Calories (kcal)',0,'number','min="0" required')}${modalField('protein','Protein (g)',0,'number','min="0" step="0.1"')}${modalField('carbs','Carbs (g)',0,'number','min="0" step="0.1"')}${modalField('fat','Fat (g)',0,'number','min="0" step="0.1"')}${modalField('fibre','Fibre (g)',0,'number','min="0" step="0.1"')}${modalField('date','Date',today(),'date','required')}</div><p class="hint">Enter values from the package or a reliable recipe estimate. For a mixed meal, add each food separately or use Photo meal.</p>`,'form-food','Add to diary');
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
 if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
@@ -890,7 +968,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
  case 'food-back':{const meal=modal?.meal||foodMeal,query=modal?.query||'';modal={type:'food-search',meal,query};render();break;}
  case 'manual-food':{const meal=modal?.meal||foodMeal;await leaveFoodModal();modal={type:'food',meal};render();break;}
- case 'add-food':launchNutrition('search',el.dataset.meal);break;
+ case 'add-food':launchNutrition('search',el.dataset.meal,nutritionPanel==='diary'?diaryDate:today());break;
   case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
@@ -903,12 +981,24 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
  case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
  case 'close-modal':if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
+ case 'diary-previous':diaryDate=shiftDiaryDate(diaryDate,-1);render();break;
+ case 'diary-next':{const next=shiftDiaryDate(diaryDate,1);diaryDate=next>today()?today():next;render();break;}
+ case 'diary-today':diaryDate=today();render();break;
+ case 'edit-food':{const entry=state.food.find(f=>f.id===el.dataset.id);if(entry){modal={type:'edit-food',id:entry.id};render();}break;}
+ case 'recalculate-food':{
+  const original=state.food.find(f=>f.id===modal?.id),grams=document.querySelector('#modal-grams')?.value;
+  if(!original)throw Error('The food entry is unavailable.');
+  const scaled=scaledDiaryMacros(original,grams);
+  for(const key of FOOD_DIARY_MACROS){const input=document.querySelector('#modal-'+key);if(input)input.value=scaled[key];}
+  notify('Portion estimate updated. Review before saving.');
+  break;
+ }
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
  case 'delete-food':if(await confirmInApp('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-weight':if(await confirmInApp('Delete this weight entry?')){state.weights=state.weights.filter(f=>f.id!==el.dataset.id);await commit();}break;
  case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
- case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
+ case 'repeat-food':{const x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push(repeatDiaryEntry(x,{id:uid(),date:today(),meal:x.meal}));await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
  case 'create-template':modal={type:'new-template'};render();break;
  case 'edit-template':planActionsId=null;modal={type:'edit-template',id:el.dataset.id};render();break;
@@ -996,6 +1086,15 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-edit-food'){
+  const original=state.food.find(item=>item.id===modal?.id);
+  if(!original)throw Error('This food entry no longer exists.');
+  const fields=Object.fromEntries(['name','date','meal','grams',...FOOD_DIARY_MACROS].map(key=>[key,data.get(key)]));
+  const revised=updateDiaryEntry(original,fields);
+  state.food=state.food.map(item=>item.id===original.id?revised:item);
+  diaryDate=revised.date;
+  modal=null;await commit();notify('Food entry updated.');return;
+ }
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
   const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
@@ -1134,6 +1233,11 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.id==='food-diary-date'){
+  if(!validDiaryDate(el.value)||el.value>today()){notify('Choose today or an earlier valid date.');return;}
+  diaryDate=el.value;render();return;
+ }
+
  if(el.id==='food-photo-input'&&modal?.type==='food-photo'){
   const file=el.files?.[0];if(!file)return;
   if(!file.type.startsWith('image/')||file.size>15*1024*1024){notify('Choose an image smaller than 15 MB');el.value='';return;}
