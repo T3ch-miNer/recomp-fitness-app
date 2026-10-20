@@ -34,11 +34,21 @@ test('all cloud and Google login attempts remain disabled in preview',async()=>{
  assert.throws(()=>auth.uploadSnapshot({}),/disabled in this temporary demo/);
 });
 
+test('cloud-shaped nav preview stays isolated from real Clerk sign-in',async()=>{
+ const clerkSource=readFileSync(new URL('../clerk-auth.js',import.meta.url),'utf8');
+ const auth=await import('data:text/javascript;base64,'+Buffer.from(clerkSource).toString('base64'));
+ assert.equal(auth.getClerkKey(),'');
+ await assert.rejects(()=>auth.openClerkSignIn(),/disabled in the demo/);
+ const cloudCss=readFileSync(new URL('../nav-cloud.css',import.meta.url),'utf8');
+ assert.ok(cloudCss.includes('.dock-cloud-surface'));
+ assert.ok(app.includes('dock-cloud-surface'));
+});
+
 test('preview has a prominent warning and does not register SW on CDN',()=>{
  assert.ok(index.includes('Sample data only'));
  assert.ok(index.includes('Changes are not saved'));
  assert.ok(welcome.includes('temporary demo'));
  assert.ok(app.includes("!location.hostname.endsWith('githack.com')"));
- assert.ok(app.includes('Version 2.5.1 · Demo'));
+ assert.ok(app.includes('Version 2.5.2 · Demo'));
  assert.ok(!index.includes('https://t3ch-miner.github.io/recomp-fitness-app/'));
 });
