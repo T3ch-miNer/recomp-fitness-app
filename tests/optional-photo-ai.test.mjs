@@ -229,6 +229,8 @@ test('one reviewed dish saves as one editable estimated diary row with no photo 
  assert.equal(entry.aiEstimate,true);
  assert.match(entry.source,/user reviewed/);
  assert.deepEqual(entry.aiCalorieRange,{low:430,high:950});
+ const corrected=client.buildAiDishDiaryEntry({meal:{...dish,calories:1100},date:'2026-10-20',mealType:'Dinner'});
+ assert.equal(corrected.aiCalorieRange,null,'a manually corrected calorie figure must not retain an inconsistent old range');
  assert.equal(entry.meal,'Dinner');
  assert.ok(!('image' in entry||'photo' in entry||'HF_TOKEN' in entry));
  assert.throws(()=>client.buildAiDishDiaryEntry({meal:{...dish,protein:NaN},
