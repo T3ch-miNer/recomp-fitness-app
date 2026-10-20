@@ -1,4 +1,5 @@
 import {searchFoods,findFood,nutrientsForGrams,FOOD_ITEMS} from './food-db.js';
+import {getPhotoAiEndpoint,scanPhotoWithWorker} from './photo-ai.js';
 
 // One focused food-logging flow for Recomp. Local-only photos, free offline recipes,
 // optional browser-side recognition, community barcode lookups. Save is always explicit.
@@ -25,6 +26,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoFoods=[],suggestions=[],recognising=false;
  let barcode='',barcodeStatus='',looking=false,cameraStream=null,scanInterval=null,scannerControls=null,scannerToken=0,saving=false,notice='';
  let disposed=false,requestNumber=0,recognitionWorker=null,recognitionTimeout=null;
+ let aiEndpoint=getPhotoAiEndpoint(),aiAccessToken='',aiItems=[],aiScanning=false,aiAbort=null,aiRequestId=0;
  const host=document.createElement('div');host.className='nf-overlay';host.setAttribute('role','presentation');
  document.body.appendChild(host);
  const focusWas=document.activeElement;
@@ -37,7 +39,8 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   if(recognitionWorker){recognitionWorker.terminate();recognitionWorker=null;}
   recognising=false;
  }
- function close(){if(disposed)return;disposed=true;stopRecognition();stopCamera();if(imageURL)URL.revokeObjectURL(imageURL);host.remove();document.body.classList.remove('nf-open');document.removeEventListener('keydown',escapeKey);if(focusWas?.isConnected)focusWas.focus({preventScroll:true});}
+ function stopAiScan(){aiRequestId++;aiAbort?.abort();aiAbort=null;aiScanning=false;}
+ function close(){if(disposed)return;disposed=true;stopAiScan();stopRecognition();stopCamera();if(imageURL)URL.revokeObjectURL(imageURL);host.remove();document.body.classList.remove('nf-open');document.removeEventListener('keydown',escapeKey);if(focusWas?.isConnected)focusWas.focus({preventScroll:true});}
  function escapeKey(e){if(e.key==='Escape'){e.preventDefault();close();}}
  document.addEventListener('keydown',escapeKey);
  function title(){return ({home:'Add food',search:'Search foods',portion:'Review food',photo:'Photo meal',barcode:'Scan barcode'})[page]||'Add food';}
@@ -64,11 +67,24 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  }
  function photoChoose(){return `<div class="nf-photo-lead"><span class="nf-photo-illustration" aria-hidden="true">${ico('photo')}</span><h3>Log a meal from a photo</h3><p>Start with a picture. We'll help you identify the foods, then you can review the portions.</p></div>
  <div class="nf-photo-pickers"><button type="button" class="nf-photo-pick" data-nf="gallery"><span>${ico('photo')}</span><b>Choose from gallery</b></button><button type="button" class="nf-photo-pick" data-nf="take"><span>${ico('camera')}</span><b>Take photo</b></button></div>
- <p class="nf-muted-note">Your image stays on this device. Packaged food? Barcode scanning is usually more reliable.</p>`;}
+ <p class="nf-muted-note">Manual and on-device recognition keep the image on your phone. Optional AI Scan uploads a compressed copy to your private Worker and OpenAI only after you tap Scan. Packaged foods? Barcode scanning is more reliable.</p>`;}
  function photoTotals(){let t=Object.fromEntries(nutrients.map(k=>[k,0]));for(const entry of photoFoods){const food=findFood(entry.id);if(!food||!(Number(entry.grams)>0))continue;try{const a=amount(food,entry.grams);nutrients.forEach(k=>t[k]+=a[k]);}catch{}}return `<div class="nf-macros"><div class="nf-kcal"><span>Estimated meal total</span><strong>${fmt(t.calories)} <small>kcal</small></strong></div><div class="nf-macro-grid"><span><b>${fmt(t.protein)}g</b><small>Protein</small></span><span><b>${fmt(t.carbs)}g</b><small>Carbs</small></span><span><b>${fmt(t.fat)}g</b><small>Fat</small></span><span><b>${fmt(t.fibre)}g</b><small>Fibre</small></span></div></div>`;}
  function photoReview(){return `<div class="nf-photo-head"><img class="nf-photo-thumb" src="${esc(imageURL)}" alt="Selected food photograph"><div class="nf-photo-summary"><b>Photo added</b><span>Check and log the foods below</span><button class="nf-inline-link" data-nf="change-photo">Change photo</button></div></div>
  <div class="nf-ai-action"><div><b>Recognise foods</b><small>Optional · local, first use downloads a model</small></div><button class="nf-outlined" data-nf="${recognising?'cancel-recognition':'recognise'}">${recognising?'Cancel':'Identify'}</button></div>
  ${recognising?`<p class="nf-status" role="status">${esc(notice||'Analysing locally. You can cancel without losing the photo.')}</p>`:''}
+ <section class="nf-vision-panel" aria-label="Optional private AI image scan">
+   <div class="nf-vision-heading"><b>AI Scan · identify separate foods</b><span>Optional · uses a privately configured OpenAI Worker · billed to the owner's API account</span></div>
+   <label class="nf-field"><span>Secure Worker URL (not a secret)</span><input id="nf-ai-endpoint" type="url" inputmode="url" autocomplete="url" value="${esc(aiEndpoint)}" placeholder="https://your-worker.workers.dev/scan"></label>
+   <label class="nf-field"><span>Private scan access token</span><input id="nf-ai-token" type="password" autocomplete="off" spellcheck="false" placeholder="${aiAccessToken?'Token entered for this scan session':'Enter the Worker access token'}"></label>
+   <p class="nf-muted-note">OpenAI API keys are never entered into Recomp. The access token stays in memory only. Tapping AI Scan sends this resized photo to the Worker and OpenAI for analysis; your food diary is unchanged until you approve items. This may incur API charges.</p>
+   <button type="button" class="nf-primary" data-nf="${aiScanning?'ai-cancel':'ai-scan'}">${aiScanning?'Cancel AI Scan':'AI Scan this photo'}</button>
+   ${aiScanning?'<p class="nf-status" role="status">Analysing the visible foods securely…</p>':''}
+   ${aiItems.length?`<div class="nf-vision-results"><b>Foods suggested by AI · not confirmed</b>
+     ${aiItems.map((item,i)=>`<div class="nf-vision-result"><div><b>${esc(item.name)} ${item.uncertain?'· uncertain':''}</b><small>${esc(item.visualEvidence)}${item.portionHint?' · Looks like '+esc(item.portionHint):''}</small></div><button type="button" class="nf-outlined" data-nf="ai-find-food" data-index="${i}">Find food</button></div>`).join('')}
+     <p class="nf-muted-note">AI may misidentify food. Select the matching catalogue entry and enter its actual cooked weight. Photo portions are not reliable gram measurements.</p>
+   </div>`:''}
+  </section>
+
  ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label">Possible matches · tap to add</span>${suggestions.map(item=>`<button class="nf-suggestion" data-nf="add-photo" data-id="${esc(item.id)}">+ ${esc(item.name)}</button>`).join('')}</div>`:''}
  ${notice?`<p class="nf-status" role="status">${esc(notice)}</p>`:''}
  <div class="nf-section-head"><h3>Foods in your meal</h3><button class="nf-inline-link" data-nf="toggle-photo-search">+ Add food</button></div>
@@ -91,8 +107,28 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
  function back(){if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
- function setImage(file){if(recognising)stopRecognition();if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
+ function setImage(file){if(recognising)stopRecognition();stopAiScan();aiItems=[];if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
   if(imageURL)URL.revokeObjectURL(imageURL);imageFile=file;imageURL=URL.createObjectURL(file);photoStep='review';photoFoods=[];suggestions=[];notice='';render();}
+ async function scanWithAi(){
+  if(!imageFile||disposed||aiScanning)return;
+  if(!aiEndpoint.trim()){notice='Enter your secure Worker URL first. The Worker must be configured by the app owner.';render();return;}
+  if(!aiAccessToken){notice='Enter the private Worker access token (not an OpenAI API key).';render();return;}
+  const token=++aiRequestId;aiAbort=new AbortController();const signal=aiAbort.signal;
+  aiScanning=true;aiItems=[];notice='Preparing one compressed image for secure analysis…';render();
+  try{
+   const bitmap=await createImageBitmap(imageFile);
+   if(disposed||token!==aiRequestId){bitmap.close();return;}
+   const scale=Math.min(1,1120/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+   const image=canvas.toDataURL('image/jpeg',.72);
+   const items=await scanPhotoWithWorker({endpoint:aiEndpoint,accessToken:aiAccessToken,imageDataUrl:image,signal});
+   if(disposed||token!==aiRequestId)return;
+   aiItems=items;
+   notice=items.length?'AI found '+items.length+' possible food'+(items.length===1?'':'s')+'. Choose matching foods below.':'No recognisable foods found. You can still search manually.';
+  }catch(error){if(!disposed&&token===aiRequestId)notice=error?.name==='AbortError'?'AI Scan cancelled.':String(error?.message||'AI scan unavailable. Manual search still works.').slice(0,210);}
+  finally{if(token===aiRequestId){aiScanning=false;aiAbort=null;if(!disposed)render();}}
+ }
  async function recognise(){
   if(!imageFile||recognising||disposed)return;
   if(!('Worker' in window)||!('createImageBitmap' in window)){
@@ -256,14 +292,20 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
     const missing=selected.source==='Open Food Facts'?nutrients.filter(k=>selected.per100?.[k]==null):[];
     await saveEntries([{...amount(selected,grams),date,meal:selectedMeal,name:selected.name,grams:Number(grams),source:selected.source||'Recomp sample recipe estimate',foodId:selected.id,missingNutrition:missing}]);return;
    }
-  if(a==='change-photo'){photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
+  if(a==='change-photo'){stopAiScan();aiItems=[];photoStep='choose';render();return;}if(a==='toggle-photo-search'){photoSearchVisible=!photoSearchVisible;render();if(photoSearchVisible)host.querySelector('#nf-photo-search')?.focus();return;}
   if(a==='remove-photo'){photoFoods.splice(Number(target.dataset.index),1);render();return;}if(a==='add-photo'){addPhotoFood(target.dataset.id);return;}
-  if(a==='recognise'){await recognise();return;}if(a==='cancel-recognition'){stopRecognition();notice='Recognition stopped. Add foods manually below.';render();return;}if(a==='save-photo'){
+  if(a==='ai-scan'){await scanWithAi();return;}
+   if(a==='ai-cancel'){stopAiScan();notice='AI Scan cancelled. No data was logged.';render();return;}
+   if(a==='ai-find-food'){const item=aiItems[Number(target.dataset.index)];if(item){photoSearchVisible=true;photoQuery=item.name;render();host.querySelector('#nf-photo-search')?.focus();}return;}
+   if(a==='recognise'){await recognise();return;}if(a==='cancel-recognition'){stopRecognition();notice='Recognition stopped. Add foods manually below.';render();return;}if(a==='save-photo'){
    validate();const entries=photoFoods.map(item=>{const food=findFood(item.id);if(!food)throw Error('Food no longer available.');if(!(Number(item.grams)>0&&Number(item.grams)<=5000))throw Error('Check the grams for '+food.name+'.');return {...amount(food,item.grams),date,meal:selectedMeal,name:food.name,grams:Number(item.grams),source:'Recomp sample recipe estimate',foodId:food.id};});await saveEntries(entries);return;
   }if(a==='scan'){await scan();return;}if(a==='lookup'){await lookup();return;}
  }
  host.addEventListener('click',e=>{if(e.target===host){close();return;}action(e).catch(err=>{notice=err.message||'Please try again.';render();});});
- host.addEventListener('input',e=>{const el=e.target;if(el.id==='nf-search'){query=el.value;const container=host.querySelector('#nf-results');if(container)container.innerHTML=results(query);}
+ host.addEventListener('input',e=>{const el=e.target;
+   if(el.id==='nf-ai-endpoint'){aiEndpoint=el.value;return;}
+   if(el.id==='nf-ai-token'){aiAccessToken=el.value;return;}
+   if(el.id==='nf-search'){query=el.value;const container=host.querySelector('#nf-results');if(container)container.innerHTML=results(query);}
   if(el.id==='nf-photo-search'){photoQuery=el.value;const container=host.querySelector('#nf-photo-results');if(container)container.innerHTML=results(photoQuery,7);}
   if(el.id==='nf-grams'){grams=Number(el.value);const c=host.querySelector('#nf-macros');if(c)c.innerHTML=macros(selected,grams);}
    if(el.hasAttribute('data-nf-per100')&&selected?.source==='Open Food Facts'){
