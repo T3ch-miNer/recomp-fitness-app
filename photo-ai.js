@@ -31,7 +31,7 @@ export function rememberPhotoAiSessionToken(value){
  // Cloudflare checks exact equality and does NOT impose a 12-character minimum.
  // Rejecting shorter valid codes here falsely reported authentication failure.
  if(token && (token.length>256||/^(?:sk[-_]|hf_)/i.test(token)))
-  throw Error('Use the separate Worker access code (up to 256 characters), not a Hugging Face API key.');
+  throw Error('Use the separate Worker access code (up to 256 characters), not a provider API key.');
  sessionAccessToken=token;
  return Boolean(token);
 }
