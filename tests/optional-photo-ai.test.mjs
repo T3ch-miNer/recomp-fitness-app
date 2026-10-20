@@ -213,6 +213,32 @@ test('AI result identifies a complete dish and rejects invented or invalid macro
  assert.throws(()=>worker.parseDishEstimate(JSON.stringify({meal:{...sampleDish,calories:10000}})),/Invalid nutrition estimate/);
 });
 
+test('one reviewed dish saves as one editable estimated diary row with no photo or secrets',()=>{
+ const dish={...sampleDish,name:'Korean beef rice bowl',calories:770,
+  protein:35,carbs:92,fat:31,fibre:8,estimatedGrams:570};
+ const before=structuredClone(dish);
+ const entry=client.buildAiDishDiaryEntry({
+  meal:dish,date:'2026-10-20',mealType:'Dinner',model:'Qwen/Qwen2.5-VL-3B-Instruct'});
+ assert.deepEqual(dish,before,'creating an entry cannot edit saved values or original scan');
+ assert.equal(entry.name,'Korean beef rice bowl');
+ assert.equal(entry.grams,570);
+ assert.equal(entry.calories,770);
+ assert.equal(entry.protein,35);
+ assert.equal(entry.carbs,92);
+ assert.equal(entry.fat,31);
+ assert.equal(entry.aiEstimate,true);
+ assert.match(entry.source,/user reviewed/);
+ assert.deepEqual(entry.aiCalorieRange,{low:430,high:950});
+ assert.equal(entry.meal,'Dinner');
+ assert.ok(!('image' in entry||'photo' in entry||'HF_TOKEN' in entry));
+ assert.throws(()=>client.buildAiDishDiaryEntry({meal:{...dish,protein:NaN},
+   date:'2026-10-20',mealType:'Dinner'}),/Check the protein/);
+ assert.throws(()=>client.buildAiDishDiaryEntry({meal:dish,date:'bad',
+   mealType:'Dinner'}),/valid date/);
+ assert.throws(()=>client.buildAiDishDiaryEntry({meal:dish,date:'2026-10-20',
+   mealType:'Lunches'}),/Choose a meal/);
+});
+
 test('prompt requires whole dishes rather than individual ingredients, with uncertain kcal/macros',()=>{
  const built=worker.buildHfRequest(image,'Qwen/Qwen2.5-VL-3B-Instruct');
  const instruction=built.messages[0].content[0].text;
@@ -231,7 +257,8 @@ test('food-photo review never autosaves suggestions and retains free manual path
  assert.match(nutrition,/scanPhotoWithWorker\(/);
  assert.match(nutrition,/data-nf="save-ai-meal"/);
  assert.match(nutrition,/aiMeal=result\.meal/);
- assert.match(nutrition,/AI photo estimate \(Hugging Face; user reviewed\)/);
+ assert.match(clientSource,/AI photo estimate \(Hugging Face; user reviewed\)/);
+ assert.match(nutrition,/buildAiDishDiaryEntry\(/);
  assert.match(nutrition,/recognising\?'cancel-recognition':'recognise'/);
  assert.match(nutrition,/saveEntries\(entries\)/);
  assert.match(nutrition,/Don't log those again as separate ingredients/);
