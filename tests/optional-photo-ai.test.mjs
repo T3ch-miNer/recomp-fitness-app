@@ -254,6 +254,21 @@ test('prompt requires whole dishes rather than individual ingredients, with unce
  assert.doesNotMatch(workerSource,/return json\(\{items,model:selected/);
 });
 
+
+test('whole-dish mode stays separate from catalogue foods and keeps review errors visible',()=>{
+ assert.ok(nutrition.includes('photoSeparateMode=false'));
+ assert.ok(nutrition.includes('data-nf="toggle-photo-alternative"'));
+ assert.ok(nutrition.includes("if(aiMeal&&!photoSeparateMode)return"));
+ assert.ok(nutrition.includes("if(aiMeal&&photoSeparateMode)return"));
+ assert.ok(nutrition.includes('photoSeparateMode=!photoSeparateMode'));
+ assert.ok(nutrition.includes('will replace the whole-dish estimate, not add to it'));
+ assert.ok(nutrition.includes('Calories manually adjusted'));
+ assert.ok(nutrition.includes('aiMeal.calories<=aiMeal.calorieHigh'));
+ const section=nutrition.slice(nutrition.indexOf('data-nf="toggle-photo-alternative"'),nutrition.indexOf('function photo(){'));
+ assert.ok(section.indexOf('role="status"')>section.indexOf('</div>'), 'review errors should render outside optional catalogue panel');
+ assert.ok(nutrition.includes('await saveEntries([entry])'), 'AI must save exactly one reviewed dish');
+});
+
 test('food-photo review never autosaves suggestions and retains free manual path',()=>{
  assert.match(nutrition,/aiScanning\?'ai-cancel':'ai-scan'/);
  assert.match(nutrition,/scanPhotoWithWorker\(/);
