@@ -85,7 +85,7 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
     <label class="nf-field"><span>Dish name · editable</span><input data-nf-ai-field="name" value="${esc(aiMeal.name)}" maxlength="100" required></label>
     <label class="nf-field"><span>Serving description · editable</span><input data-nf-ai-field="servingDescription" value="${esc(aiMeal.servingDescription)}" maxlength="110" required></label>
     <label class="nf-field"><span>Approximate serving weight (g) · correct if known</span><input type="number" data-nf-ai-field="estimatedGrams" value="${aiMeal.estimatedGrams}" inputmode="numeric" min="50" max="3000" step="1" required></label>
-    <div class="nf-dish-kcal"><span>Estimated energy for the entire pictured meal</span><strong>${fmt(aiMeal.calories)} <small>kcal</small></strong><small>AI's approximate range: ${fmt(aiMeal.calorieLow)}–${fmt(aiMeal.calorieHigh)} kcal</small></div>
+    <div class="nf-dish-kcal"><span>Estimated energy for the entire pictured meal</span><strong id="nf-ai-calories-total">${fmt(aiMeal.calories)} <small>kcal</small></strong><small id="nf-ai-calorie-range">Approx. range: ${fmt(aiMeal.calorieLow)}–${fmt(aiMeal.calorieHigh)} kcal</small></div>
     <div class="nf-dish-macros">${[['calories','Calories','kcal'],['protein','Protein','g'],['carbs','Carbs','g'],['fat','Fat','g'],['fibre','Fibre','g']].map(([key,title,unit])=>`<label class="nf-field"><span>${title} (${unit})</span><input type="number" data-nf-ai-field="${key}" value="${aiMeal[key]}" inputmode="decimal" min="${key==='calories'?1:0}" max="${key==='calories'?4500:700}" step="1" required></label>`).join('')}</div>
     ${aiMeal.assumptions?`<p class="nf-dish-assumptions"><b>Estimate assumptions:</b> ${esc(aiMeal.assumptions)}</p>`:''}
     <p class="nf-muted-note">One combined dish estimate already includes the visible toppings and sides. Don't log those again as separate ingredients.</p>
@@ -338,8 +338,16 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
     const key=el.dataset.nfAiField;
     if(key==='name'||key==='servingDescription'){
      aiMeal[key]=el.value;
-    }else if(['estimatedGrams','calories','protein','carbs','fat','fibre'].includes(key)){
+    }else if(key==='estimatedGrams'){
+     // Scale on CHANGE/blur, not per keystroke; otherwise typing 500 -> 600
+     // would temporarily become 5 -> 50 and corrupt estimates.
+     return;
+    }else if(['calories','protein','carbs','fat','fibre'].includes(key)){
      aiMeal[key]=el.value.trim()===''?NaN:Number(el.value);
+     if(key==='calories'){
+      const total=host.querySelector('#nf-ai-calories-total');
+      if(total)total.textContent=el.value+' kcal';
+     }
     }
     return;
    }
@@ -356,7 +364,27 @@ export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct
   if(el.id==='nf-barcode')barcode=el.value.replace(/\D/g,'');
   if(el.hasAttribute('data-nf-grams')){const index=Number(el.dataset.nfGrams);if(photoFoods[index])photoFoods[index].grams=Number(el.value);const c=host.querySelector('#nf-photo-total');if(c)c.innerHTML=photoTotals();}
  });
- host.addEventListener('change',e=>{const el=e.target;if(el.id==='nf-date')date=el.value;if(el.id==='nf-meal')selectedMeal=el.value;if(el.id==='nf-gallery-input'||el.id==='nf-camera-input')setImage(el.files?.[0]);if(el.id==='nf-barcode-image')scanBarcodeImage(el.files?.[0]);});
+ host.addEventListener('change',e=>{const el=e.target;
+ if(el.dataset?.nfAiField==='estimatedGrams'&&aiMeal&&page==='photo'){
+  const next=Number(el.value),prev=aiMeal.estimatedGrams;
+  if(Number.isFinite(next)&&next>=50&&next<=3000&&Number.isFinite(prev)&&prev>0){
+   const ratio=next/prev;aiMeal.estimatedGrams=next;
+   for(const key of ['calories','protein','carbs','fat','fibre','calorieLow','calorieHigh'])
+    aiMeal[key]=Math.round(aiMeal[key]*ratio);
+   for(const key of ['calories','protein','carbs','fat','fibre']){
+    const input=host.querySelector('[data-nf-ai-field="'+key+'"]');
+    if(input)input.value=aiMeal[key];
+   }
+   const kcal=host.querySelector('#nf-ai-calories-total');
+   if(kcal)kcal.textContent=aiMeal.calories+' kcal';
+   const range=host.querySelector('#nf-ai-calorie-range');
+   if(range)range.textContent='Approx. range: '+aiMeal.calorieLow+'–'+aiMeal.calorieHigh+' kcal';
+  }else{
+   aiMeal.estimatedGrams=NaN;
+  }
+  return;
+ }
+if(el.id==='nf-date')date=el.value;if(el.id==='nf-meal')selectedMeal=el.value;if(el.id==='nf-gallery-input'||el.id==='nf-camera-input')setImage(el.files?.[0]);if(el.id==='nf-barcode-image')scanBarcodeImage(el.files?.[0]);});
  render();
  return {close};
 }
