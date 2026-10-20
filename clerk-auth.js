@@ -74,7 +74,12 @@ export async function loadClerk(){
 export function getClerkAccount(){
  const client=typeof window!=='undefined'?window.Clerk:null;
  const user=client?.user;
- return user?{id:String(user.id),email:String(user.primaryEmailAddress?.emailAddress||''),firstName:String(user.firstName||'')}:null;
+ if(!user)return null;
+ const email=String(user.primaryEmailAddress?.emailAddress||'').trim();
+ const firstName=String(user.firstName||'').trim();
+ const lastName=String(user.lastName||'').trim();
+ const name=String(user.fullName||[firstName,lastName].filter(Boolean).join(' ')||user.username||email.split('@')[0]||'Google account').trim().slice(0,100);
+ return {id:String(user.id),email,firstName,lastName,name};
 }
 export async function openClerkSignIn(){
  const client=await loadClerk();
