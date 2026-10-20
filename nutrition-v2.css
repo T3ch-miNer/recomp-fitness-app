@@ -92,3 +92,16 @@ body.nf-open{overflow:hidden}
 .nf-dish-macros .nf-field:first-child{grid-column:1/-1}
 .nf-dish-assumptions{color:var(--muted);background:var(--panel2);padding:12px;border-radius:12px;font-size:12px;line-height:1.5;margin:0}
 .nf-dish-assumptions b{color:var(--text)}
+
+/* Private Hugging Face scan runs after photo selection. The credential is a one-time setup. */
+.nf-ai-access-setup{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--panel2)}
+.nf-ai-access-setup .nf-status{margin:0}
+.nf-ai-remember-option{display:flex;align-items:center;gap:10px;color:var(--text);font-size:12px;font-weight:650;line-height:1.5;cursor:pointer}
+.nf-ai-remember-option input{width:19px;height:19px;flex:none;accent-color:var(--accent)}
+.nf-ai-advanced{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2)}
+.nf-ai-advanced summary{cursor:pointer;font-size:12px;font-weight:750;color:var(--muted);padding:4px 0;list-style:disclosure-closed}
+.nf-ai-advanced[open] summary{margin-bottom:12px}
+.nf-ai-advanced .nf-field{margin-bottom:15px}
+.nf-ai-advanced .nf-ai-action{margin:8px 0 5px}
+.nf-vision-panel>.nf-muted-note .nf-inline-link{font-size:11px}
+.nf-ai-advanced summary:focus-visible,.nf-ai-remember-option input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
