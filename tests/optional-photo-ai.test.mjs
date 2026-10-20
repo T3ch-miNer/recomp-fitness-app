@@ -57,6 +57,36 @@ test('Worker requires a private token, trusted origin and a limited JPEG payload
  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),'https://t3ch-miner.github.io');
 });
 
+test('private Worker test page requires deliberate photo selection and never persists browser secrets',async()=>{
+ const page=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/test'),{},()=>{
+  throw Error('The test page must never call Hugging Face without a scan request.');
+ });
+ assert.equal(page.status,200);
+ assert.match(page.headers.get('content-type'),/text\/html/);
+ assert.equal(page.headers.get('cache-control'),'no-store');
+ assert.match(page.headers.get('content-security-policy'),/connect-src 'self'/);
+ const html=await page.text();
+ assert.match(html,/Test food recognition/);
+ assert.match(html,/SCAN_ACCESS_TOKEN/);
+ assert.match(html,/type="file"/);
+ assert.match(html,/fetch\('\/scan'/);
+ assert.ok(!/localStorage|sessionStorage/.test(html),'test page must not store token or photo');
+ assert.ok(!/HF_TOKEN.*value=/.test(html),'never prepopulate a provider secret');
+ const localRequest=new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/scan',{
+  method:'POST',headers:{Origin:'https://recomp-food-ai.rahul-dbz95.workers.dev',
+   Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},body:JSON.stringify({image})
+ });
+ const accepted=await worker.handleScan(localRequest,env,async()=>mockAi());
+ assert.equal(accepted.status,200);
+ assert.equal((await accepted.json()).items.length,2);
+ const cross=await worker.handleScan(new Request('https://recomp-food-ai.rahul-dbz95.workers.dev/scan',{
+  method:'POST',headers:{Origin:'https://attacker.example',Authorization:'Bearer '+accessToken,
+   'Content-Type':'application/json'},body:JSON.stringify({image})}),env,()=>{
+    throw Error('Third-party origins must not be forwarded to Hugging Face');
+   });
+ assert.equal(cross.status,403);
+});
+
 test('Worker calls Hugging Face vision chat API after consent and returns separate foods',async()=>{
  let calls=0;
  const reply=await worker.handleScan(request(),env,async(url,options)=>{
