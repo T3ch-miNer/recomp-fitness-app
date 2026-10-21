@@ -47,8 +47,7 @@ const VIDEOS = [
   {
     "names": [
       "Push Ups",
-      "Push Up",
-      "Push-Ups"
+      "Push Up"
     ],
     "id": "WDIpL0pjun0",
     "title": "How to Do a Push-Up",
