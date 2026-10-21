@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const read=(file)=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
+const curatedSource=read('exercise-videos.js');
+const curatedUri='data:text/javascript;base64,'+Buffer.from(curatedSource).toString('base64');
 const guidesSource=read('exercise-guides.js');
-const guideUri='data:text/javascript;base64,'+Buffer.from(guidesSource).toString('base64');
+const guideUri='data:text/javascript;base64,'+Buffer.from(guidesSource.replace("from './exercise-videos.js'","from '"+curatedUri+"'")).toString('base64');
 const guides=await import(guideUri);
 const renderSource=read('exercise-demonstration.js');
 const renderUri='data:text/javascript;base64,'+Buffer.from(renderSource.replace("'./exercise-guides.js'","'"+guideUri+"'")).toString('base64');
@@ -67,13 +69,27 @@ test('unknown custom exercises retain safe video search fallback and escape user
 });
 
 test('responsive exercise demo connected to modal with safe PWA caching',()=>{
- assert.match(app,/renderExerciseDemonstration\(state\.session\?\.exercises\?\.\[modal\.index\]/);
+ assert.match(app,/renderExerciseDemonstration\(exercise,\{playing:modal\.playing\}\)/);
+ assert.match(app,/case 'browse-template-videos':/);
+ assert.match(app,/case 'preview-template-exercise':/);
+ assert.match(app,/data-action="browse-template-videos"/);
  assert.match(app,/case 'load-exercise-video':/);
  assert.match(css,/exercise-demo-frame/);
  assert.match(css,/aspect-ratio:16\/9/);
- for(const file of ['exercise-guides.js','exercise-demonstration.js','exercise-demonstration.css']){
+ for(const file of ['exercise-videos.js','exercise-guides.js','exercise-demonstration.js','exercise-demonstration.css']){
   assert.ok(sw.includes("'./"+file+"'"),'not in offline shell: '+file);
  }
  assert.match(html,/exercise-demonstration\.css/);
  assert.match(html,/2\.7-worker-access-compat/);
+});
+
+test('verified newer videos show the real creator instead of generic M&S attribution',()=>{
+ const preview=renderExerciseDemonstration({name:'Dumbbell Snatch',notes:'Five reps per side'});
+ assert.match(preview,/The Dumbbell Snatch/);
+ assert.match(preview,/CrossFit/);
+ assert.doesNotMatch(preview,/Video from Muscle &amp; Strength/);
+ assert.doesNotMatch(preview,/<iframe/);
+ const playing=renderExerciseDemonstration({name:'Dumbbell Snatch'},{playing:true});
+ assert.match(playing,/embed\/R0mhHuVrLHA/);
+ assert.match(playing,/www.youtube.com\/watch\?v=R0mhHuVrLHA/);
 });
