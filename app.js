@@ -1,5 +1,6 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
-import {FTS_WORKOUTS,mergeFtsWorkouts} from './fts-workouts.js';
+import {FTS_WORKOUTS} from './fts-workouts.js';
+import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
@@ -110,7 +111,7 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],session:null,templates:structuredClone(FTS_WORKOUTS),ftsWorkoutImportVersion:1,
+ photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15]),ftsWorkoutImportVersion:2,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null;
@@ -602,7 +603,7 @@ async function switchWorkoutTo(targetId,shouldSave){
   if(!done.length){notify('Complete at least one set to save. Use Discard instead.');return;}
   state.workoutHistory.push({id:uid(),date:today(),name:prior.name,startedAt:prior.startedAt,endedAt:Date.now(),durationMin:Math.max(1,Math.round((Date.now()-prior.startedAt)/60000)),sets:done.length,volume:done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0),exercises:prior.exercises});rememberWorkoutSets(prior);
  }
- const next={id:uid(),name:desired.name,templateId:desired.id,startedAt:Date.now(),minimized:false,exercises:buildWorkoutExercises(desired),activeIndex:0,rest:null};
+ const next={id:uid(),name:desired.name,templateId:desired.id,startedAt:Date.now(),minimized:false,instructions:desired.notes||'',exercises:buildWorkoutExercises(desired),activeIndex:0,rest:null};
  motionChange(()=>{state.session=next;modal=null;restSheet=false;restAlertedFor=null;tab='workouts';state.lastTab='workouts';exerciseOpen=0;render();},'expand');
  haptic('success');await persist();window.scrollTo({top:0,behavior:'instant'});
 }
@@ -1373,10 +1374,11 @@ async function init(){try{
  for(const key of ['food','water','activity','weights','measurements','photos','workoutHistory','templates']){
   if(!Array.isArray(state[key]))state[key]=defaults[key];
  }
- // Add FTS plans only once for an existing user; preserve edited plans and prior sessions.
- if(hadSavedState && state.ftsWorkoutImportVersion!==1){
-  state.templates=mergeFtsWorkouts(state.templates);
-  state.ftsWorkoutImportVersion=1;
+ // One-time expansion to fifteen FTS programmes, including users who already imported 1–4.
+ // Preserve modified templates, active workouts, personal plans and workout history.
+ if(hadSavedState && state.ftsWorkoutImportVersion!==2){
+  state.templates=mergeFtsWorkoutExpansion(state.templates);
+  state.ftsWorkoutImportVersion=2;
   await put('state',state);
  }
  if(state.session&&(!Array.isArray(state.session.exercises)||!Number.isFinite(Number(state.session.startedAt)))){
