@@ -2347,3 +2347,18 @@ export const FTS_ADDITIONAL_WORKOUTS = [
     ]
   }
 ];
+
+/**
+ * Insert workouts 5–15 after any existing workouts 1–4.
+ * Never overwrite an already edited FTS workout or remove custom plans.
+ * A second migration run should be idempotent.
+ */
+export function mergeAdditionalFtsWorkouts(existing) {
+  const current=Array.isArray(existing)?existing:[];
+  const extras=new Set(FTS_ADDITIONAL_WORKOUTS.map(plan=>plan.id));
+  const firstFour=current.filter(plan=>/^fts-workout-[1-4]$/.test(plan?.id||''));
+  const byId=new Map(current.map(plan=>[plan?.id,plan]));
+  const imported=FTS_ADDITIONAL_WORKOUTS.map(plan=>byId.get(plan.id)||structuredClone(plan));
+  const others=current.filter(plan=>!extras.has(plan?.id)&&!firstFour.includes(plan));
+  return [...firstFour,...imported,...others];
+}
