@@ -55,11 +55,11 @@ test('migration is idempotent and preserves previously edited plans and unrelate
   {id:'B',name:'Legacy',items:[]}
  ];
  const result=mergeAdditionalFtsWorkouts(prior);
- assert.equal(result.length,14);
+ assert.equal(result.length,15);
  assert.deepEqual(result.slice(0,2),prior.slice(0,2));
  assert.equal(result[2],prior[2],'edited workout 5 is retained');
- assert.equal(result[13],prior[4]);
- assert.equal(result[12],prior[3]);
+ assert.equal(result[14],prior[4]);
+ assert.equal(result[13],prior[3]);
  assert.deepEqual(result.map(t=>t.id).slice(0,13),['fts-workout-1','fts-workout-2',...FTS_ADDITIONAL_WORKOUTS.map(t=>t.id)]);
  const again=mergeAdditionalFtsWorkouts(result);
  assert.deepEqual(again,result);
