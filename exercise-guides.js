@@ -1,3 +1,4 @@
+import {getCuratedExerciseVideo} from './exercise-videos.js';
 // Offline-first exercise technique reference. Content is brief coaching guidance,
 // not an automatic prescription or personal medical advice. Nothing is persisted.
 // Video IDs below were checked against original Muscle & Strength guide embeds,
@@ -35,10 +36,20 @@ const byName=new Map();
 function key(value){return String(value||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim();}
 for(const guide of GUIDES){for(const name of guide.names){byName.set(key(name),guide);}}
 export function getExerciseGuide(name){return byName.get(key(name))||null;}
-export function getExerciseVideoUrl(name){
+// Curated exact-match videos take precedence over the original verified M&S embeds.
+// Unknown custom movements and specialised variants never inherit a misleading clip.
+export function getExerciseVideoDetails(name){
+ const matched=getCuratedExerciseVideo(name);
+ if(matched)return matched;
  const video=getExerciseGuide(name)?.video;
- return video && /^[A-Za-z0-9_-]{11}$/.test(video)?'https://www.youtube-nocookie.com/embed/'+video+'?rel=0':null;
+ return video && /^[A-Za-z0-9_-]{11}$/.test(video)
+  ? {id:video,title:String(name||'Exercise')+' demonstration',creator:'Muscle & Strength'}
+  : null;
+}
+export function getExerciseVideoUrl(name){
+ const id=getExerciseVideoDetails(name)?.id;
+ return id?'https://www.youtube-nocookie.com/embed/'+id+'?rel=0':null;
 }
 export function getExerciseSearchUrl(name){
- return 'https://www.youtube.com/results?search_query='+encodeURIComponent(String(name||'').slice(0,120)+' exercise technique Muscle and Strength');
+ return 'https://www.youtube.com/results?search_query='+encodeURIComponent(String(name||'').slice(0,120)+' exercise technique tutorial');
 }
