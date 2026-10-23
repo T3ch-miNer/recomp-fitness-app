@@ -20,7 +20,15 @@
 2. In D1 → `recomp-catalogue` → **Console**, execute the SQL in [migrations/0001_catalogues.sql](migrations/0001_catalogues.sql) to create the 3 tables. Alternatively, copy `wrangler.toml.example` to `wrangler.toml`, fill in the genuine D1 UUID, and run `npx wrangler d1 migrations apply recomp-catalogue --remote` from the `catalogue-worker` directory after checking the target database.
 3. Create a **new** Worker named `recomp-catalogue`, deploy the contents of [worker.js](worker.js) through the code editor or Wrangler, and attach the D1 database under **Settings → Bindings → D1 database**. Set the binding variable name to exactly `CATALOGUE_DB`.
 4. Visit your Worker's `https://YOUR-CATALOGUE-WORKER.YOUR-SUBDOMAIN.workers.dev/health`; `database:true` means the binding is visible. Then open `/v1/catalogue`. Initially, the response has empty `foods`, `workouts` and `exercises` arrays.
-5. After v2.8 is published, connect the public `https://YOUR-CATALOGUE-WORKER.YOUR-SUBDOMAIN.workers.dev/v1/catalogue` address under **Recomp → Settings → Data & privacy**. Tap **Check for updates** after editing rows in Cloudflare.
+5. **Import Recomp's existing foods and workouts** so the new online database is not empty. In the repository checkout, run:
+
+   ```bash
+   node catalogue-worker/scripts/build-seed.mjs > catalogue-worker/seed-catalogue.sql
+   npx wrangler d1 execute recomp-catalogue --remote --file=catalogue-worker/seed-catalogue.sql
+   ```
+
+   The generated seed contains the existing recipe estimates, FTS workout plans and their exercise entries. The `INSERT OR IGNORE` statements will not overwrite later edits made in D1. If your Cloudflare account is not configured for Wrangler, you can instead copy small batches of the SQL into the D1 Console. **Never paste account tokens into the app or repository.**
+6. After v2.8 is published, connect the public `https://YOUR-CATALOGUE-WORKER.YOUR-SUBDOMAIN.workers.dev/v1/catalogue` address under **Recomp → Settings → Data & privacy**. Tap **Check for updates** after editing rows in Cloudflare.
 
 Do not replace or redeploy the working `recomp-food-ai` meal scanner to do this. The online catalogue is a separate service.
 
