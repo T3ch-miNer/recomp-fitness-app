@@ -110,8 +110,8 @@ test('bundled foods, FTS plans and exercise entries can be seeded into D1 withou
  const generator=new URL('../catalogue-worker/scripts/build-seed.mjs',import.meta.url);
  const sql=execFileSync(process.execPath,[generator.pathname],{encoding:'utf8'});
  assert.match(sql,/^-- Recomp public catalogue seed/);
- assert.match(sql,/BEGIN TRANSACTION;/);
- assert.match(sql,/COMMIT;/);
+ assert.doesNotMatch(sql,/^\s*BEGIN(?:\s+TRANSACTION)?\s*;/m,'D1 import must not contain explicit transactions');
+ assert.doesNotMatch(sql,/^\s*COMMIT\s*;/m,'D1 import must not contain explicit COMMIT');
  const foodRows=(sql.match(/INSERT OR IGNORE INTO foods /g)||[]).length;
  const workouts=(sql.match(/INSERT OR IGNORE INTO workout_plans /g)||[]).length;
  const exercises=(sql.match(/INSERT OR IGNORE INTO exercises /g)||[]).length;
