@@ -9,6 +9,7 @@ import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
+import {getOnlineCatalogUrl,saveOnlineCatalogUrl,getOnlineWorkouts,loadCachedOnlineCatalog,refreshOnlineCatalog} from './online-catalog.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
@@ -116,6 +117,7 @@ const INITIAL = () => ({
 });
 let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
+let onlineLibraryStatus='';
 let settingsCloudOpen=false;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
