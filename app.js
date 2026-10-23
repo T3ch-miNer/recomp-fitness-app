@@ -1018,6 +1018,24 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'manual-food':{const meal=modal?.meal||foodMeal;await leaveFoodModal();modal={type:'food',meal};render();break;}
  case 'add-food':launchNutrition('search',el.dataset.meal,nutritionPanel==='diary'?diaryDate:today());break;
   case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
+ case 'configure-catalogue':modal={type:'catalogue'};render();break;
+ case 'refresh-catalogue':void refreshOnlineCatalogue();break;
+ case 'import-online-workout':{
+  const plan=onlineCatalogue.workouts.find(p=>p.id===el.dataset.id);
+  if(!plan)throw Error('The online plan is unavailable.');
+  if(state.templates.some(t=>t.catalogSourceId===plan.id)){notify('Already imported. Update your copy instead.');break;}
+  state.templates.push({id:'online-'+uid(),catalogSourceId:plan.id,name:plan.name,subtitle:plan.subtitle,items:structuredClone(plan.items)});
+  await commit();notify('Online plan added to your workouts. Customise it privately.');break;
+ }
+ case 'update-online-workout':{
+  const plan=onlineCatalogue.workouts.find(p=>p.id===el.dataset.id);
+  const mine=state.templates.find(t=>t.catalogSourceId===el.dataset.id);
+  if(!plan||!mine)throw Error('Online workout copy not found.');
+  if(!await confirmInApp('Replace the exercises in your imported copy with the latest online plan? Previously completed sessions remain unchanged.',{title:'Update imported plan?',approveLabel:'Update plan',danger:false}))break;
+  const index=state.templates.findIndex(t=>t.id===mine.id);
+  state.templates[index]={...mine,name:plan.name,subtitle:plan.subtitle,items:structuredClone(plan.items)};
+  await commit();notify('Workout plan updated. Past sessions are unchanged.');break;
+ }
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
  case 'add-photo':modal={type:'photo'};render();break;
@@ -1134,6 +1152,13 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-catalogue-settings'){
+  const endpoint=saveCatalogueUrl(data.get('endpoint'));
+  onlineCatalogue={foods:[],workouts:[],exercises:[]};applyOnlineFoods([]);catalogueState='local';catalogueError='';
+  modal=null;render();
+  if(endpoint)void hydrateOnlineCatalogue();
+  notify(endpoint?'Online catalogue connection saved.':'Online catalogue disconnected. Offline foods remain available.');return;
+ }
  if(id==='form-edit-food'){
   const original=state.food.find(item=>item.id===modal?.id);
   if(!original)throw Error('This food entry no longer exists.');
@@ -1569,6 +1594,7 @@ async function init(){try{
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
+ void hydrateOnlineCatalogue();
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
