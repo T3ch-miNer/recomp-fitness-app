@@ -1,0 +1,15 @@
+/* v2.8 online public catalogues. The private diary and custom plans remain local. */
+.online-catalogue-settings{margin:0 0 14px;padding:18px;display:grid;gap:10px}
+.online-catalogue-settings .row.space{align-items:flex-start;gap:12px;flex-wrap:wrap}
+.online-catalogue-settings .small{margin:7px 0 0;line-height:1.5}
+.online-catalogue-settings .pill{white-space:nowrap}
+.online-catalogue-settings .hint{margin:0;line-height:1.6}
+.online-workouts{margin:25px 0 24px}
+.online-workouts .section-head{gap:12px;flex-wrap:wrap}
+.online-workouts .hint{margin:6px 0 0;line-height:1.5}
+.online-workout-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.online-workout-card{display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-width:0}
+.online-workout-card h3{font-family:var(--font-display,inherit);margin:8px 0 5px;font-size:17px;letter-spacing:-.03em}
+.online-workout-card .small{line-height:1.6}
+.online-workout-card .btn{width:100%;min-height:44px}
+@media(max-width:520px){.online-catalogue-settings{padding:15px}.online-workout-grid{grid-template-columns:minmax(0,1fr)}}
