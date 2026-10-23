@@ -340,8 +340,29 @@ function compute(recipe){
 }
 // Guard catalogue IDs so logged historical food references cannot be made ambiguous.
 if(new Set(RECIPES.map(recipe=>recipe[0])).size!==RECIPES.length)throw new Error('Duplicate food recipe ID');
-export const FOOD_ITEMS=Object.freeze(RECIPES.map(compute));
-export const FOOD_COUNT=FOOD_ITEMS.length;
+// Built-in recipes remain available offline. A validated public catalogue can
+// add/override reference foods in memory without touching any saved diary entries.
+const BUNDLED_FOOD_ITEMS=Object.freeze(RECIPES.map(compute));
+export let FOOD_ITEMS=BUNDLED_FOOD_ITEMS;
+export let FOOD_COUNT=FOOD_ITEMS.length;
+export function applyOnlineFoods(remote){
+ if(!Array.isArray(remote)||remote.length>2000)throw Error('Online food library is too large.');
+ const indexed=new Map(BUNDLED_FOOD_ITEMS.map(item=>[item.id,item]));
+ for(const item of remote){
+  if(!item||typeof item.id!=='string'||!/^[a-z0-9][a-z0-9._-]{1,79}$/i.test(item.id)||
+     typeof item.name!=='string'||item.name.length<2||item.name.length>120||
+     typeof item.category!=='string'||item.category.length>80||
+     !Array.isArray(item.aliases)||item.aliases.length>20||
+     !Number.isFinite(Number(item.defaultGrams))||Number(item.defaultGrams)<1||Number(item.defaultGrams)>5000||
+     !item.per100||['calories','protein','carbs','fat','fibre'].some(k=>typeof item.per100[k]!=='number'||!Number.isFinite(item.per100[k])||item.per100[k]<0||item.per100[k]>1200))
+   throw Error('Invalid online food catalogue record.');
+  indexed.set(item.id,Object.freeze({...item,source:String(item.source||'Recomp online reference').slice(0,120)}));
+ }
+ FOOD_ITEMS=Object.freeze([...indexed.values()]);
+ FOOD_COUNT=FOOD_ITEMS.length;
+ return FOOD_COUNT;
+}
+
 export function findFood(id){return FOOD_ITEMS.find(item=>item.id===id)||null;}
 function normalise(text){return String(text??'').toLocaleLowerCase('en').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 export function searchFoods(query,limit=24){
