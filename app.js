@@ -639,6 +639,11 @@ function settingsView(){
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
 
+<div class="card online-catalogue-settings"><div class="row space"><div><h3 class="section-title">Online food &amp; workout catalogue</h3><p class="small muted">${escapeHtml(onlineCatalogueStatus())}</p></div><span class="pill">Public catalogue</span></div>
+<p class="hint">Shared catalogues update through Cloudflare D1 without an app release. Your food diary and personal workout history remain private on this device.</p>
+${catalogueError?`<p class="hint" role="status">${escapeHtml(catalogueError)}</p>`:''}
+<div class="row wrap"><button type="button" class="btn" data-action="configure-catalogue">${svg('settings','tiny-icon')} ${getCatalogueUrl()?'Change URL':'Connect catalogue'}</button>
+${getCatalogueUrl()?'<button type="button" class="btn" data-action="refresh-catalogue">Check for updates</button>':''}</div></div>
 <div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
@@ -775,6 +780,11 @@ if(modal.type==='barcode-portion')return barcodePortionView();
 if(modal.type==='food-photo')return photoMealView();
 if(modal.type==='food-search')return foodSearchView();
 if(modal.type==='food-portion')return foodPortionView();
+if(modal.type==='catalogue')return modalShell('Connect online catalogues',
+ `<p class="small muted">Enter your public Cloudflare catalogue Worker URL. Personal data is never uploaded.</p>
+ ${modalField('endpoint','Public catalogue URL',getCatalogueUrl(),'url','placeholder="https://your-worker.workers.dev/v1/catalogue" autocomplete="url"')}
+ <p class="hint">URL must end in /v1/catalogue. Clear it to disconnect; your bundled offline foods remain.</p>`,
+ 'form-catalogue-settings','Save connection');
 if(modal.type==='edit-food'){
  const entry=state.food.find(item=>item.id===modal.id);
  if(!entry)return modalShell('Food not found','<p class="hint">This entry was deleted. Close and refresh the diary.</p>');
