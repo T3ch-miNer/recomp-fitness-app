@@ -1,0 +1,14 @@
+/* v2.9 public food and workout library (personal history is never uploaded) */
+.settings-online-catalog{display:grid;gap:12px;margin-bottom:16px}
+.settings-online-catalog .row{flex-wrap:wrap}
+.settings-online-catalog .small,.settings-online-catalog .hint{margin:0;line-height:1.6;overflow-wrap:anywhere}
+.online-workout-library{margin:18px 0 24px}
+.online-workout-library>.row{margin-bottom:12px}
+.online-workout-library .section-title{margin:5px 0 0}
+.online-workout-row{gap:13px;min-width:0}
+.online-workout-row>b{overflow-wrap:anywhere}
+.online-workout-row .btn{flex:none;min-height:43px}
+@media(max-width:385px){
+ .online-workout-row{align-items:flex-start;flex-wrap:wrap}
+ .online-workout-row .btn{width:100%}
+}
