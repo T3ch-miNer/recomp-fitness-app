@@ -340,8 +340,23 @@ function compute(recipe){
 }
 // Guard catalogue IDs so logged historical food references cannot be made ambiguous.
 if(new Set(RECIPES.map(recipe=>recipe[0])).size!==RECIPES.length)throw new Error('Duplicate food recipe ID');
-export const FOOD_ITEMS=Object.freeze(RECIPES.map(compute));
-export const FOOD_COUNT=FOOD_ITEMS.length;
+const BUNDLED_FOOD_ITEMS=Object.freeze(RECIPES.map(compute));
+export let FOOD_ITEMS=BUNDLED_FOOD_ITEMS;
+export let FOOD_COUNT=FOOD_ITEMS.length;
+/** Online foods overlay shipped estimates only while the browser is connected.
+ *  IDs remain stable; saved diary entries already have their own nutrient snapshot.
+ *  Removing the remote connection restores the bundled food catalogue.
+ */
+export function applyOnlineFoods(items=[]){
+ const catalog=new Map(BUNDLED_FOOD_ITEMS.map(item=>[item.id,item]));
+ for(const item of items){
+  if(!item||typeof item.id!=='string'||!item.id||typeof item.name!=='string'||!item.per100)continue;
+  catalog.set(item.id,Object.freeze({...item,per100:Object.freeze({...item.per100})}));
+ }
+ FOOD_ITEMS=Object.freeze([...catalog.values()]);
+ FOOD_COUNT=FOOD_ITEMS.length;
+ return FOOD_COUNT;
+}
 export function findFood(id){return FOOD_ITEMS.find(item=>item.id===id)||null;}
 function normalise(text){return String(text??'').toLocaleLowerCase('en').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 export function searchFoods(query,limit=24){
