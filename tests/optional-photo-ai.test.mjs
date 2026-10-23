@@ -292,6 +292,6 @@ test('food-photo review never autosaves suggestions and retains free manual path
  assert.ok(!/localStorage\.setItem\([^\n]*accessToken/.test(clientSource),'the private token must not be persisted');
  assert.match(styles,/nf-ai-dish/);
  assert.match(sw,/'\.\/photo-ai\.js'/);
- assert.match(html,/2\.8-history-preview/);
+ assert.match(html,/2\.8-online-catalogue-preview/);
  assert.match(gitignore,/photo-scan-worker\/\.dev\.vars/);
 });
