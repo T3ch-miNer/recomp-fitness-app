@@ -7,13 +7,14 @@ import {renderGiantSetView} from './giant-set-view.js';
 import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
-import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
+import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnlineFoods} from './food-db.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 import {FOOD_DIARY_MEALS,FOOD_DIARY_MACROS,validDiaryDate,shiftDiaryDate,diaryTotals,scaledDiaryMacros,updateDiaryEntry,repeatDiaryEntry} from './food-diary.js';
+import {getCatalogueUrl,saveCatalogueUrl,cachedCatalogue,fetchCatalogue} from './catalogue-client.js';
 
 const $ = s => document.querySelector(s);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -126,6 +127,7 @@ let mealGuideActionsId=null,mealGuideHoldTimer=null,mealGuideHoldPoint=null;
 let guideStream=null,guideView='Front',guideDate=today(),compareView='Front';
 let foodMenuOpen=false;
 let diaryDate=today(); // History browsing does not overwrite today's nutrition or saved records.
+let onlineCatalogue={foods:[],workouts:[],exercises:[]},catalogueState='local',catalogueError='';
 // Transient camera/photo state. Food photographs are never written to IndexedDB or uploaded.
 let barcodeStream=null,barcodeFrame=0,barcodeBusy=false,barcodeLastRead=0;
 let foodPhotoUrl=null,photoMealItems=[],photoSearchQuery='';
@@ -550,6 +552,41 @@ function updateCompare(){
  where.innerHTML=`<div class="compare-head"><span>${dateDisplay(a.date)}</span><span>${dateDisplay(b.date)}</span></div><div class="photo-compare-stage" aria-label="Before and after photo slider"><img class="compare-photo" src="${u2}" alt="After photograph"/><div id="compare-before-layer" class="compare-before-layer"><img class="compare-photo" src="${u1}" alt="Before photograph"/></div><div class="compare-handle" id="compare-handle"></div></div><label class="label" for="compare-range">Slide to reveal your progress</label><input id="compare-range" class="input-compare-range" type="range" min="0" max="100" value="50" aria-label="Reveal before or after photo"/>`;
 }
 function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Receipts.','The mirror lies. The tape measure does not.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart','',weightDeltaQuip(state.weights))}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep (relaxed)'],['leftBicep','Left bicep (relaxed)'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weightChart(weights)}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weigh-in goes here. The scale is nervous too.</p>'}</div>`:photosView()}`;}
+
+function applyCatalogue(payload,origin){
+ onlineCatalogue=payload;applyOnlineFoods(payload.foods);catalogueState=origin;catalogueError='';
+ if(state&&!modal&&['nutrition','workouts','settings'].includes(tab))render();
+}
+async function refreshOnlineCatalogue(){
+ const endpoint=getCatalogueUrl();
+ if(!endpoint){catalogueState='local';catalogueError='';onlineCatalogue={foods:[],workouts:[],exercises:[]};applyOnlineFoods([]);if(state)render();return;}
+ catalogueState='checking';catalogueError='';
+ if(state&&!modal&&['nutrition','workouts','settings'].includes(tab))render();
+ try{const data=await fetchCatalogue(endpoint);if(getCatalogueUrl()===endpoint)applyCatalogue(data,'online');}
+ catch(error){if(getCatalogueUrl()!==endpoint)return;catalogueState=onlineCatalogue.foods.length||onlineCatalogue.workouts.length?'offline':'unavailable';catalogueError=String(error?.message||'Catalogue unavailable.').slice(0,140);if(state&&!modal&&['nutrition','workouts','settings'].includes(tab))render();}
+}
+async function hydrateOnlineCatalogue(){
+ const endpoint=getCatalogueUrl();if(!endpoint)return;
+ const cached=await cachedCatalogue(endpoint);
+ if(getCatalogueUrl()!==endpoint)return;
+ if(cached)applyCatalogue(cached,'cached');
+ void refreshOnlineCatalogue();
+}
+function onlineCatalogueStatus(){
+ if(!getCatalogueUrl())return 'Not connected · built-in offline foods and workouts remain available';
+ const counts=onlineCatalogue.foods.length+' online foods · '+onlineCatalogue.workouts.length+' workout plans · '+onlineCatalogue.exercises.length+' exercises';
+ return (catalogueState==='online'?'Up to date':catalogueState==='cached'?'Saved offline copy':catalogueState==='checking'?'Checking updates':catalogueState==='offline'?'Offline · using saved catalogue':'Connection unavailable')+' · '+counts;
+}
+function onlineWorkoutsView(){
+ if(!getCatalogueUrl()||!onlineCatalogue.workouts.length)return '';
+ return `<section class="online-workouts" aria-label="Online workout plans">
+  <div class="section-head"><div><h2 class="section-title">Online workout library</h2><p class="hint">New plans appear here without an app update. Import a copy before training.</p></div><button type="button" class="btn" data-action="refresh-catalogue">Refresh</button></div>
+  <div class="online-workout-grid">${onlineCatalogue.workouts.slice(0,24).map(plan=>{
+   const imported=state.templates.some(t=>t.catalogSourceId===plan.id);
+   return `<div class="card online-workout-card"><div><span class="eyebrow">ONLINE PROGRAMME</span><h3>${escapeHtml(plan.name)}</h3><p class="small muted">${plan.items.length} exercises · ${escapeHtml(plan.subtitle)}</p></div>
+    <button type="button" class="btn ${imported?'':'primary'}" data-action="${imported?'update-online-workout':'import-online-workout'}" data-id="${escapeHtml(plan.id)}">${imported?'Update my copy':'Add to my plans'}</button></div>`;
+  }).join('')}</div></section>`;
+}
 function workoutView(){
  const activeSession=state.session;
  if(activeSession&&!activeSession.minimized)return activeWorkoutView();
@@ -558,7 +595,8 @@ function workoutView(){
  ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div><button class="btn" data-action="create-template">${svg('plus','tiny-icon')} New plan</button></div>
  ${state.templates.map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button></div></div>`).join('')}
- <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
+ ${onlineWorkoutsView()}
+  <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
 
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
