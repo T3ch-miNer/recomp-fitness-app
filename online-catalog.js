@@ -71,6 +71,6 @@ export async function refreshOnlineCatalog({fetchImpl=fetch,write=put,timeoutMs=
   await write(CACHE,{url,data,savedAt:new Date().toISOString()}).catch(()=>{});
   return {...result,updated:true};
  }catch(error){
-  return {status:'offline',message:String(error.message||'Could not reach content library.'),...info,updated:false};
+  return {...info,status:'offline',message:String(error.message||'Could not reach content library.'),updated:false};
  }finally{clearTimeout(timer);}
 }
