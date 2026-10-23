@@ -552,6 +552,12 @@ function settingsView(){
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
 
+<div class="card settings-online-catalog" aria-label="Online food and workout library">
+ <div class="row space"><b>Online food &amp; workout library</b><span class="pill">${getOnlineCatalogUrl()?'Connected':'Optional'}</span></div>
+ <p class="small muted">Download public recipes and workout plans from your Cloudflare D1 library. Bundled recipes still work offline. Your personal diary and training history are never uploaded.</p>
+ <p class="hint">${escapeHtml(onlineLibraryStatus||(getOnlineCatalogUrl()?'Endpoint: '+getOnlineCatalogUrl():'No catalogue API connected yet. Offline foods remain available.'))}</p>
+ <div class="row wrap"><button type="button" class="btn" data-action="online-catalog-setup">${svg('settings','tiny-icon')} Configure library</button>
+ <button type="button" class="btn" data-action="online-catalog-refresh" ${getOnlineCatalogUrl()?'':'disabled'}>${svg('refresh','tiny-icon')} Check for updates</button></div></div>
 <div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
@@ -688,7 +694,12 @@ if(modal.type==='meal-guide-item'){
  const group=item?.group||'Breakfast',label=item?.label||'',description=item?.description||'';
  return modalShell(item?'Edit guide entry':'Add guide entry',`<div class="field"><label class="label" for="guide-group">Meal</label><select class="input" id="guide-group" name="group">${['Breakfast','Lunch & Dinner'].map(g=>`<option value="${g}" ${g===group?'selected':''}>${g}</option>`).join('')}</select></div>${modalField('label','Title',label,'text','required maxlength="50" placeholder="e.g. Protein foods"')}<div class="field"><label class="label" for="guide-description">Portions / options</label><textarea class="input" id="guide-description" name="description" rows="3" maxlength="350" required placeholder="e.g. 2 rotis or 150 g cooked rice">${escapeHtml(description)}</textarea></div><p class="hint">Reference only. No food entries or calorie targets are changed.</p>`,'form-meal-guide-item',item?'Save changes':'Add to guide');
 }
-if(modal.type==='barcode')return barcodeView();
+if(modal.type==='online-catalog')return modalShell('Online content library',
+ `<p class="hint">Enter the public URL of your own content Worker (not your Hugging Face Worker). No admin secret is entered in Recomp.</p>
+ ${modalField('url','Public catalogue URL',getOnlineCatalogUrl(),'url','placeholder="https://your-worker.workers.dev/v1/catalog" autocomplete="url"')}
+ <p class="hint">Recipes update when Recomp opens and remain usable offline. Changes to existing workout plans require confirmation.</p>`,
+ 'form-online-catalog','Save library URL');
+ if(modal.type==='barcode')return barcodeView();
 if(modal.type==='barcode-portion')return barcodePortionView();
 if(modal.type==='food-photo')return photoMealView();
 if(modal.type==='food-search')return foodSearchView();
