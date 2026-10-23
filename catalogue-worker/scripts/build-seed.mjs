@@ -2,6 +2,7 @@
 // Run: node catalogue-worker/scripts/build-seed.mjs > catalogue-worker/seed-catalogue.sql
 // Then import the generated SQL in Cloudflare D1 (or Wrangler d1 execute --file).
 // INSERT OR IGNORE preserves owner edits if a seed is accidentally rerun.
+// D1 imports reject explicit BEGIN/COMMIT; Wrangler handles statement execution.
 import {FOOD_ITEMS} from '../../food-db.js';
 import {FTS_WORKOUTS} from '../../fts-workouts.js';
 const q=value=>"'"+String(value??'').replaceAll("'","''")+"'";
@@ -11,8 +12,7 @@ const val=value=>{
  return n;
 };
 const sql=['-- Recomp public catalogue seed. Estimates are for review, not lab-verified.',
- '-- Import only into your public recomp-catalogue database; never into personal-data tables.',
- 'BEGIN TRANSACTION;'];
+ '-- Import only into your public recomp-catalogue database; never into personal-data tables.'];
 for(const food of FOOD_ITEMS){
  const p=food.per100;
  sql.push('INSERT OR IGNORE INTO foods (id,name,category,aliases,default_grams,calories,protein,carbs,fat,fibre,source) VALUES ('+
@@ -37,6 +37,5 @@ for(const [id,{name,guidance}] of exercises){
  sql.push('INSERT OR IGNORE INTO exercises (id,name,muscle_group,equipment,guidance) VALUES ('+
  [q(id),q(name),q(''),q(''),q(guidance)].join(',')+');');
 }
-sql.push('COMMIT;');
 process.stdout.write(sql.join('\n')+'\n');
 process.stderr.write('Generated seed: '+FOOD_ITEMS.length+' foods, '+FTS_WORKOUTS.length+' workout plans, '+exercises.size+' exercise entries.\n');
