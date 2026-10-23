@@ -34,7 +34,7 @@ test('catalogue validation excludes invalid and oversized foods while keeping va
  const result=client.normaliseCatalogue({...response,foods:[sampleFood,{...sampleFood,id:'bad-macro',per100:{...sampleFood.per100,calories:-1}}]});
  assert.equal(result.foods.length,1);assert.equal(result.workouts.length,1);assert.equal(result.exercises.length,1);
  assert.throws(()=>client.normaliseCatalogue({foods:[],workouts:[],exercises:[]}),/version 1/);
- assert.throws(()=>client.normaliseCatalogue({...response,workouts:[{...sampleWorkout,items:[['untrusted', 'Bad',-1,0,0,0,[]]]}]}),/./);
+ assert.equal(client.normaliseCatalogue({...response,workouts:[{...sampleWorkout,items:[['untrusted','Bad',-1,0,0,0,[]]]}]}).workouts.length,0);
 });
 test('remote catalogue fetch is GET-only and cached for offline re-use',async()=>{
  let cacheKey,cache;
