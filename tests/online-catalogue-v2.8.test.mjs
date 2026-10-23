@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import * as client from '../catalogue-client.js';
 import * as foods from '../food-db.js';
 import {handleCatalogue} from '../catalogue-worker/worker.js';
@@ -103,4 +104,19 @@ test('client preserves privacy and allows catalogued plans to be imported with e
  assert.match(sw,/catalogue-client\.js/);
  assert.match(sw,/online-catalogue\.css/);
  assert.ok(!root('catalogue-worker/worker.js').includes('SCAN_ACCESS_TOKEN'));
+});
+
+test('bundled foods, FTS plans and exercise entries can be seeded into D1 without overwriting later edits',()=>{
+ const generator=new URL('../catalogue-worker/scripts/build-seed.mjs',import.meta.url);
+ const sql=execFileSync(process.execPath,[generator.pathname],{encoding:'utf8'});
+ assert.match(sql,/^-- Recomp public catalogue seed/);
+ assert.match(sql,/BEGIN TRANSACTION;/);
+ assert.match(sql,/COMMIT;/);
+ const foodRows=(sql.match(/INSERT OR IGNORE INTO foods /g)||[]).length;
+ const workouts=(sql.match(/INSERT OR IGNORE INTO workout_plans /g)||[]).length;
+ const exercises=(sql.match(/INSERT OR IGNORE INTO exercises /g)||[]).length;
+ assert.ok(foodRows>=250,'bulk seed covers the existing recipe catalogue');
+ assert.ok(workouts>=1,'FTS workouts are included');
+ assert.ok(exercises>=10,'existing FTS exercise names are included');
+ assert.ok(!sql.includes('access_token'),'seed never embeds private tokens');
 });
