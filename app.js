@@ -927,7 +927,21 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'food-back':{const meal=modal?.meal||foodMeal,query=modal?.query||'';modal={type:'food-search',meal,query};render();break;}
  case 'manual-food':{const meal=modal?.meal||foodMeal;await leaveFoodModal();modal={type:'food',meal};render();break;}
  case 'add-food':launchNutrition('search',el.dataset.meal);break;
-  case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
+  case 'online-catalog-setup':modal={type:'online-catalog'};render();break;
+ case 'online-catalog-refresh':await syncOnlineContent(true);break;
+ case 'online-workout-import':
+ case 'online-workout-update':{
+  const plan=getOnlineWorkouts().find(p=>p.id===el.dataset.id);
+  if(!plan){notify('Refresh the online library first.');break;}
+  const existing=state.templates.find(t=>t.id===plan.id);
+  if(existing&&!await confirmInApp('Replace your saved “'+plan.name+'” template with the latest published version? Any personal edits to this template will be replaced, but your completed workouts remain unchanged.',{
+   title:'Apply online workout update?',approveLabel:'Replace template',danger:false}))break;
+  const updated=structuredClone(plan);
+  if(existing)state.templates=state.templates.map(t=>t.id===updated.id?updated:t);
+  else state.templates.push(updated);
+  await commit();notify(existing?'Workout template updated; history preserved.':'Online workout plan added.');break;
+ }
+ case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
  case 'add-photo':modal={type:'photo'};render();break;
@@ -1034,6 +1048,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-online-catalog'){saveOnlineCatalogUrl(String(data.get('url')||''));modal=null;await syncOnlineContent(true);render();return;}
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
   const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
@@ -1400,6 +1415,22 @@ function showUpdateNotice(){
  banner.append(message,button);
  document.body.appendChild(banner);
 }
+async function syncOnlineContent(showNotice=false){
+ if(!getOnlineCatalogUrl()){
+  onlineLibraryStatus='Content library is not configured.';
+  if(showNotice){notify(onlineLibraryStatus);render();}
+  return;
+ }
+ const result=await refreshOnlineCatalog();
+ if(result.status==='ready'){
+  onlineLibraryStatus='Library v'+result.version+' · '+result.foodCount+' foods (including offline recipes) · '+result.workoutCount+' published workouts';
+  if(showNotice)notify('Public library updated. Personal records were not changed.');
+ }else{
+  onlineLibraryStatus=result.message||'Could not reach online library; offline recipes are still available.';
+  if(showNotice)notify(onlineLibraryStatus);
+ }
+ if(!state.session||state.session.minimized)render();
+}
 async function init(){try{
  const saved=await get('state');
  const hadSavedState=Boolean(saved&&typeof saved==='object'&&!Array.isArray(saved));
@@ -1454,8 +1485,14 @@ async function init(){try{
  });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
- // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
+ // Public content sync runs after first paint and never delays offline diary access.
  render();
+ if(getOnlineCatalogUrl()){
+  loadCachedOnlineCatalog().then(res=>{
+   if(res.status==='ready'&&(!state.session||state.session.minimized))render();
+   return syncOnlineContent();
+  }).catch(()=>{onlineLibraryStatus='Offline foods remain available.';});
+ }
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
