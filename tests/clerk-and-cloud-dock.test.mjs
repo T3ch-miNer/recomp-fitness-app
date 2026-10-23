@@ -50,5 +50,5 @@ test('Clerk integration requires a public key; no secrets or record migration',(
  assert.ok(!/indexedDB|deleteDatabase|uploadSnapshot|downloadSnapshot/.test(clerk));
  assert.ok(!/fetch\(.*health/.test(clerk));
  assert.match(sw,/clerk-auth\.js/);
- assert.ok(markup.includes('src="./app.js?v=2.8.1-exercise-videos"'));
+ assert.ok(markup.includes('src="./app.js?v=2.9-online-content-preview"'));
 });

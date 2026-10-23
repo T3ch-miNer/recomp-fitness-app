@@ -94,6 +94,6 @@ test('one-time migration retains every pre-existing FTS edit and custom plan',()
 test('new and existing installs can load all fifteen plans offline',()=>{
  assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15\]\)/);
  assert.ok(worker.includes("'./fts-workouts-5-15.js'"));
- assert.ok(worker.includes("recomp-shell-v2.8.1-exercise-videos"));
- assert.ok(index.includes("app.js?v=2.8.1-exercise-videos"));
+ assert.ok(worker.includes("recomp-shell-v2.9-online-content-preview"));
+ assert.ok(index.includes("app.js?v=2.9-online-content-preview"));
 });

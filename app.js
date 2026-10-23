@@ -9,6 +9,7 @@ import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './food-db.js';
+import {getOnlineCatalogUrl,saveOnlineCatalogUrl,getOnlineWorkouts,loadCachedOnlineCatalog,refreshOnlineCatalog} from './online-catalog.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
@@ -116,6 +117,7 @@ const INITIAL = () => ({
 });
 let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
+let onlineLibraryStatus='';
 let settingsCloudOpen=false;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
@@ -486,6 +488,18 @@ function updateCompare(){
  where.innerHTML=`<div class="compare-head"><span>${dateDisplay(a.date)}</span><span>${dateDisplay(b.date)}</span></div><div class="photo-compare-stage" aria-label="Before and after photo slider"><img class="compare-photo" src="${u2}" alt="After photograph"/><div id="compare-before-layer" class="compare-before-layer"><img class="compare-photo" src="${u1}" alt="Before photograph"/></div><div class="compare-handle" id="compare-handle"></div></div><label class="label" for="compare-range">Slide to reveal your progress</label><input id="compare-range" class="input-compare-range" type="range" min="0" max="100" value="50" aria-label="Reveal before or after photo"/>`;
 }
 function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Receipts.','The mirror lies. The tape measure does not.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart','',weightDeltaQuip(state.weights))}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep (relaxed)'],['leftBicep','Left bicep (relaxed)'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weightChart(weights)}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weigh-in goes here. The scale is nervous too.</p>'}</div>`:photosView()}`;}
+function onlineWorkoutLibraryView(){
+ const remote=getOnlineWorkouts();
+ if(!remote.length)return '';
+ return `<section class="card online-workout-library" aria-label="Online workout catalogue">
+  <div class="row space"><div><div class="eyebrow">ONLINE LIBRARY</div><h2 class="section-title">Published workouts</h2></div><span class="pill">${remote.length} available</span></div>
+  <p class="small muted">Add a new template, or explicitly apply an update. Your completed sessions are never replaced.</p>
+  ${remote.map(plan=>{
+   const installed=state.templates.some(t=>t.id===plan.id);
+   return `<div class="list-entry online-workout-row"><div style="flex:1;min-width:0"><b>${escapeHtml(plan.name)}</b><div class="small muted">${plan.items.length} exercises · ${escapeHtml(plan.subtitle||'Updated online')}</div></div>
+   <button type="button" class="btn ghost" data-action="${installed?'online-workout-update':'online-workout-import'}" data-id="${escapeHtml(plan.id)}">${installed?'Apply update':'Add plan'}</button></div>`;
+  }).join('')}</section>`;
+}
 function workoutView(){
  const activeSession=state.session;
  if(activeSession&&!activeSession.minimized)return activeWorkoutView();
@@ -494,7 +508,8 @@ function workoutView(){
  ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div><button class="btn" data-action="create-template">${svg('plus','tiny-icon')} New plan</button></div>
  ${state.templates.map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="browse-template-videos" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled':''}>${svg('play','tiny-icon')} Videos</button></div></div>`).join('')}
- <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
+ ${onlineWorkoutLibraryView()}
+  <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
 
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
@@ -537,6 +552,12 @@ function settingsView(){
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
 
+<div class="card settings-online-catalog" aria-label="Online food and workout library">
+ <div class="row space"><b>Online food &amp; workout library</b><span class="pill">${getOnlineCatalogUrl()?'Connected':'Optional'}</span></div>
+ <p class="small muted">Download public recipes and workout plans from your Cloudflare D1 library. Bundled recipes still work offline. Your personal diary and training history are never uploaded.</p>
+ <p class="hint">${escapeHtml(onlineLibraryStatus||(getOnlineCatalogUrl()?'Endpoint: '+getOnlineCatalogUrl():'No catalogue API connected yet. Offline foods remain available.'))}</p>
+ <div class="row wrap"><button type="button" class="btn" data-action="online-catalog-setup">${svg('settings','tiny-icon')} Configure library</button>
+ <button type="button" class="btn" data-action="online-catalog-refresh" ${getOnlineCatalogUrl()?'':'disabled'}>${svg('refresh','tiny-icon')} Check for updates</button></div></div>
 <div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
@@ -673,7 +694,12 @@ if(modal.type==='meal-guide-item'){
  const group=item?.group||'Breakfast',label=item?.label||'',description=item?.description||'';
  return modalShell(item?'Edit guide entry':'Add guide entry',`<div class="field"><label class="label" for="guide-group">Meal</label><select class="input" id="guide-group" name="group">${['Breakfast','Lunch & Dinner'].map(g=>`<option value="${g}" ${g===group?'selected':''}>${g}</option>`).join('')}</select></div>${modalField('label','Title',label,'text','required maxlength="50" placeholder="e.g. Protein foods"')}<div class="field"><label class="label" for="guide-description">Portions / options</label><textarea class="input" id="guide-description" name="description" rows="3" maxlength="350" required placeholder="e.g. 2 rotis or 150 g cooked rice">${escapeHtml(description)}</textarea></div><p class="hint">Reference only. No food entries or calorie targets are changed.</p>`,'form-meal-guide-item',item?'Save changes':'Add to guide');
 }
-if(modal.type==='barcode')return barcodeView();
+if(modal.type==='online-catalog')return modalShell('Online content library',
+ `<p class="hint">Enter the public URL of your own content Worker (not your Hugging Face Worker). No admin secret is entered in Recomp.</p>
+ ${modalField('url','Public catalogue URL',getOnlineCatalogUrl(),'url','placeholder="https://your-worker.workers.dev/v1/catalog" autocomplete="url"')}
+ <p class="hint">Recipes update when Recomp opens and remain usable offline. Changes to existing workout plans require confirmation.</p>`,
+ 'form-online-catalog','Save library URL');
+ if(modal.type==='barcode')return barcodeView();
 if(modal.type==='barcode-portion')return barcodePortionView();
 if(modal.type==='food-photo')return photoMealView();
 if(modal.type==='food-search')return foodSearchView();
@@ -901,7 +927,21 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'food-back':{const meal=modal?.meal||foodMeal,query=modal?.query||'';modal={type:'food-search',meal,query};render();break;}
  case 'manual-food':{const meal=modal?.meal||foodMeal;await leaveFoodModal();modal={type:'food',meal};render();break;}
  case 'add-food':launchNutrition('search',el.dataset.meal);break;
-  case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
+  case 'online-catalog-setup':modal={type:'online-catalog'};render();break;
+ case 'online-catalog-refresh':await syncOnlineContent(true);break;
+ case 'online-workout-import':
+ case 'online-workout-update':{
+  const plan=getOnlineWorkouts().find(p=>p.id===el.dataset.id);
+  if(!plan){notify('Refresh the online library first.');break;}
+  const existing=state.templates.find(t=>t.id===plan.id);
+  if(existing&&!await confirmInApp('Replace your saved “'+plan.name+'” template with the latest published version? Any personal edits to this template will be replaced, but your completed workouts remain unchanged.',{
+   title:'Apply online workout update?',approveLabel:'Replace template',danger:false}))break;
+  const updated=structuredClone(plan);
+  if(existing)state.templates=state.templates.map(t=>t.id===updated.id?updated:t);
+  else state.templates.push(updated);
+  await commit();notify(existing?'Workout template updated; history preserved.':'Online workout plan added.');break;
+ }
+ case 'open-meal-planner':openMealPlanner({state,save:commit,log:async entries=>{state.food.push(...entries);await commit();},notify});break;
  case 'add-weight':modal={type:'weight'};render();break;
  case 'add-measurement':modal={type:'measurement'};render();break;
  case 'add-photo':modal={type:'photo'};render();break;
@@ -1008,6 +1048,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-online-catalog'){saveOnlineCatalogUrl(String(data.get('url')||''));modal=null;await syncOnlineContent(true);render();return;}
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
   const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
@@ -1374,6 +1415,22 @@ function showUpdateNotice(){
  banner.append(message,button);
  document.body.appendChild(banner);
 }
+async function syncOnlineContent(showNotice=false){
+ if(!getOnlineCatalogUrl()){
+  onlineLibraryStatus='Content library is not configured.';
+  if(showNotice){notify(onlineLibraryStatus);render();}
+  return;
+ }
+ const result=await refreshOnlineCatalog();
+ if(result.status==='ready'){
+  onlineLibraryStatus='Library v'+result.version+' · '+result.foodCount+' foods (including offline recipes) · '+result.workoutCount+' published workouts';
+  if(showNotice)notify('Public library updated. Personal records were not changed.');
+ }else{
+  onlineLibraryStatus=result.message||'Could not reach online library; offline recipes are still available.';
+  if(showNotice)notify(onlineLibraryStatus);
+ }
+ if(!state.session||state.session.minimized)render();
+}
 async function init(){try{
  const saved=await get('state');
  const hadSavedState=Boolean(saved&&typeof saved==='object'&&!Array.isArray(saved));
@@ -1428,8 +1485,14 @@ async function init(){try{
  });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
- // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
+ // Public content sync runs after first paint and never delays offline diary access.
  render();
+ if(getOnlineCatalogUrl()){
+  loadCachedOnlineCatalog().then(res=>{
+   if(res.status==='ready'&&(!state.session||state.session.minimized))render();
+   return syncOnlineContent();
+  }).catch(()=>{onlineLibraryStatus='Offline foods remain available.';});
+ }
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});

@@ -1,0 +1,15 @@
+# Copy to wrangler.toml inside catalog-api/ and fill in the database_id
+# returned by Cloudflare after you create the D1 database.
+name = "recomp-content-api"
+main = "worker.js"
+compatibility_date = "2026-10-23"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "recomp-content"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# NEVER put CATALOG_ADMIN_TOKEN here. Use:
+# npx wrangler secret put CATALOG_ADMIN_TOKEN
