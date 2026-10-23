@@ -1,0 +1,77 @@
+name: Build and verify public D1 catalogue seed
+
+on:
+  push:
+    branches:
+      - feature/v2.8-food-diary-history-20261020
+    paths:
+      - 'food-db.js'
+      - 'fts-workouts.js'
+      - 'catalogue-worker/**'
+      - 'tests/online-catalogue-v2.8.test.mjs'
+      - '.github/workflows/recomp-catalogue-seed.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Recomp preview branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate D1-compatible seed SQL
+        run: node catalogue-worker/scripts/build-seed.mjs > catalogue-worker/seed-catalogue.sql
+
+      - name: Verify SQL imports, expected rows and safe repeated seeding
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sqlite3, re
+          migration = Path('catalogue-worker/migrations/0001_catalogues.sql').read_text()
+          seed = Path('catalogue-worker/seed-catalogue.sql').read_text()
+          assert 'INSERT OR IGNORE INTO foods ' in seed
+          assert not re.search(r'^\s*(?:BEGIN(?:\s+TRANSACTION)?|COMMIT)\s*;', seed, re.M|re.I), 'D1 cannot import transaction wrapper'
+          assert not re.search(r'(?i)HF_TOKEN|SCAN_ACCESS_TOKEN|cloudflare_api_token', seed), 'Secrets must never be seeded'
+          db = sqlite3.connect(':memory:')
+          db.executescript(migration)
+          db.executescript(seed)
+          counts = {
+            table: db.execute('SELECT count(*) FROM '+table).fetchone()[0]
+            for table in ('foods', 'workout_plans', 'exercises')
+          }
+          assert counts['foods'] >= 250, counts
+          assert counts['workout_plans'] >= 1, counts
+          assert counts['exercises'] >= 10, counts
+          row = db.execute('SELECT id FROM foods LIMIT 1').fetchone()
+          assert row is not None
+          db.execute('UPDATE foods SET calories = 999 WHERE id = ?', (row[0],))
+          db.commit()
+          db.executescript(seed)
+          assert db.execute('SELECT calories FROM foods WHERE id = ?', (row[0],)).fetchone()[0] == 999, 'Seed overwrote owner edits'
+          for table in counts:
+            assert db.execute('SELECT count(*) FROM '+table).fetchone()[0] == counts[table], 'Seed added duplicate rows'
+          print('Seed validated, repeated safely, preserves owner edits:', counts)
+          with open('catalogue-worker/seed-summary.txt','w') as output:
+            for table, count in counts.items():
+              output.write(f'{table}: {count}\n')
+          PY
+
+      - name: Upload seed SQL and D1 schema
+        uses: actions/upload-artifact@v4
+        with:
+          name: recomp-catalogue-d1-seed
+          path: |
+            catalogue-worker/seed-catalogue.sql
+            catalogue-worker/seed-summary.txt
+            catalogue-worker/migrations/0001_catalogues.sql
+          retention-days: 30
+          if-no-files-found: error
