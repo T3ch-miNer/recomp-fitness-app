@@ -1,0 +1,13 @@
+name = "recomp-catalogue"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Copy this file to wrangler.toml and replace the database_id with the
+# UUID printed by 'npx wrangler d1 create recomp-catalogue'.
+# Do not commit credentials, API tokens or user diary data.
+[[d1_databases]]
+binding = "CATALOGUE_DB"
+database_name = "recomp-catalogue"
+database_id = "REPLACE_WITH_YOUR_DATABASE_UUID"
+migrations_dir = "migrations"
