@@ -9,7 +9,7 @@ assert.ok(begin>=0&&end>begin,'Settings component exists');
 const getView=new Function(
  'state','heading','svg','cloud','getClerkAccount','isClerkLoginAvailable',
  'isClerkDevelopmentMode','getClerkKey','escapeHtml','themeChoice',
- 'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen',
+ 'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen','onlineCatalogueStatus','getCatalogueUrl','catalogueError',
  app.slice(begin,end)+'\nreturn settingsView;'
 );
 function view({signedIn=true,draft=null,advanced=false}={}){
@@ -21,7 +21,7 @@ function view({signedIn=true,draft=null,advanced=false}={}){
  ()=>signedIn?{name:'Alex Taylor',email:'alex@example.com'}:null,
  ()=>true,()=>false,()=>true,
  s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
- ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced
+ ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,()=> 'Not connected',()=>'', ''
  );
  return client();
 }
@@ -63,5 +63,5 @@ test('responsive stylesheet is loaded and cached with the same release',()=>{
  assert.match(css,/\.settings-advanced-summary:focus-visible/);
  assert.match(htmlPage,/settings-layout\.css\?v=2\.7-settings-hub/);
  assert.match(sw,/settings-layout\.css/);
- assert.match(sw,/recomp-shell-v2\.8-history-preview/);
+ assert.match(sw,/recomp-shell-v2\.8-online-catalogue-preview/);
 });
