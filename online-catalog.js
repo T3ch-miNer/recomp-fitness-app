@@ -30,7 +30,7 @@ export function validatePublicCatalog(body){
  // Food details are validated by applyOnlineFoods, which is applied only after
  // the complete workout catalogue has also passed validation.
  const plans=body.workouts.map(plan=>{
-  if(!plan||typeof plan.id!=='string'||!\/^[a-z0-9][a-z0-9._-]{1,79}$/i.test(plan.id)||
+  if(!plan||typeof plan.id!=='string'||!/^[a-z0-9][a-z0-9._-]{1,79}$/i.test(plan.id)||
     typeof plan.name!=='string'||plan.name.length<2||plan.name.length>120||
     !Array.isArray(plan.items)||plan.items.length<1||plan.items.length>80||
     plan.items.some(e=>!Array.isArray(e)||e.length<6||typeof e[0]!=='string'||typeof e[1]!=='string'||
