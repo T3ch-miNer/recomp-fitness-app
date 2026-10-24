@@ -34,6 +34,7 @@ export function orderedWorkoutPlans(plans=[],history=[]){
 export function workoutHistoryHtml(history=[]){
  const sorted=[...history].sort((a,b)=>stamp(b)-stamp(a));
  return `<section class="history-screen" aria-labelledby="workout-history-title">
+ <button class="btn history-back" type="button" data-action="history-close">← Back to workout plans</button>
  <div class="history-page-head"><div class="eyebrow">TRAINING LOG</div><h1 class="page-title" id="workout-history-title">Workout history</h1><p class="muted small">${sorted.length} saved session${sorted.length===1?'':'s'} · newest first</p></div>
  ${sorted.length?sorted.map(entry=>{
  const exercises=Array.isArray(entry.exercises)?entry.exercises:[];
@@ -57,7 +58,7 @@ export function foodHistoryHtml(entries=[]){
   groups.get(date).push(item);
  }
  const dates=[...groups.keys()].sort((a,b)=>b.localeCompare(a));
- return `<section class="history-screen" aria-labelledby="food-history-title"><div class="history-page-head"><div class="eyebrow">FOOD DIARY</div><h1 class="page-title" id="food-history-title">Food history</h1><p class="muted small">${dates.length} logged day${dates.length===1?'':'s'} · newest first</p></div>
+ return `<section class="history-screen" aria-labelledby="food-history-title"><button class="btn history-back" type="button" data-action="history-close">← Back to food diary</button><div class="history-page-head"><div class="eyebrow">FOOD DIARY</div><h1 class="page-title" id="food-history-title">Food history</h1><p class="muted small">${dates.length} logged day${dates.length===1?'':'s'} · newest first</p></div>
  ${dates.length?dates.map((day,i)=>{
   const foods=groups.get(day),kcal=foods.reduce((sum,f)=>sum+amount(f.calories),0),protein=foods.reduce((sum,f)=>sum+amount(f.protein),0);
   return `<details class="history-record history-food-day" ${i===0?'open':''}><summary><span class="history-record-icon" aria-hidden="true">◷</span><span class="history-record-copy"><strong>${day==='Undated'?'Undated':safe(dateLabel(day))}</strong><small>${foods.length} food entr${foods.length===1?'y':'ies'} · ${Math.round(kcal).toLocaleString('en-GB')} kcal</small></span><span class="history-chevron" aria-hidden="true">⌄</span></summary>
