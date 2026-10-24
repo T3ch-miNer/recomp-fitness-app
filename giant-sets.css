@@ -51,3 +51,14 @@
 .giant-coach-notes summary{cursor:pointer;font-weight:700;color:var(--text)}
 .giant-coach-notes p{font-size:12px;color:var(--muted);white-space:pre-line;line-height:1.55;margin:10px 0 0}
 @media(max-width:370px){.giant-tracker-top{padding:12px}.giant-group-tabs button,.giant-round-tabs button{min-width:70px;padding:9px}.giant-exercise-top{padding:10px;gap:8px}}
+
+/* Mobile-friendly editing for user-created giant sets. Uses existing theme tokens. */
+.custom-group-tools{display:grid;gap:11px;margin:17px 0 0;padding:16px 0 0;border-top:1px solid var(--line)}
+.custom-group-tools .row p{margin:4px 0 0;line-height:1.5}
+.custom-group-tools .template-editor-row{min-width:0}
+.custom-group-tools .template-editor-info{min-width:0}
+.custom-group-members{display:grid;gap:6px;margin:6px 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:10px;max-height:250px;overflow-y:auto}
+.custom-group-members legend{padding:0 7px}
+.custom-group-members .check-task{margin:0;min-height:42px;display:flex;align-items:center;gap:10px;line-height:1.4}
+.custom-group-members .checkbox{flex:0 0 auto}
+@media(max-width:370px){.custom-group-tools .template-editor-row{flex-wrap:wrap}.custom-group-members{max-height:220px}}
