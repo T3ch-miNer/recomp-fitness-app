@@ -88,6 +88,8 @@ test('workout cards show only Start and Edit, keeping exercise videos inside the
  const editorView=app.slice(app.indexOf('function templateEditorView(t){'),app.indexOf('function pendingPlanSwitch('));
  assert.match(workoutView,/data-action="begin-template"/);
  assert.match(workoutView,/data-action="edit-template"/);
+ assert.match(workoutView,/Edit plan<\/button>/,'compact button label fits on mobile');
+ assert.doesNotMatch(workoutView,/Edit \/ giant sets<\/button>/);
  assert.doesNotMatch(workoutView,/data-action="browse-template-videos"/,
   'the workout cards must not contain a Videos button');
  assert.match(editorView,/data-action="browse-template-videos"/,
