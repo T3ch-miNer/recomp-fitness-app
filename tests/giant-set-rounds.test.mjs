@@ -10,6 +10,8 @@ const viewUrl='data:text/javascript;base64,'+Buffer.from(viewSource.replace("'./
 const {renderGiantSetView}=await import(viewUrl);
 const {FTS_WORKOUTS}=await import('data:text/javascript;base64,'+Buffer.from(read('fts-workouts.js')).toString('base64'));
 const app=read('app.js'),sw=read('sw.js'),css=read('giant-sets.css'),index=read('index.html');
+const {FTS_WORKOUTS_16_TO_41}=await import('data:text/javascript;base64,'+Buffer.from(read('fts-workouts-16-41.js')).toString('base64'));
+
 function sessionFromPlan(plan){
  return {name:plan.name,exercises:plan.items.map(item=>({
   id:item[0],name:item[1],restSeconds:item[5],alts:item[6],
@@ -25,6 +27,31 @@ test('real FTS leg day yields A1 A2 A3 rounds, B and C without mutating user dat
  assert.deepEqual(logic.firstIncompleteStep(groups),{group:'A',round:0,index:0});
  assert.deepEqual(session,before);
 });
+test('Workout 17 shows all four groups, with Group D as a single-round core finisher',()=>{
+ const plan=FTS_WORKOUTS_16_TO_41.find(t=>t.id==='fts-workout-17');
+ assert.ok(plan,'Workout 17 template exists');
+ const session=sessionFromPlan(plan);
+ const before=structuredClone(session);
+ const groups=logic.getGiantGroups(session);
+ assert.deepEqual(groups.map(g=>[g.id,g.items.length,g.rounds]),[['A',2,3],['B',2,3],['C',2,2],['D',3,1]]);
+ const d=groups.find(g=>g.id==='D');
+ assert.deepEqual(d.items.map(item=>item.exercise.name),['Crunches','Leg Raise','Russian Twists']);
+ assert.deepEqual(d.items.map(item=>item.exercise.sets[0].reps),[100,75,50]);
+ assert.equal(logic.ungroupedExerciseIndices(session,groups).length,0);
+ const chooser=renderGiantSetView(session);
+ assert.match(chooser,/data-group="D"/);
+ session.giantCursor={group:'D',round:0,index:d.items[0].index};
+ const finisher=renderGiantSetView(session);
+ assert.match(finisher,/Group D/);
+ assert.match(finisher,/Single-round finisher/);
+ assert.match(finisher,/1\/1/);
+ for(const name of ['Crunches','Leg Raise','Russian Twists'])assert.match(finisher,new RegExp(name));
+ assert.deepEqual(session.exercises,before.exercises,'rendering must not change the prescribed sets');
+ assert.equal(d.items[0].exercise.sets[0].done,false);
+ d.items[0].exercise.sets[0].done=true;
+ assert.equal(logic.nextIncompleteStep(groups,session.giantCursor).index,d.items[1].index);
+});
+
 test('completing A1 R1 advances to A2 R1, A3 R1, then A1 R2',()=>{
  const session=sessionFromPlan(FTS_WORKOUTS[0]),groups=logic.getGiantGroups(session),a=groups[0];
  let cursor=logic.firstIncompleteStep(groups);
