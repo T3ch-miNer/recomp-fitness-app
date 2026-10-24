@@ -675,6 +675,22 @@ if(modal.type==='video-library'){
  return modalShell('Exercise videos · '+escapeHtml(t.name),`<p class="hint">Open any exercise for a checked demonstration or a YouTube search for its precise variation. Videos load only when you press Play.</p><div class="template-editor-list">${entries||'<p class="hint">No exercises in this plan yet.</p>'}</div>`);
 }
 if(modal.type==='rename-template'){const t=templateById(modal.id);return t?modalShell('Rename workout plan',`${modalField('name','Workout name',t.name,'text','required maxlength="70"')}`,'form-rename-template','Rename plan'):'';}
+if(modal.type==='custom-giant-set'){
+ const t=templateById(modal.id);if(!t)return '';
+ const old=modal.groupId?listCustomGiantSets(t).find(g=>g.id===modal.groupId):null;
+ if(modal.groupId&&!old)return '';
+ const candidates=t.items.map((item,i)=>({item,index:i})).filter(({item})=>!item[12]||item[12]===modal.groupId);
+ const memberRows=candidates.map(({item,index})=>`<label class="check-task"><input type="checkbox" class="checkbox" name="member" value="${index}" ${item[12]===modal.groupId?'checked':''}/> <span>${escapeHtml(item[1])} <span class="muted small">· ${item[2]} sets</span></span></label>`).join('');
+ const rounds=old?Math.max(...old.items.map(item=>item[2])):Math.min(12,candidates[0]?.item?.[2]||3);
+ const rest=old?.restSeconds??60;
+ return modalShell(old?'Edit giant set '+escapeHtml(old.id):'Create a giant set',`
+  <p class="hint">Choose 2–12 exercises. They'll run in the order they appear in your saved workout plan, without stopping between movements.</p>
+  <fieldset class="custom-group-members"><legend class="label">Exercises in this giant set</legend>${memberRows||'<p class="hint">Add some ungrouped exercises first.</p>'}</fieldset>
+  <div class="field-row">${modalField('rounds','Rounds',rounds,'number','required min="1" max="12" step="1"')}${modalField('restSeconds','Rest between rounds (seconds)',rest,'number','required min="0" max="900" step="15"')}</div>
+  <div class="field"><label class="label" for="modal-groupNotes">Instructions (optional)</label><textarea class="input" id="modal-groupNotes" name="groupNotes" rows="3" maxlength="350" placeholder="e.g. A1 to A3 back-to-back, then rest">${escapeHtml(old?.notes||'')}</textarea></div>
+  <p class="hint">Changing rounds updates the selected exercises' future targets. Existing sessions, logged history and starting weights remain saved.</p>
+  `,'form-custom-giant-set',old?'Save giant set':'Create giant set');
+}
 if(modal.type==='template-exercise'){
  const t=templateById(modal.id),old=modal.index==null?null:t?.items[modal.index];if(!t)return '';
  return modalShell(old?'Edit exercise':'Add custom exercise',`${modalField('name','Exercise name',old?.[1]||'','text','required maxlength="90" placeholder="e.g. Cable Face Pull"')}<div class="field-row">${modalField('sets','Sets',old?.[2]??3,'number','min="1" max="12" required')}${modalField('reps','Target reps',old?.[3]??10,'number','min="1" max="100" required')}${modalField('kg','Starting weight (kg)',old?.[4]??0,'number','min="0" max="2000" step="0.5" required')}${modalField('rest','Rest (seconds)',old?.[5]??90,'number','min="0" max="1800" step="15" required')}</div>${modalField('alternatives','Alternative exercises (optional, comma separated)',old?.[6]?.join(', ')||'','text','maxlength="500"')}${modalField('target','Target shown in plan (optional)',old?.[9]||'','text','maxlength="100"')}<div class="field"><label class="label" for="modal-coach-notes">Exercise notes / FTS instructions</label><textarea class="input" id="modal-coach-notes" name="coachNotes" rows="4" maxlength="1200">${escapeHtml(old?.[8]||'')}</textarea></div><div class="field"><label class="label" for="modal-unit">Track repetitions or time</label><select class="input" id="modal-unit" name="unit">${[['reps','Reps'],['seconds','Seconds'],['minutes','Minutes']].map(([value,label])=>`<option value="${value}" ${value===(old?.[10]||'reps')?'selected':''}>${label}</option>`).join('')}</select></div><p class="hint">Set up the default for future sessions. Weights and reps can always be changed while training.</p>`,'form-template-exercise',old?'Save exercise':'Add exercise');
