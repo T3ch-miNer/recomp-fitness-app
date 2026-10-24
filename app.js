@@ -7,6 +7,7 @@ import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus} from './muscle-focus.js';
+import {nextScrollChromeState} from './scroll-chrome.js';
 import {warmupView,WARMUP_VIDEO_ID} from './warmup.js';
 import {orderedWorkoutPlans,workoutHistoryHtml,foodHistoryHtml} from './history-view.js';
 import {nextAvailableGroup,listCustomGiantSets,saveCustomGiantSet,removeCustomGiantSet} from './custom-giant-sets.js';
@@ -781,17 +782,41 @@ function scheduleWorkoutScrollHeader(){
 }
 window.addEventListener('scroll',scheduleWorkoutScrollHeader,{passive:true});
 window.addEventListener('resize',scheduleWorkoutScrollHeader,{passive:true});
+// Reveal mobile navigation and floating actions when scrolling up.
+// Active workout mode keeps its own persistent Minimise / Discard glass header.
+let scrollChromeState={lastY:0,hidden:false,down:0},scrollChromeFrame=0;
+function resetScrollChrome(){
+ scrollChromeState={lastY:window.scrollY,hidden:false,down:0};
+ document.body.classList.remove('scroll-chrome-hidden');
+}
+function updateScrollChrome(){
+ const editing=document.activeElement?.matches?.('input,textarea,select,[contenteditable="true"]');
+ const focused=Boolean(state.session&&!state.session.minimized&&tab==='workouts');
+ const locked=window.innerWidth>760||focused||Boolean(modal||confirmation)||Boolean(editing);
+ const next=nextScrollChromeState(scrollChromeState,window.scrollY,{locked});
+ if(next.hidden&&!scrollChromeState.hidden&&foodMenuOpen)toggleFoodMenu(false);
+ scrollChromeState=next;
+ document.body.classList.toggle('scroll-chrome-hidden',next.hidden);
+}
+function scheduleScrollChrome(){
+ if(scrollChromeFrame)return;
+ scrollChromeFrame=requestAnimationFrame(()=>{scrollChromeFrame=0;updateScrollChrome();});
+}
+window.addEventListener('scroll',scheduleScrollChrome,{passive:true});
+window.addEventListener('resize',scheduleScrollChrome,{passive:true});
+document.addEventListener('focusin',scheduleScrollChrome);
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
 $('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button class="quick-fab quick-history-fab" type="button" data-action="toggle-history" aria-label="${historyPanel==='food'?'Back to food diary':'View food history'}" title="Food history">${svg('history')}<span class="quick-fab-label">${historyPanel==='food'?'Diary':'History'}</span></button><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab quick-history-fab" data-action="toggle-history" aria-label="${historyPanel==='workouts'?'Back to workout plans':'View workout history'}" title="Workout history">${svg('history')}<span class="quick-fab-label">${historyPanel==='workouts'?'Plans':'History'}</span></button><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
+if(active)resetScrollChrome();
 if(active)updateWorkoutScrollHeader();
 if(focusedGoal)document.getElementById('goal-'+focusedGoal)?.focus({preventScroll:true});
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 workoutBackGuard?.arm();
 }
-function setTab(dest,swipeDirection=null){toggleFoodMenu(false);
+function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
  const order=['home','workouts','nutrition','body'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
