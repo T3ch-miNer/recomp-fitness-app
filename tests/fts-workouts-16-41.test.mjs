@@ -8,11 +8,14 @@ const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 
-test('workouts 16–41 have sequential IDs, 26 plans, 190 confirmed movement entries and one review-only slot',()=>{
+test('workouts 16–41 have sequential IDs, 26 plans, 202 movement entries including confirmed Workout 40',()=>{
  assert.equal(FTS_WORKOUTS_16_TO_41.length,26);
  assert.deepEqual(FTS_WORKOUTS_16_TO_41.map(p=>p.id),Array.from({length:26},(_,i)=>'fts-workout-'+(i+16)));
- assert.equal(FTS_WORKOUTS_16_TO_41.reduce((sum,p)=>sum+p.items.length,0),190);
- assert.equal(FTS_WORKOUTS_16_TO_41.find(p=>p.id==='fts-workout-40').items.length,0,'Workout 40 must not duplicate unverified sets');
+ assert.equal(FTS_WORKOUTS_16_TO_41.reduce((sum,p)=>sum+p.items.length,0),202);
+ const strength=FTS_WORKOUTS_16_TO_41.find(p=>p.id==='fts-workout-40');
+ assert.equal(strength.items.length,12,'Workout 40 has 3 strength movements, 3 skipping intervals and 6 core entries');
+ assert.equal(strength.name,'Workout 40 · Strength');
+ assert.deepEqual(strength.items.slice(0,6).map(x=>x[1]),['Back Squat','Skips / Jump Rope','Bench Press','Skips / Jump Rope','Dumbbell Strict Press','Skips / Jump Rope']);
  const entries=FTS_WORKOUTS_16_TO_41.flatMap(p=>p.items);
  assert.equal(new Set(entries.map(e=>e[0])).size,entries.length,'all exercise IDs must be unique');
  for(const plan of FTS_WORKOUTS_16_TO_41){
@@ -36,7 +39,9 @@ test('recovery, prescription ladders, circuits and ambiguous details retained',(
  assert.match(find(24).notes,/Confirm exercise title/i);
  assert.match(find(29).notes,/incomplete/i);
  assert.match(find(32).notes,/1 kg/);
- assert.match(find(40).notes,/Please send Workout 40 screenshots/);
+ assert.match(find(40).notes,/Back Squat/);
+ assert.equal(find(40).items.find(x=>x[1]==='Crunches')[10],'seconds');
+ assert.deepEqual(find(40).items.find(x=>x[1]==='Bench Press')[7].map(s=>s.kg),[10,10,12.5]);
  const squats=find(17).items.find(i=>i[1]==='Goblet Squat');
  assert.deepEqual(squats[7].map(s=>s.reps),[30,20,10]);
  const arms=find(18).items.find(i=>i[1]==='Dumbbell Bicep Curl');
@@ -75,11 +80,13 @@ test('existing plans survive with their exact edited objects and custom plans',(
 
 test('Recomp imports new FTS plans on fresh and existing installs, caching them offline',()=>{
  assert.match(app,/FTS_WORKOUTS_16_TO_41/);
- assert.match(app,/ftsWorkoutImportVersion:3/);
+ assert.match(app,/ftsWorkoutImportVersion:4/);
+ assert.match(app,/previousVersion>=3/);
+ assert.match(app,/empty\?\.name==='Workout 40 · Details needed \(video unclear\)'/);
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
- assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<3/);
+ assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<4/);
  assert.match(app,/await put\('state',state\)/);
- assert.match(sw,/recomp-shell-v2\.8\.2-fts-final/);
+ assert.match(sw,/recomp-shell-v2\.8\.3-fts-strength-40/);
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
- assert.ok(page.includes('app.js?v=2.8.2-fts-final'));
+ assert.ok(page.includes('app.js?v=2.8.3-fts-strength-40'));
 });

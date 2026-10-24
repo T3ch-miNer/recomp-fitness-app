@@ -54,13 +54,13 @@ test('one-time migration preserves existing templates including personal edits',
  assert.equal(imported[5],previous[2]);
  imported[0].name='Changed on device';
  assert.equal(FTS_WORKOUTS[0].name,'Workout 1 · Leg Day','the source template must not be mutated');
- assert.match(app,/ftsWorkoutImportVersion\|\|0\)<3/);
+ assert.match(app,/ftsWorkoutImportVersion\|\|0\)<4/);
  assert.match(app,/await put\('state',state\)/);
  assert.match(app,/state=hadSavedState\?saved:INITIAL\(\)/);
 });
 
 test('updated PWA caches plans offline and forces latest app script',()=>{
  assert.ok(worker.includes("'./fts-workouts.js'"));
- assert.ok(worker.includes('recomp-shell-v2.8.2-fts-final'));
- assert.ok(index.includes('app.js?v=2.8.2-fts-final'));
+ assert.ok(worker.includes('recomp-shell-v2.8.3-fts-strength-40'));
+ assert.ok(index.includes('app.js?v=2.8.3-fts-strength-40'));
 });
