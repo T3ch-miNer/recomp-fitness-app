@@ -85,15 +85,15 @@ test('one-time migration retains every pre-existing FTS edit and custom plan',()
  merged[4].name='Modified on device';
  assert.equal(FTS_WORKOUTS_5_TO_15[0].name,'Workout 5 · Posterior');
  assert.match(app,/state=hadSavedState\?saved:INITIAL\(\)/);
- assert.match(app,/ftsWorkoutImportVersion!==2/);
+ assert.match(app,/ftsWorkoutImportVersion\|\|0\)<3/);
  assert.match(app,/mergeFtsWorkoutExpansion\(state.templates\)/);
  assert.match(app,/await put\('state',state\)/);
  assert.match(app,/instructions:desired.notes/);
 });
 
 test('new and existing installs can load all fifteen plans offline',()=>{
- assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15\]\)/);
+ assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15,\.\.\.FTS_WORKOUTS_16_TO_41\]\)/);
  assert.ok(worker.includes("'./fts-workouts-5-15.js'"));
- assert.ok(worker.includes("recomp-shell-v2.8.1-exercise-videos"));
- assert.ok(index.includes("app.js?v=2.8.1-exercise-videos"));
+ assert.ok(worker.includes("recomp-shell-v2.8.2-fts-final"));
+ assert.ok(index.includes("app.js?v=2.8.2-fts-final"));
 });
