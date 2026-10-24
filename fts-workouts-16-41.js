@@ -17,8 +17,8 @@ for(const original of RAW.split('\n')){
  if(!ref||!name||!Number.isInteger(sets)||sets<1||sets>12||!Number.isInteger(reps)||reps<0||reps>2000||!['reps','seconds','minutes'].includes(unit))throw Error('Invalid FTS entry '+line);
  const weights=weightsText?weightsText.split(',').map(x=>x.trim()===''?null:Number(x)):[];
  if(weights.length>sets||weights.some(w=>w!=null&&(!Number.isFinite(w)||w<0)))throw Error('Invalid FTS recorded weight '+line);
- const ladderMatch=noteText?.match(/^(\d+)-(\d+)-(\d+)(?:-(\d+)-(\d+))?/);
- const steps=ladderMatch?ladderMatch.slice(1).filter(Boolean).map(Number):null;
+ const ladderMatch=noteText?.match(/^\d+(?:-\d+){1,4}/);
+ const steps=ladderMatch?ladderMatch[0].split('-').map(Number):null;
  const saved=weights.length||steps&&steps.length===sets?Array.from({length:sets},(_,i)=>({kg:weights[i]??null,reps:steps?.length===sets?steps[i]:reps})):undefined;
  const firstWeight=weights.find(w=>w!=null)??0;
  const description=[ref+'.',noteText||'',weights.length?'Previously recorded kg: '+weights.map(w=>w??'not recorded').join(', '):''].filter(Boolean).join(' ');
