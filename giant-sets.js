@@ -16,9 +16,21 @@ export function getGiantGroups(session){
   const mixed=lengths.some(length=>length!==rounds);
   const sequence=items.some(({exercise})=>sequencePattern.test(
    String(exercise.targetLabel||'')+' '+String(exercise.notes||'')));
+  // FTS sometimes lists an optional variation as a separate exercise entry.
+  // If one exercise explicitly says "or <other exercise>" and the other has
+  // fewer recorded sets, preserve both choices but do not require both.
+  const alternativeOf=new Map();
+  for(const primary of items)for(const candidate of items){
+   if(primary.index===candidate.index)continue;
+   const alternativeName=String(candidate.exercise.name||'').trim().toLowerCase();
+   const cue=String(primary.exercise.notes||'').toLowerCase();
+   if(alternativeName&&cue.includes('or '+alternativeName)&&
+      candidate.exercise.sets.length<primary.exercise.sets.length)
+    alternativeOf.set(candidate.index,primary.index);
+  }
   const configured=session?.groupSettings?.[id];
   const kind=items.length===1?'single':mixed?'mixed':sequence?'sequence':'giant';
-  return {id,items,rounds,kind,
+  return {id,items,rounds,kind,alternativeOf,
    custom:configured?.kind==='giant',
    restSeconds:configured?.kind==='giant'?configured.restSeconds:60,
    notes:configured?.kind==='giant'?configured.notes||'':''};
@@ -28,20 +40,32 @@ export function getGiantGroups(session){
 export function availableItemsForStage(group,stage){
  return (group?.items||[]).filter(({exercise})=>Boolean(exercise.sets?.[stage]));
 }
+export function isItemSatisfied(group,item,round){
+ if(!item.exercise.sets?.[round])return true;
+ const map=group?.alternativeOf;
+ if(map?.has(item.index))return true; // Optional variant, never required in addition to its primary.
+ const variants=[...(map||new Map())].filter(([,primary])=>primary===item.index);
+ return Boolean(item.exercise.sets[round].done||variants.some(([alternative])=>
+  group.items.some(({index,exercise})=>index===alternative&&Boolean(exercise.sets?.[round]?.done))
+ ));
+}
+export function requiredItemsForStage(group,round){
+ return availableItemsForStage(group,round).filter(({index})=>!group.alternativeOf?.has(index));
+}
 export function isRoundDone(group,round){
- const available=availableItemsForStage(group,round);
- return available.length>0&&available.every(({exercise})=>Boolean(exercise.sets[round]?.done));
+ const required=requiredItemsForStage(group,round);
+ return required.length>0&&required.every(item=>isItemSatisfied(group,item,round));
 }
 export function firstIncompleteStep(groups){
  for(const group of groups)for(let round=0;round<group.rounds;round++)
   for(const {index,exercise} of availableItemsForStage(group,round))
-   if(!exercise.sets[round].done)return {group:group.id,round,index};
+   if(!isItemSatisfied(group,{index,exercise},round))return {group:group.id,round,index};
  return null;
 }
 export function nextIncompleteStep(groups,from){
  const all=groups.flatMap(group=>Array.from({length:group.rounds},(_,round)=>
   availableItemsForStage(group,round).map(({index,exercise})=>({
-   group:group.id,round,index,done:Boolean(exercise.sets[round]?.done)
+   group:group.id,round,index,done:isItemSatisfied(group,{index,exercise},round)
   })) ).flat());
  if(!all.length)return null;
  const at=from?all.findIndex(step=>step.group===from.group&&step.round===from.round&&step.index===from.index):-1;
