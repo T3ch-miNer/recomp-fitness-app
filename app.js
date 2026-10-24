@@ -955,6 +955,19 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'edit-template':planActionsId=null;modal={type:'edit-template',id:el.dataset.id};render();break;
  case 'rename-template':modal={type:'rename-template',id:el.dataset.id};render();break;
  case 'delete-template':{const t=templateById(el.dataset.id);if(t&&await confirmInApp(`Delete plan “${t.name}” and its exercise list? Saved sessions won't change.`)){state.templates=state.templates.filter(x=>x.id!==t.id);modal=null;await commit();notify('Plan deleted. History is intact.');}break;}
+ case 'add-custom-giant-set':if(templateById(el.dataset.id)){modal={type:'custom-giant-set',id:el.dataset.id,groupId:null};render();}break;
+ case 'edit-custom-giant-set':if(templateById(el.dataset.id)){modal={type:'custom-giant-set',id:el.dataset.id,groupId:el.dataset.group};render();}break;
+ case 'remove-custom-giant-set':{
+  const t=templateById(el.dataset.id),group=el.dataset.group;
+  if(t&&listCustomGiantSets(t).some(g=>g.id===group)&&await confirmInApp(
+   'Remove giant set '+group+'? Its exercises, sets and weights remain in the plan, but are no longer grouped.',
+   {title:'Remove giant set?',approveLabel:'Remove grouping'})){
+   const updated=removeCustomGiantSet(t,group);
+   state.templates=state.templates.map(plan=>plan===t?updated:plan);
+   modal={type:'edit-template',id:updated.id};await persist();render();haptic('check');
+  }
+  break;
+ }
  case 'add-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:null};render();break;
  case 'edit-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:Number(el.dataset.index)};render();break;
  case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&await confirmInApp(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
@@ -1114,6 +1127,19 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
   const t=templateById(modal.id),name=String(data.get('name')||'').trim().slice(0,70);
   if(!t||!name)throw new Error('Enter a workout name');t.name=name;
   modal={type:'edit-template',id:t.id};await persist();render();haptic('check');return;
+ }
+ else if(id==='form-custom-giant-set'){
+  const t=templateById(modal?.id);if(!t)throw new Error('Workout plan is no longer available');
+  const next=saveCustomGiantSet(t,{
+   groupId:modal.groupId||null,
+   indices:data.getAll('member').map(Number),
+   rounds:Number(data.get('rounds')),
+   restSeconds:Number(data.get('restSeconds')),
+   notes:String(data.get('groupNotes')||'')
+  });
+  state.templates=state.templates.map(plan=>plan===t?next:plan);
+  modal={type:'edit-template',id:next.id};
+  await persist();render();haptic('success');notify('Giant set saved for future workouts');return;
  }
  else if(id==='form-template-exercise'){
   const t=templateById(modal.id),ix=modal.index,name=String(data.get('name')||'').trim().slice(0,90);
