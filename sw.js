@@ -1,4 +1,4 @@
-const CACHE='recomp-shell-v2.9-recomp-pulse';
+const CACHE='recomp-shell-v2.9.1-pulse-timing';
 const CORE=['./','./index.html','./styles.css','./recomp-boot.css','./app.js','./fts-workouts.js','./fts-workouts-5-15.js','./fts-workouts-16-41.js','./exercise-videos.js','./exercise-guides.js','./exercise-demonstration.js','./exercise-demonstration.css','./workout-back.js','./confirmation-dialog.js','./workout-polish.css','./giant-sets.js','./custom-giant-sets.js','./giant-set-view.js','./giant-sets.css','./food-db.js','./nutrition-v2.js','./nutrition-v2.css','./photo-ai.js','./meal-planner.js','./meal-planner.css','./settings-layout.css','./goal-draft.js','./recipe-estimates.js','./health-connect.js','./first-run.js','./first-run.css','./premium.css','./db.js','./cloud.js','./clerk-auth.js'];
 const FONT_CACHE='recomp-fonts-v1';
 const OPTIONAL=['./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./food-recognition-worker.js'];
