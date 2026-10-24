@@ -1,0 +1,122 @@
+/* Recomp Pulse — approved phone loading screen.
+   A self-contained visual layer: it never reads or changes workout data. */
+#recomp-pulse, #recomp-pulse * {box-sizing:border-box}
+#recomp-pulse{
+ --rb-bg:#050709;--rb-text:#f6faf8;--rb-muted:#859593;--rb-mint:#6ef5c8;
+ --rb-lime:#bff56a;--rb-grid:rgba(123,245,199,.13);
+ position:fixed;z-index:90;inset:0;isolation:isolate;overflow:hidden;
+ display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+ min-height:100vh;min-height:100dvh;padding:clamp(30px,5vh,55px) 20px calc(40px + env(safe-area-inset-bottom));
+ background:var(--rb-bg);color:var(--rb-text);
+ font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+ opacity:1;transition:opacity .28s ease;pointer-events:none;
+}
+#recomp-pulse.rb-leaving{opacity:0}
+#recomp-pulse::before{
+ content:"";position:absolute;inset:-14%;z-index:-1;pointer-events:none;
+ background:radial-gradient(ellipse 41% 32% at 52% 45%,rgba(43,169,139,.19),transparent 73%),
+ radial-gradient(ellipse 28% 20% at 84% 24%,rgba(154,229,93,.075),transparent 80%),
+ radial-gradient(ellipse 50% 28% at 10% 94%,rgba(44,119,114,.10),transparent 76%);
+ animation:rb-drift 8s ease-in-out infinite alternate;
+}
+#recomp-pulse::after{
+ content:"";position:absolute;inset:0;z-index:-1;opacity:.36;pointer-events:none;
+ background-image:linear-gradient(90deg,transparent 0,transparent calc(100% - 1px),var(--rb-grid) 100%),
+ linear-gradient(transparent 0,transparent calc(100% - 1px),var(--rb-grid) 100%);
+ background-size:54px 54px;
+ -webkit-mask-image:linear-gradient(transparent 5%,#000 40%,transparent 90%);
+ mask-image:linear-gradient(transparent 5%,#000 40%,transparent 90%);
+}
+#recomp-pulse .rb-top{display:flex;align-items:center;gap:10px;justify-content:center;
+ font-size:10px;font-weight:760;letter-spacing:.26em;color:var(--rb-muted);white-space:nowrap}
+#recomp-pulse .rb-top-dot{width:6px;height:6px;border-radius:50%;background:var(--rb-mint);
+ box-shadow:0 0 0 4px rgba(110,245,200,.07),0 0 19px rgba(110,245,200,.5)}
+#recomp-pulse .rb-main{display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:0;margin-top:-7px;min-width:0;width:100%}
+#recomp-pulse .rb-orbit{width:282px;height:282px;max-width:86vw;position:relative;
+ display:grid;place-items:center;animation:rb-intro .8s cubic-bezier(.2,.9,.3,1) both}
+#recomp-pulse .rb-orbit::before,#recomp-pulse .rb-orbit::after{
+ content:"";position:absolute;inset:13px;border-radius:50%;
+ border:1px solid rgba(110,245,200,.14);pointer-events:none}
+#recomp-pulse .rb-orbit::after{inset:32px;border-style:dashed;border-color:rgba(110,245,200,.09);
+ animation:rb-orbit-turn 24s linear infinite}
+#recomp-pulse .rb-orbit-light{position:absolute;inset:3px;border-radius:50%;
+ background:conic-gradient(from 25deg,transparent 0 63%,rgba(191,245,106,.62) 72%,rgba(110,245,200,.24) 76%,transparent 81% 100%);
+ -webkit-mask:radial-gradient(circle,transparent 69%,#000 70% 71%,transparent 73%);
+ mask:radial-gradient(circle,transparent 69%,#000 70% 71%,transparent 73%);
+ animation:rb-orbit-turn 8s linear infinite}
+#recomp-pulse .rb-squircle{position:relative;width:176px;height:176px;display:grid;place-items:center;
+ border:1px solid rgba(111,244,198,.20);border-radius:47px;
+ background:linear-gradient(140deg,rgba(34,57,55,.82),rgba(16,23,27,.83) 55%,rgba(16,38,30,.7));
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -18px 34px rgba(0,0,0,.19),
+ 0 35px 100px rgba(0,0,0,.22),0 0 53px rgba(63,238,185,.055);
+ animation:rb-float 4.1s ease-in-out infinite}
+#recomp-pulse .rb-squircle::before{content:"";position:absolute;inset:-9px;border-radius:56px;
+ border:1px solid rgba(110,245,200,.08)}
+#recomp-pulse .rb-icon{position:relative;width:132px;height:132px;overflow:visible;
+ filter:drop-shadow(0 3px 20px rgba(110,245,200,.25))}
+#recomp-pulse .rb-trace{stroke:rgba(110,245,200,.14);fill:none;stroke-linecap:round;
+ stroke-linejoin:round;stroke-width:12}
+#recomp-pulse .rb-wave{stroke:url(#rb-pulse-grad);fill:none;stroke-linecap:round;stroke-linejoin:round;
+ stroke-width:12;stroke-dasharray:260;stroke-dashoffset:260;
+ animation:rb-draw 2.6s cubic-bezier(.55,0,.25,1) .35s infinite}
+#recomp-pulse .rb-dot{fill:#bff56a;transform-origin:148px 58px;
+ animation:rb-dot-flash 2.6s ease-in-out .35s infinite}
+#recomp-pulse .rb-wordmark{font-size:clamp(48px,12vw,60px);line-height:1.04;
+ font-weight:810;letter-spacing:-.078em;white-space:nowrap;
+ animation:rb-rise .75s .26s both}
+#recomp-pulse .rb-wordmark b{color:var(--rb-lime);font-weight:900}
+#recomp-pulse .rb-tagline{font-size:12px;letter-spacing:.18em;font-weight:750;
+ margin-top:17px;color:var(--rb-muted);text-align:center;
+ animation:rb-rise .75s .4s both}
+#recomp-pulse .rb-tagline .rb-accent{color:var(--rb-mint)}
+#recomp-pulse .rb-traindots{display:flex;align-items:center;gap:8px;margin-top:33px;
+ animation:rb-rise .75s .52s both}
+#recomp-pulse .rb-traindots span{font-size:10px;letter-spacing:.15em;font-weight:740;
+ padding:10px 12px;color:var(--rb-muted);border:1px solid rgba(151,190,179,.14);
+ border-radius:13px;background:rgba(125,178,164,.045)}
+#recomp-pulse .rb-traindots span:nth-child(2){color:var(--rb-text);
+ border-color:rgba(110,245,200,.31);background:rgba(110,245,200,.09)}
+#recomp-pulse .rb-foot{display:grid;justify-items:center;gap:13px;width:100%;
+ animation:rb-rise .75s .65s both}
+#recomp-pulse .rb-progress{width:150px;height:3px;overflow:hidden;border-radius:20px;
+ background:rgba(132,178,158,.16)}
+#recomp-pulse .rb-progress::before{content:"";display:block;width:40%;height:100%;
+ border-radius:20px;background:linear-gradient(90deg,var(--rb-mint),var(--rb-lime));
+ animation:rb-progress 2.2s ease-in-out infinite alternate}
+#recomp-pulse .rb-progress-title{font-size:10px;font-weight:700;letter-spacing:.19em;
+ color:var(--rb-muted);text-align:center}
+#recomp-pulse .rb-foot-copy{font-size:11px;color:var(--rb-muted);opacity:.75;
+ margin-top:8px;text-align:center}
+@keyframes rb-drift{from{transform:translate3d(-2%,1%,0)}to{transform:translate3d(3%,-2%,0)}}
+@keyframes rb-orbit-turn{to{transform:rotate(360deg)}}
+@keyframes rb-intro{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes rb-rise{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@keyframes rb-float{50%{transform:translateY(-6px) scale(1.012)}}
+@keyframes rb-draw{0%{stroke-dashoffset:260;opacity:.25}13%{opacity:1}
+ 57%{stroke-dashoffset:0;opacity:1}84%{stroke-dashoffset:0;opacity:1}
+ 100%{stroke-dashoffset:-260;opacity:.14}}
+@keyframes rb-dot-flash{0%,36%,100%{opacity:.38;transform:scale(.92)}
+ 56%{opacity:1;transform:scale(1.34)}72%{opacity:.8;transform:scale(1)}}
+@keyframes rb-progress{from{transform:translateX(-100%)}to{transform:translateX(350%)}}
+@media(prefers-color-scheme:light){
+ #recomp-pulse{--rb-bg:#f3f2ee;--rb-text:#141f1b;--rb-muted:#61736b;
+ --rb-grid:rgba(55,148,114,.10)}
+ #recomp-pulse .rb-squircle{background:linear-gradient(135deg,#e7f9ed,#f8fcf5);
+ box-shadow:0 25px 80px rgba(49,126,95,.12)}
+}
+@media(prefers-reduced-motion:reduce){
+ #recomp-pulse,#recomp-pulse *,#recomp-pulse::before,#recomp-pulse::after{
+ animation:none!important;transition:none!important}
+ #recomp-pulse .rb-wave{stroke-dasharray:none;stroke-dashoffset:0;opacity:1}
+ #recomp-pulse .rb-progress::before{transform:translateX(115%)}
+}
+@media(max-height:540px){
+ #recomp-pulse{padding-top:15px;padding-bottom:12px}
+ #recomp-pulse .rb-orbit{width:175px;height:175px}
+ #recomp-pulse .rb-squircle{width:110px;height:110px;border-radius:32px}
+ #recomp-pulse .rb-icon{width:86px;height:86px}
+ #recomp-pulse .rb-wordmark{font-size:38px}
+ #recomp-pulse .rb-traindots{margin-top:12px}
+ #recomp-pulse .rb-foot{gap:5px}
+}
