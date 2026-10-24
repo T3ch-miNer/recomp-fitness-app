@@ -71,6 +71,28 @@ test('single exercises, rep ladders and mixed-set groups get correct navigation'
  assert.deepEqual(nextIncompleteStep([mixed],current),{group:'A',round:1,index:0});
 });
 
+test('Workout 38 treats one-set Squat Jumps as an alternative to Tuck Jumps',()=>{
+ const session=sessionFromPlan(plans[37]);
+ const group=getGiantGroups(session).find(g=>g.id==='A');
+ const tuck=group.items.find(item=>item.exercise.name==='Tuck Jumps');
+ const squat=group.items.find(item=>item.exercise.name==='Squat Jumps');
+ assert.ok(tuck&&squat,'both original movements remain recorded');
+ assert.equal(group.alternativeOf.get(squat.index),tuck.index);
+ const stage0=availableItemsForStage(group,0);
+ assert.equal(stage0.length,7,'both exercise choices remain visible');
+ stage0.filter(item=>![tuck.index,squat.index].includes(item.index)).forEach(item=>{
+  item.exercise.sets[0].done=true;
+ });
+ assert.equal(isRoundDone(group,0),false,'one of the two variants is still needed');
+ squat.exercise.sets[0].done=true;
+ assert.equal(tuck.exercise.sets[0].done,false);
+ assert.equal(isRoundDone(group,0),true,'performing Squat Jumps completes the choice');
+ assert.equal(group.items.every(item=>!item.exercise.sets[1]||item.exercise.sets[1].done===false),true);
+ const next=nextIncompleteStep([group],{group:'A',round:0,index:squat.index});
+ assert.deepEqual(next,{group:'A',round:1,index:group.items[0].index});
+ assert.equal(availableItemsForStage(group,3).includes(squat),false,'no extra squat-jump sets generated');
+});
+
 test('no accidental completed sets or duplicate workout refs are introduced',()=>{
  for(const plan of plans){
   const s=sessionFromPlan(plan),groups=getGiantGroups(s);
