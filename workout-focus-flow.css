@@ -1,0 +1,102 @@
+/* Detailed View • dynamic muscle focus and reversible glass workout header. */
+/* Scoped to the focused workout so the rest of the application is unchanged. */
+.workout-focus-shell .workout-scroll-header{
+ position:sticky;top:0;z-index:36;
+ display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,1fr) minmax(0,1fr);
+ align-items:center;gap:6px;min-height:68px;margin:0 -12px 17px;padding:8px 12px;
+ background:transparent;border:1px solid transparent;border-radius:0 0 19px 19px;
+ transition:background .28s ease,border-color .28s ease,box-shadow .28s ease;
+ isolation:isolate;
+}
+.workout-focus-shell .workout-scroll-header.is-scrolled{
+ background:color-mix(in srgb,var(--panel) 82%,transparent);
+ border-color:color-mix(in srgb,var(--accent) 20%,transparent);
+ box-shadow:0 12px 28px rgba(0,0,0,.13),inset 0 1px rgba(255,255,255,.08);
+ -webkit-backdrop-filter:blur(22px) saturate(145%);
+ backdrop-filter:blur(22px) saturate(145%);
+}
+.workout-scroll-header .workout-header-action{min-width:0;min-height:45px;white-space:nowrap;border-radius:15px;font-size:clamp(11px,2.9vw,13px);padding:8px 9px}
+.workout-scroll-header .workout-header-action:first-child{justify-self:start}
+.workout-scroll-header .workout-header-action:last-child{justify-self:end}
+.workout-scroll-header .workout-sticky-status{position:relative;min-width:0;height:43px;display:grid;place-items:center}
+.workout-scroll-header .workout-sticky-status>*{
+ position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ white-space:nowrap;gap:4px;min-width:0;font-variant-numeric:tabular-nums;
+}
+.workout-scroll-header .workout-header-saved{
+ font-size:clamp(9px,2.3vw,12px);font-weight:750;
+ opacity:calc(1 - var(--focus-amount,0));
+ transform:translateY(calc(var(--focus-amount,0) * -14px));
+ pointer-events:none;
+}
+.workout-scroll-header .workout-header-saved .status-dot{display:inline-block;flex:none}
+.workout-scroll-header .workout-header-progress{
+ opacity:var(--focus-amount,0);
+ transform:translateY(calc((1 - var(--focus-amount,0)) * 14px));
+ font-size:clamp(10px,2.8vw,13px);font-weight:800;pointer-events:none;
+ color:var(--text);
+}
+.workout-scroll-header .workout-header-progress .elapsed{color:var(--accent)}
+.workout-scroll-header .workout-header-progress .workout-progress-divider{color:var(--muted);font-weight:500}
+.workout-scroll-header .workout-header-progress small{font-size:9px;color:var(--muted);font-weight:600}
+.workout-focus-shell .workout-start-progress{
+ opacity:calc(1 - var(--focus-amount,0));
+ transform:translateY(calc(var(--focus-amount,0) * -12px));
+ transform-origin:left center;will-change:opacity;
+}
+.workout-focus-shell .workout-title-block{min-width:0}
+.workout-focus-shell .workout-title-block .page-title{overflow-wrap:anywhere}
+.workout-focus-shell .muscle-focus-card{
+ margin:1px 0 20px;padding:20px 16px 16px;
+ border:1px solid color-mix(in srgb,var(--accent) 19%,var(--line));
+ background:linear-gradient(145deg,color-mix(in srgb,var(--accent2) 36%,var(--panel)),var(--panel));
+ border-radius:23px;box-shadow:var(--shadow);
+}
+.workout-focus-shell .muscle-focus-eyebrow{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:10px;letter-spacing:1.8px;font-weight:800}
+.workout-focus-shell .muscle-focus-eyebrow .status-dot{display:inline-block;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 12%,transparent)}
+.workout-focus-shell .muscle-focus-aside{font-size:9px;letter-spacing:1px;color:var(--accent);margin-left:auto}
+.workout-focus-shell .muscle-focus-card h2{font-size:clamp(19px,4.6vw,24px);letter-spacing:-.04em;line-height:1.2;margin:15px 0 5px;color:var(--text)}
+.workout-focus-shell .muscle-focus-subtitle{font-size:12px;color:var(--muted);margin:0 0 16px}
+.workout-focus-shell .muscle-map-figures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.workout-focus-shell .muscle-map-figure{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ min-width:0;border-radius:17px;padding:13px 5px 10px;
+ background:radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--accent) 10%,var(--panel2)),var(--panel2) 85%);
+ border:1px solid color-mix(in srgb,var(--accent) 13%,var(--line));
+}
+.workout-focus-shell .muscle-map-figure svg{display:block;width:100%;height:212px;max-width:135px;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 12%,transparent))}
+.workout-focus-shell .muscle-map-figure>span{font-size:10px;font-weight:780;color:var(--muted);letter-spacing:2px;margin-top:6px}
+.workout-focus-shell .muscle-body-outline{fill:color-mix(in srgb,var(--muted) 15%,var(--panel2));stroke:color-mix(in srgb,var(--muted) 48%,transparent);stroke-width:1.1}
+.workout-focus-shell .muscle-anatomy-lines{stroke:var(--muted);stroke-opacity:.34;stroke-width:.8}
+.workout-focus-shell .muscle-highlight{stroke-linecap:round;stroke-linejoin:round;stroke-width:.6}
+.workout-focus-shell .muscle-highlight.primary{fill:var(--accent);stroke:color-mix(in srgb,var(--accent) 80%,white)}
+.workout-focus-shell .muscle-highlight.secondary{fill:color-mix(in srgb,var(--accent) 48%,var(--panel2));stroke:var(--accent)}
+.workout-focus-shell .muscle-focus-legend{display:flex;gap:20px;align-items:center;justify-content:center;margin:13px 0 15px;color:var(--muted);font-size:11px}
+.workout-focus-shell .muscle-focus-legend span{display:inline-flex;align-items:center;gap:7px}
+.workout-focus-shell .muscle-focus-legend i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.workout-focus-shell .muscle-key-primary{background:var(--accent)}
+.workout-focus-shell .muscle-key-secondary{background:color-mix(in srgb,var(--accent) 48%,var(--panel2));border:1px solid var(--accent)}
+.workout-focus-shell .muscle-focus-list{border-top:1px solid var(--line)}
+.workout-focus-shell .muscle-focus-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.workout-focus-shell .muscle-focus-row b{font-size:10px;letter-spacing:.03em}
+.workout-focus-shell .muscle-focus-row b.primary{color:var(--accent)}
+.workout-focus-shell .muscle-focus-row b.secondary{color:var(--muted)}
+.workout-focus-shell .muscle-focus-hint{font-size:11px;color:var(--muted);line-height:1.5;margin:14px 0 0}
+.workout-focus-shell .muscle-focus-empty{font-size:13px;line-height:1.5;color:var(--muted);padding:20px 0}
+@media(min-width:761px){
+ .workout-focus-shell .workout-scroll-header{margin-inline:0;top:0}
+ .workout-focus-shell .muscle-focus-card{max-width:700px}
+ .workout-focus-shell .muscle-map-figure svg{height:235px}
+}
+@media(max-width:370px){
+ .workout-focus-shell .workout-scroll-header{grid-template-columns:minmax(0,1fr) minmax(77px,1fr) minmax(0,1fr);gap:3px}
+ .workout-focus-shell .workout-header-action{padding:7px}
+ .workout-focus-shell .workout-header-progress small{display:none}
+ .workout-focus-shell .muscle-map-figure svg{height:174px}
+}
+@media(prefers-reduced-motion:reduce){
+ .workout-focus-shell .workout-scroll-header,.workout-focus-shell .workout-header-progress,.workout-focus-shell .workout-header-saved,.workout-focus-shell .workout-start-progress{transition:none!important;transform:none!important}
+}
+@supports not ((backdrop-filter:blur(5px)) or (-webkit-backdrop-filter:blur(5px))){
+ .workout-focus-shell .workout-scroll-header.is-scrolled{background:var(--panel)}
+}

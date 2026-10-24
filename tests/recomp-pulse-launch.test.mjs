@@ -38,7 +38,7 @@ test('splash dismisses only after initial app render, and never edits records',(
  const first=startup.indexOf('\n render();');
  const splash=startup.indexOf("document.getElementById('recomp-pulse')");
  assert.ok(first>=0&&splash>first,'app must render before dismissing the overlay');
- assert.match(startup,/const hold=still\?0:Math\.max\(0,1200-elapsed\)/);
+ assert.match(startup,/const hold=still\?0:Math\.max\(0,2500-elapsed\)/);
  assert.match(startup,/pulse\.classList\.add\('rb-leaving'\)/);
  assert.match(startup,/pulse\.remove\(\)/);
  assert.doesNotMatch(css,/indexedDB|localStorage|deleteDatabase|fetch\(/);
@@ -61,9 +61,9 @@ test('both launcher PNGs are regenerated from the matching heartbeat mark',()=>{
 });
 
 test('offline startup caches the animated stylesheet and new assets',()=>{
- assert.match(sw,/const CACHE='recomp-shell-v2\.9-recomp-pulse'/);
+ assert.match(sw,/const CACHE='recomp-shell-v2\.9\.2-muscle-focus'/);
  assert.ok(sw.includes("'./recomp-boot.css'"));
  for(const path of ['icon.svg','icon-192.png','icon-512.png','manifest.webmanifest'])
   assert.ok(sw.includes("'./"+path+"'"),path+' should be cached for PWA use');
- assert.ok(html.includes('app.js?v=2.9-recomp-pulse'));
+ assert.ok(html.includes('app.js?v=2.9.2-muscle-focus'));
 });
