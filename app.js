@@ -1513,6 +1513,19 @@ async function init(){try{
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
+ // The approved Pulse intro overlays the first app paint, then gracefully disappears.
+ // Only fast boots get a short intro; slow boots incur no additional waiting.
+ // Reduced-motion users enter immediately. No training data is accessed here.
+ const pulse=document.getElementById('recomp-pulse');
+ if(pulse){
+  const still=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const elapsed=window.performance?.now?.()??1200;
+  const hold=still?0:Math.max(0,1200-elapsed);
+  window.setTimeout(()=>{
+   pulse.classList.add('rb-leaving');
+   window.setTimeout(()=>pulse.remove(),still?0:320);
+  },hold);
+ }
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
