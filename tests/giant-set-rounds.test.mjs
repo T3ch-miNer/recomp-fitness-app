@@ -77,17 +77,20 @@ test('an existing manually selected completed set remains reachable for Undo',()
  assert.deepEqual(logic.pickGiantCursor(session,groups),session.giantCursor);
  assert.equal(logic.nextIncompleteStep(groups,session.giantCursor).index,1);
 });
-test('irregular or single-exercise groups are left in Detailed View, not falsely assigned rounds',()=>{
+test('individual movements and rep sequences are visible, with original set counts',()=>{
  const session=sessionFromPlan(FTS_WORKOUTS[3]),groups=logic.getGiantGroups(session);
- for(const group of groups)assert.ok(group.items.every(item=>item.exercise.sets.length===group.rounds));
- const ungrouped=logic.ungroupedExerciseIndices(session,groups);
- assert.equal(ungrouped.length+groups.flatMap(g=>g.items).length,session.exercises.length);
- assert.equal(groups.some(g=>g.id==='B'),false,
-  'Workout 4 descending 20–15–10–5 twice is not eight simple giant-set rounds');
- assert.ok(ungrouped.some(i=>session.exercises[i].group==='B'),
-  'All pyramid set values remain accessible in Detailed View');
+ assert.deepEqual(groups.map(g=>[g.id,g.kind,g.rounds]),[['A','single',1],['B','sequence',8]]);
+ assert.equal(logic.ungroupedExerciseIndices(session,groups).length,0);
+ const ladder=groups.find(g=>g.id==='B');
+ const reps=Array.from({length:ladder.rounds},(_,round)=>ladder.items[0].exercise.sets[round].reps);
+ assert.deepEqual(reps,[20,15,10,5,20,15,10,5]);
+ session.giantCursor={group:'B',round:4,index:1};
+ const html=renderGiantSetView(session);
+ assert.match(html,/Rep sequence/);
+ assert.match(html,/Stage 5/);
+ assert.doesNotMatch(html,/eight independent rounds/i);
  const custom={exercises:[{name:'Only movement',group:'A',sets:[{done:false}]}]};
- assert.equal(logic.getGiantGroups(custom).length,0);
+ assert.deepEqual(logic.getGiantGroups(custom).map(g=>[g.id,g.kind,g.rounds]),[['A','single',1]]);
 });
 test('phone round UI shows one editable set from original plan with manual navigation',()=>{
  const session=sessionFromPlan(FTS_WORKOUTS[0]);
@@ -130,7 +133,8 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
  assert.match(app,/case 'giant-exercise'/);
  assert.match(app,/nextIncompleteStep\(groups,current\)/);
  assert.match(app,/suggested:true,giantGroup/);
- assert.match(app,/const seconds=60/);
+ assert.match(app,/group\.custom\?/);
+ assert.match(app,/totalSeconds:seconds/);
  assert.match(app,/s\.giantView==='detailed'/);
  assert.match(app,/class="input set-input"/);
  assert.match(viewSource,/data-setfield="kg"/);
@@ -139,10 +143,10 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
  assert.match(app,/await confirmInApp\('Discard this unfinished workout/);
 });
 test('PWA caches new round tracker and keeps existing premium colours',()=>{
- for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css'])assert.ok(sw.includes("'./"+name+"'"));
- assert.match(sw,/recomp-shell-v2\.8\.5-group-d-finisher/);
+ for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css','custom-giant-sets.js'])assert.ok(sw.includes("'./"+name+"'"));
+ assert.match(sw,/recomp-shell-v2\.8\.6-all-groups-custom-giants/);
  assert.match(index,/giant-sets\.css\?v=2\.6/);
- assert.match(index,/app\.js\?v=2\.8\.5-group-d-finisher/);
+ assert.match(index,/app\.js\?v=2\.8\.6-all-groups-custom-giants/);
  assert.match(css,/var\(--accent\)/);
  assert.match(css,/var\(--panel\)/);
 });
