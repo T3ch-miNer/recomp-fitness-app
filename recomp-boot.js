@@ -8,7 +8,6 @@
 export function revealRecompApp({
  documentRoot=typeof document==='undefined'?null:document,
  clock=()=>typeof performance==='undefined'?0:performance.now(),
- schedule=callback=>setTimeout(callback,0),
  scheduleAfter=(callback,ms)=>setTimeout(callback,ms),
  reducedMotion=()=>typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches
 }={}){
@@ -17,10 +16,12 @@ export function revealRecompApp({
  const app=documentRoot.getElementById('app');
  // The app is accessible immediately after it renders; the splash remains visual only.
  app?.removeAttribute('aria-busy');
- const minimum=reducedMotion()?0:1200;
+ const motionReduced=reducedMotion();
+ const minimum=motionReduced?0:1200;
  const delay=Math.max(0,minimum-Math.max(0,clock()));
  scheduleAfter(()=>{
   if(!splash.isConnected)return;
+  if(motionReduced){splash.remove();return;}
   splash.classList.add('rb-exit');
   const finish=()=>splash.remove();
   splash.addEventListener('transitionend',finish,{once:true});
