@@ -495,7 +495,7 @@ function workoutView(){
  return `${heading('Lift something.','Heavy things, repeated, on purpose.')}
  ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div><button class="btn" data-action="create-template">${svg('plus','tiny-icon')} New plan</button></div>
- ${state.templates.map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="browse-template-videos" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled':''}>${svg('play','tiny-icon')} Videos</button></div></div>`).join('')}
+ ${state.templates.map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="browse-template-videos" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled':''}>${svg('play','tiny-icon')} Videos</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit / giant sets</button></div></div>`).join('')}
  <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
 
@@ -798,6 +798,7 @@ function tickSet(exI,setI){
    if(!roundWasDone&&roundNowDone&&setI<group.rounds-1){
     // FTS did not specify a fixed rest. This is a skippable 60 s suggestion.
     const seconds=group.custom?Math.max(0,Math.min(900,Number(group.restSeconds)||0)):
+     group.kind==='single'&&/(?:EMOM|every minute)/i.test(String(e.targetLabel||'')+' '+String(e.notes||''))?0:
      group.kind==='single'&&e.restSeconds>0?e.restSeconds:60;
     if(seconds>0)s.rest={exerciseIndex:exI,endsAt:Date.now()+seconds*1000,
      paused:false,remainingMs:seconds*1000,totalSeconds:seconds,id:uid(),
@@ -973,7 +974,17 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  }
  case 'add-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:null};render();break;
  case 'edit-template-exercise':modal={type:'template-exercise',id:el.dataset.id,index:Number(el.dataset.index)};render();break;
- case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&await confirmInApp(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){t.items.splice(idx,1);await persist();modal={type:'edit-template',id:t.id};render();haptic('check');}break;}
+ case 'delete-template-exercise':{const t=templateById(el.dataset.id),idx=Number(el.dataset.index),item=t?.items?.[idx];if(item&&await confirmInApp(`Remove “${item[1]}” from ${t.name}? Existing sessions won't change.`)){
+    const group=item[12];
+    t.items.splice(idx,1);
+    // A giant set needs at least two exercises. Keep the remaining exercise
+    // but automatically remove a user-created grouping reduced to one member.
+    if(group&&listCustomGiantSets(t).some(g=>g.id===group&&g.items.length<2)){
+      const updated=removeCustomGiantSet(t,group);
+      state.templates=state.templates.map(plan=>plan===t?updated:plan);
+    }
+    await persist();modal={type:'edit-template',id:t.id};render();haptic('check');
+   }break;}
  case 'keep-workout':modal=null;render();break;
  case 'switch-save':await switchWorkoutTo(el.dataset.id,true);break;
  case 'switch-discard':if(await confirmInApp(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
