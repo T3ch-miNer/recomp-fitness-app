@@ -1,0 +1,113 @@
+/* Recomp Pulse: approved startup design. Offline, no external fonts or scripts.
+ * Lives outside #app until the first complete render, then fades without blocking data work. */
+.recomp-boot,.recomp-boot *{box-sizing:border-box}
+.recomp-boot{
+ --rb-bg:#050709;--rb-text:#f6faf8;--rb-muted:#859593;--rb-mint:#6ef5c8;--rb-lime:#bff56a;
+ --rb-line:rgba(123,245,199,.13);
+ position:fixed;inset:0;z-index:110;isolation:isolate;overflow:hidden;
+ display:flex;flex-direction:column;justify-content:space-between;align-items:center;
+ min-height:100svh;width:100%;padding:clamp(32px,5vh,55px) 20px 44px;
+ padding-top:max(32px,env(safe-area-inset-top));padding-bottom:max(35px,env(safe-area-inset-bottom));
+ background:var(--rb-bg);color:var(--rb-text);
+ font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+ opacity:1;transition:opacity .38s ease,visibility .38s ease;visibility:visible;
+}
+.recomp-boot.rb-exit{opacity:0;visibility:hidden;pointer-events:none}
+.recomp-boot:before{
+ content:'';position:absolute;inset:-14%;z-index:-1;pointer-events:none;
+ background:radial-gradient(ellipse 41% 32% at 52% 45%,rgba(43,169,139,.19),transparent 73%),
+            radial-gradient(ellipse 28% 20% at 84% 24%,rgba(154,229,93,.075),transparent 80%),
+            radial-gradient(ellipse 50% 28% at 10% 94%,rgba(44,119,114,.10),transparent 76%);
+ animation:rb-drift 8s ease-in-out infinite alternate;
+}
+.recomp-boot:after{
+ content:'';position:absolute;inset:0;z-index:-1;opacity:.36;pointer-events:none;
+ background-image:linear-gradient(90deg,transparent 0,transparent calc(100% - 1px),var(--rb-line) 100%),
+                  linear-gradient(transparent 0,transparent calc(100% - 1px),var(--rb-line) 100%);
+ background-size:54px 54px;
+ -webkit-mask-image:linear-gradient(to bottom,transparent 5%,#000 40%,transparent 90%);
+ mask-image:linear-gradient(to bottom,transparent 5%,#000 40%,transparent 90%);
+}
+.rb-top{display:flex;align-items:center;gap:10px;align-self:stretch;justify-content:center;
+ font-weight:760;letter-spacing:.26em;font-size:10px;color:var(--rb-muted);text-align:center}
+.rb-top-dot{width:6px;height:6px;flex:none;border-radius:50%;background:var(--rb-mint);
+ box-shadow:0 0 0 4px rgba(110,245,200,.07),0 0 19px rgba(110,245,200,.5)}
+.rb-main{display:flex;flex-direction:column;align-items:center;justify-content:center;
+ margin-top:-7px;min-width:0;width:100%}
+.rb-orbit{width:282px;height:282px;max-width:86vw;max-height:40svh;
+ position:relative;display:grid;place-items:center;animation:rb-intro .8s cubic-bezier(.2,.9,.3,1) both}
+.rb-orbit:before,.rb-orbit:after{content:'';position:absolute;inset:13px;border-radius:50%;
+ border:1px solid rgba(110,245,200,.14);pointer-events:none}
+.rb-orbit:after{inset:32px;border-color:rgba(110,245,200,.09);border-style:dashed;
+ animation:rb-orbit-turn 24s linear infinite}
+.rb-orbit-light{position:absolute;inset:3px;border-radius:50%;opacity:.9;pointer-events:none;
+ background:conic-gradient(from 25deg,transparent 0 63%,rgba(191,245,106,.62) 72%,
+ rgba(110,245,200,.24) 76%,transparent 81% 100%);
+ -webkit-mask:radial-gradient(circle,transparent 69%,black 70%,black 71%,transparent 73%);
+ mask:radial-gradient(circle,transparent 69%,black 70%,black 71%,transparent 73%);
+ animation:rb-orbit-turn 8s linear infinite}
+.rb-squircle{position:relative;width:176px;height:176px;max-height:80%;max-width:80%;
+ display:grid;place-items:center;border:1px solid rgba(111,244,198,.20);border-radius:47px;
+ background:linear-gradient(140deg,rgba(34,57,55,.82),rgba(16,23,27,.83) 55%,rgba(16,38,30,.7));
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -18px 34px rgba(0,0,0,.19),
+ 0 35px 100px rgba(0,0,0,.22),0 0 53px rgba(63,238,185,.055);
+ animation:rb-float 4.1s ease-in-out infinite}
+.rb-squircle:before{content:'';position:absolute;inset:-9px;border-radius:56px;border:1px solid rgba(110,245,200,.08)}
+.rb-squircle:after{content:'';position:absolute;inset:12px;border-radius:34px;
+ background:radial-gradient(circle at 30% 10%,rgba(110,245,200,.065),transparent 65%);pointer-events:none}
+.rb-icon{position:relative;width:132px;height:132px;max-width:88%;max-height:88%;overflow:visible;
+ filter:drop-shadow(0 3px 20px rgba(110,245,200,.25))}
+.rb-trace{stroke:rgba(110,245,200,.14);fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:12}
+.rb-wave{stroke:url(#rb-pulse-grad);fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:12;
+ stroke-dasharray:260;stroke-dashoffset:260;animation:rb-draw 2.6s cubic-bezier(.55,0,.25,1) .35s infinite}
+.rb-dot{fill:url(#rb-dot-grad);transform-origin:148px 58px;animation:rb-dot-flash 2.6s ease-in-out .35s infinite}
+.rb-grain{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--rb-mint);box-shadow:0 0 12px rgba(110,245,200,.7)}
+.rb-grain.one{top:9px;right:72px;animation:rb-blink 2.1s ease-in-out infinite}
+.rb-grain.two{bottom:41px;left:15px;width:3px;height:3px;opacity:.4;animation:rb-blink 3s ease-in-out .6s infinite}
+.rb-wordmark{margin-top:0;font-size:clamp(46px,12vw,60px);line-height:1.04;font-weight:810;
+ letter-spacing:-.078em;white-space:nowrap;animation:rb-rise .75s .26s both}
+.rb-wordmark b{color:var(--rb-lime);font-weight:900}
+.rb-tagline{font-size:12px;letter-spacing:.18em;font-weight:750;margin-top:17px;
+ color:var(--rb-muted);animation:rb-rise .75s .4s both;text-align:center}
+.rb-tagline .rb-accent{color:var(--rb-mint)}
+.rb-traindots{display:flex;align-items:center;gap:8px;margin-top:33px;animation:rb-rise .75s .52s both}
+.rb-traindots span{font-size:10px;letter-spacing:.15em;font-weight:740;padding:10px 12px;
+ color:var(--rb-muted);border:1px solid rgba(151,190,179,.14);border-radius:13px;
+ background:rgba(125,178,164,.045)}
+.rb-traindots span:nth-child(2){color:var(--rb-text);border-color:rgba(110,245,200,.31);background:rgba(110,245,200,.09)}
+.rb-foot{display:grid;justify-items:center;gap:13px;width:100%;animation:rb-rise .75s .65s both}
+.rb-progress{width:150px;height:3px;overflow:hidden;border-radius:20px;background:rgba(132,178,158,.16)}
+.rb-progress:before{content:'';display:block;width:40%;height:100%;border-radius:20px;
+ background:linear-gradient(90deg,var(--rb-mint),var(--rb-lime));box-shadow:0 0 12px var(--rb-mint);
+ animation:rb-progress 2.2s ease-in-out infinite alternate}
+.rb-progress-title{font-size:10px;font-weight:700;letter-spacing:.19em;color:var(--rb-muted);text-align:center}
+.rb-foot-copy{font-size:11px;color:rgba(182,201,193,.62);margin-top:8px;letter-spacing:.01em;text-align:center}
+@keyframes rb-drift{from{transform:translate3d(-2%,1%,0)}to{transform:translate3d(3%,-2%,0)}}
+@keyframes rb-orbit-turn{to{transform:rotate(360deg)}}
+@keyframes rb-intro{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes rb-rise{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@keyframes rb-float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-6px) scale(1.012)}}
+@keyframes rb-draw{0%{stroke-dashoffset:260;opacity:.25}13%{opacity:1}57%{stroke-dashoffset:0;opacity:1}84%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-260;opacity:.14}}
+@keyframes rb-dot-flash{0%,36%,100%{opacity:.38;transform:scale(.92)}56%{opacity:1;transform:scale(1.34)}72%{opacity:.8;transform:scale(1)}}
+@keyframes rb-blink{0%,100%{opacity:.2;transform:scale(.7)}50%{opacity:.95;transform:scale(1.2)}}
+@keyframes rb-progress{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+@media(prefers-color-scheme:light){
+ .recomp-boot{--rb-bg:#f3f2ee;--rb-text:#141f1b;--rb-muted:#61736b;--rb-line:rgba(55,148,114,.10)}
+ .rb-squircle{background:linear-gradient(135deg,#e7f9ed,#f8fcf5);
+  box-shadow:0 25px 80px rgba(49,126,95,.12)}
+}
+@media(prefers-reduced-motion:reduce){
+ .recomp-boot,.recomp-boot *, .recomp-boot:before,.recomp-boot:after{animation:none!important;transition:none!important}
+ .rb-wave{stroke-dasharray:none;stroke-dashoffset:0;opacity:1}
+ .rb-progress:before{transform:translateX(115%)}
+}
+@media(max-height:570px){
+ .recomp-boot{padding-top:16px;padding-bottom:14px}
+ .rb-orbit{width:190px;height:190px}
+ .rb-squircle{width:126px;height:126px;border-radius:33px}
+ .rb-icon{width:100px;height:100px}
+ .rb-wordmark{font-size:41px}
+ .rb-tagline{margin-top:8px;font-size:10px}
+ .rb-traindots{margin-top:14px}
+ .rb-foot{gap:7px}
+}
