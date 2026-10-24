@@ -14,6 +14,7 @@ on:
       - 'app.js'
       - 'fts-workouts.js'
       - 'fts-workouts-5-15.js'
+      - 'fts-workouts-16-41.js'
       - 'exercise-guides.js'
       - 'exercise-videos.js'
       - 'exercise-demonstration.js'
@@ -59,7 +60,7 @@ jobs:
           node-version: '22'
       - name: Check ES module syntax
         run: |
-          for file in goal-draft.js photo-ai.js photo-scan-worker/worker.js app.js giant-sets.js giant-set-view.js fts-workouts.js fts-workouts-5-15.js exercise-videos.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
+          for file in goal-draft.js photo-ai.js photo-scan-worker/worker.js app.js giant-sets.js giant-set-view.js fts-workouts.js fts-workouts-5-15.js fts-workouts-16-41.js exercise-videos.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
             node --input-type=module --check < "$file"
           done
       - name: Test meal planner, recipe integration, barcodes and local storage

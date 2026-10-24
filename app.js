@@ -1,6 +1,7 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import {FTS_WORKOUTS} from './fts-workouts.js';
 import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15.js';
+import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts} from './fts-workouts-16-41.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
@@ -111,7 +112,7 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15]),ftsWorkoutImportVersion:2,
+ photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:3,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null;
@@ -1387,9 +1388,11 @@ async function init(){try{
  }
  // One-time expansion to fifteen FTS programmes, including users who already imported 1–4.
  // Preserve modified templates, active workouts, personal plans and workout history.
- if(hadSavedState && state.ftsWorkoutImportVersion!==2){
-  state.templates=mergeFtsWorkoutExpansion(state.templates);
-  state.ftsWorkoutImportVersion=2;
+ if(hadSavedState && Number(state.ftsWorkoutImportVersion||0)<3){
+  // Preserve previously edited FTS plans, personal templates and all saved sessions.
+  if(Number(state.ftsWorkoutImportVersion||0)<2)state.templates=mergeFtsWorkoutExpansion(state.templates);
+  state.templates=mergeFtsFinalWorkouts(state.templates);
+  state.ftsWorkoutImportVersion=3;
   await put('state',state);
  }
  if(state.session&&(!Array.isArray(state.session.exercises)||!Number.isFinite(Number(state.session.startedAt)))){
