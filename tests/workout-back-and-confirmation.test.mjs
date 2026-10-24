@@ -72,7 +72,7 @@ test('16px editable kg/reps, themed dialog and updated offline shell',()=>{
  assert.match(css,/recomp-confirm-dialog/);
  assert.match(css,/var\(--panel\)/);
  assert.match(index,/workout-polish\.css\?v=2\.5\.5/);
- assert.match(index,/app\.js\?v=2\.8\.9-add-plan-fab/);
+ assert.match(index,/app\.js\?v=2\.8\.10-recomp-pulse/);
  for(const name of ['workout-back.js','confirmation-dialog.js','workout-polish.css']){
   assert.ok(sw.includes("'./"+name+"'"),name+' must be included offline');
  }
