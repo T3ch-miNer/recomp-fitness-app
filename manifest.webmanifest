@@ -2,12 +2,12 @@
   "id": "./",
   "name": "Recomp - Personal Fitness",
   "short_name": "Recomp",
-  "description": "Offline-first workout, nutrition, and body tracker",
+  "description": "Recomp: train, fuel and evolve with your private, offline-first fitness tracker.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0a111b",
-  "theme_color": "#0a111b",
+  "background_color": "#050709",
+  "theme_color": "#050709",
   "icons": [
     {
       "src": "./icon-192.png",
@@ -20,6 +20,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
