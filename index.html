@@ -25,10 +25,43 @@
   <link rel="stylesheet" href="./workout-polish.css?v=2.5.5"/>
   <link rel="stylesheet" href="./giant-sets.css?v=2.6"/>
   <link rel="stylesheet" href="./settings-layout.css?v=2.7-settings-hub"/>
+  <!-- Self-contained Recomp Pulse boot style. Loaded before application modules. -->
+  <link rel="stylesheet" href="./launch.css?v=1"/>
   <title>Recomp — Train. Fuel. Evolve.</title>
 </head>
 <body>
-  <div id="app"><div class="boot" aria-label="Loading Recomp"><div class="boot-mark"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></div><div class="boot-word">recomp.</div></div></div>
+  <div id="app">
+    <div class="boot" role="status" aria-label="Loading Recomp">
+      <div class="boot-kicker" aria-hidden="true"><span class="boot-kicker-dot"></span>RECOMP / PERSONAL FITNESS</div>
+      <div class="boot-middle">
+        <div class="boot-orbit" aria-hidden="true">
+          <div class="boot-sweep"></div>
+          <div class="boot-mark">
+            <svg viewBox="0 0 192 192" width="115" height="115" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+              <defs>
+                <linearGradient id="boot-mint-gradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop stop-color="#6ef5c8"/>
+                  <stop offset="1" stop-color="#bff56a"/>
+                </linearGradient>
+              </defs>
+              <path class="boot-wave-ghost" d="M42 104h24l16-38 24 60 18-42 14 20h22"/>
+              <path class="boot-wave" pathLength="260" d="M42 104h24l16-38 24 60 18-42 14 20h22"/>
+              <circle cx="148" cy="58" r="8" fill="#bff56a"/>
+            </svg>
+          </div>
+        </div>
+        <div class="boot-word" aria-hidden="true">recomp<span>.</span></div>
+        <div class="boot-subline" aria-hidden="true"><strong>TRAIN</strong> · FUEL · EVOLVE</div>
+        <div class="boot-tags" aria-hidden="true"><span>MOVE</span><span>GROW</span><span>REPEAT</span></div>
+      </div>
+      <div class="boot-footer">
+        <div class="boot-track" aria-hidden="true"></div>
+        <div class="boot-status">GETTING YOUR SPACE READY</div>
+        <div class="boot-caption" aria-hidden="true">Small wins stack. One day at a time.</div>
+      </div>
+      <noscript><p class="boot-noscript">Recomp needs JavaScript to open your workout journal.</p></noscript>
+    </div>
+  </div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.js?v=2.8.9-add-plan-fab"></script>
 </body>
