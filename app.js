@@ -112,7 +112,7 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:3,
+ photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:4,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null;
@@ -1386,13 +1386,21 @@ async function init(){try{
  for(const key of ['food','water','activity','weights','measurements','photos','workoutHistory','templates']){
   if(!Array.isArray(state[key]))state[key]=defaults[key];
  }
- // One-time expansion to fifteen FTS programmes, including users who already imported 1–4.
- // Preserve modified templates, active workouts, personal plans and workout history.
- if(hadSavedState && Number(state.ftsWorkoutImportVersion||0)<3){
-  // Preserve previously edited FTS plans, personal templates and all saved sessions.
-  if(Number(state.ftsWorkoutImportVersion||0)<2)state.templates=mergeFtsWorkoutExpansion(state.templates);
-  state.templates=mergeFtsFinalWorkouts(state.templates);
-  state.ftsWorkoutImportVersion=3;
+ // One-time FTS expansion. Keep existing edits, session records and personal workout plans.
+ if(hadSavedState && Number(state.ftsWorkoutImportVersion||0)<4){
+  const previousVersion=Number(state.ftsWorkoutImportVersion||0);
+  if(previousVersion<2)state.templates=mergeFtsWorkoutExpansion(state.templates);
+  if(previousVersion<3)state.templates=mergeFtsFinalWorkouts(state.templates);
+  // Version 3 shipped an intentionally empty Workout 40. Replace only that untouched
+  // placeholder after verifying its Strength exercises in the FTS screen recording.
+  if(previousVersion>=3){
+   const empty=state.templates.find(t=>t?.id==='fts-workout-40');
+   if(empty?.name==='Workout 40 · Details needed (video unclear)' && Array.isArray(empty.items) && empty.items.length===0){
+    const verified=FTS_WORKOUTS_16_TO_41.find(t=>t.id==='fts-workout-40');
+    if(verified)state.templates=state.templates.map(t=>t===empty?structuredClone(verified):t);
+   }
+  }
+  state.ftsWorkoutImportVersion=4;
   await put('state',state);
  }
  if(state.session&&(!Array.isArray(state.session.exercises)||!Number.isFinite(Number(state.session.startedAt)))){
