@@ -1,0 +1,25 @@
+/* Scroll-aware mobile chrome: same behaviour across the five main pages. */
+/* The focused workout's separate sticky glass header is never hidden. */
+@media(max-width:760px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{
+  transition:transform 280ms cubic-bezier(.22,1,.36,1),opacity 220ms ease;
+ }
+ body.scroll-chrome-hidden #recomp-bottom-dock.bottom-nav.premium-dock:not([hidden]){
+  transform:translate3d(0,calc(100% + 28px + env(safe-area-inset-bottom)),0);
+  opacity:0;pointer-events:none;
+ }
+ .plan-fab-cluster,.food-fab-cluster,#app>.quick-fab{
+  transition:transform 280ms cubic-bezier(.22,1,.36,1),opacity 220ms ease;
+ }
+ body.scroll-chrome-hidden .plan-fab-cluster,
+ body.scroll-chrome-hidden .food-fab-cluster,
+ body.scroll-chrome-hidden #app>.quick-fab{
+  transform:translate3d(0,18px,0);
+  opacity:0;
+  pointer-events:none;
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ #recomp-bottom-dock.bottom-nav.premium-dock,
+ .plan-fab-cluster,.food-fab-cluster,#app>.quick-fab{transition:none!important}
+}
