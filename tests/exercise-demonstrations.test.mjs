@@ -83,6 +83,21 @@ test('responsive exercise demo connected to modal with safe PWA caching',()=>{
  assert.match(html,/2\.7-worker-access-compat/);
 });
 
+test('workout cards show only Start and Edit, keeping exercise videos inside the plan editor',()=>{
+ const workoutView=app.slice(app.indexOf('function workoutView(){'),app.indexOf('function elapsed('));
+ const editorView=app.slice(app.indexOf('function templateEditorView(t){'),app.indexOf('function pendingPlanSwitch('));
+ assert.match(workoutView,/data-action="begin-template"/);
+ assert.match(workoutView,/data-action="edit-template"/);
+ assert.doesNotMatch(workoutView,/data-action="browse-template-videos"/,
+  'the workout cards must not contain a Videos button');
+ assert.match(editorView,/data-action="browse-template-videos"/,
+  'videos should remain accessible after opening Edit');
+ assert.match(editorView,/data-action="preview-template-exercise"/,
+  'each exercise still has a demonstration button');
+ assert.match(app,/case 'exercise-video':/,'active workouts retain demonstrations');
+ assert.match(app,/case 'preview-template-exercise':/,'saved plans retain demonstrations');
+});
+
 test('verified newer videos show the real creator instead of generic M&S attribution',()=>{
  const preview=renderExerciseDemonstration({name:'Dumbbell Snatch',notes:'Five reps per side'});
  assert.match(preview,/The Dumbbell Snatch/);
