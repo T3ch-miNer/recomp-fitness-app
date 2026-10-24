@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {orderedWorkoutPlans,workoutHistoryHtml} from '../history-view.js';
 
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const app=read('app.js');
@@ -13,7 +14,7 @@ const start=app.indexOf('function workoutView(){');
 const end=app.indexOf('function elapsed(',start);
 assert.ok(start>=0&&end>start,'workout plan view present');
 const viewBuilder=new Function('state','heading','svg','escapeHtml','planActionsId',
- 'elapsed','dateDisplay','activeWorkoutView',
+ 'elapsed','dateDisplay','activeWorkoutView','historyPanel','workoutHistoryHtml','orderedWorkoutPlans',
  app.slice(start,end)+'\nreturn workoutView;');
 const htmlEscape=x=>String(x??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -23,14 +24,14 @@ const workoutView=viewBuilder(
   {id:'fts-workout-1',name:'Workout 1 · Leg Day',subtitle:'FTS',items:[['a','Leg Press',3,10,100,90,[]]]}
  ]},
  ()=>'<header>Workouts</header>',()=>'<svg></svg>',
- htmlEscape,null,()=>'',()=>'',()=>'')();
+ htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans)();
 
 const beginFab=app.indexOf("${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?");
 const endFab=app.indexOf('${state.session&&!active?',beginFab);
 assert.ok(beginFab>=0&&endFab>beginFab,'the floating quick-add markup is in render');
 const fabExpr=app.slice(beginFab+2,endFab-1);
-const renderQuickFab=new Function('active','tab','state','svg','return ('+fabExpr+');');
-const fab=(tab,{active=false,session=null}={})=>renderQuickFab(active,tab,{session},()=>'<svg></svg>');
+const renderQuickFab=new Function('active','tab','state','svg','historyPanel','return ('+fabExpr+');');
+const fab=(tab,{active=false,session=null}={})=>renderQuickFab(active,tab,{session},()=>'<svg></svg>',null);
 
 test('New plan is removed from Workouts heading but plan cards stay intact',()=>{
  assert.match(workoutView,/Your workout plans/);
@@ -43,13 +44,15 @@ test('New plan is removed from Workouts heading but plan cards stay intact',()=>
 
 test('Workouts gets the same compact floating plus action as Food and Weight',()=>{
  const plan=fab('workouts');
- assert.match(plan,/class="quick-fab /);
+ assert.match(plan,/class="quick-fab"/);
+ assert.match(plan,/data-action="toggle-history"/);
  assert.match(plan,/data-action="create-template"/);
  assert.match(plan,/aria-label="Create workout plan"/);
  assert.match(plan,/<span class="quick-fab-label">Plan<\/span>/);
  assert.match(plan,/<svg>/);
  assert.ok(!plan.includes('New plan'));
  assert.match(fab('nutrition'),/data-action="toggle-food-menu"/);
+ assert.match(fab('nutrition'),/data-action="toggle-history"/);
  assert.match(fab('nutrition'),/quick-fab-label">Food/);
  assert.match(fab('body'),/data-action="add-weight"/);
  assert.match(fab('body'),/quick-fab-label">Weight/);
@@ -59,7 +62,7 @@ test('Workouts gets the same compact floating plus action as Food and Weight',()
 
 test('floating Plan button avoids overlapping a minimised session and hides in focus mode',()=>{
  const minimized={minimized:true};
- assert.match(fab('workouts',{session:minimized}),/quick-fab above-workout/);
+ assert.match(fab('workouts',{session:minimized}),/plan-fab-cluster history-action-cluster above-workout/);
  assert.equal(fab('workouts',{active:true,session:{minimized:false}}),'');
  assert.match(styles,/\.quick-fab\.above-workout/);
  assert.match(dock,/\.quick-fab\.above-workout/);
@@ -69,7 +72,7 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
 });
 
 test('updated offline shell installs the Plan FAB code',()=>{
- assert.match(index,/app\.js\?v=2\.9\.3-universal-warmup/);
- assert.match(worker,/recomp-shell-v2\.9\.3-universal-warmup/);
+ assert.match(index,/app\.js\?v=2\.9\.4-history-shortcuts/);
+ assert.match(worker,/recomp-shell-v2\.9\.4-history-shortcuts/);
  assert.ok(worker.includes("'./app.js'"));
 });
