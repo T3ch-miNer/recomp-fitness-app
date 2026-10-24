@@ -1514,13 +1514,13 @@ async function init(){try{
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
  // The approved Pulse intro overlays the first app paint, then gracefully disappears.
- // Only fast boots get a short intro; slow boots incur no additional waiting.
+ // Keep the approved intro for at least 2.5 seconds; slow boots add no further delay.
  // Reduced-motion users enter immediately. No training data is accessed here.
  const pulse=document.getElementById('recomp-pulse');
  if(pulse){
   const still=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  const elapsed=window.performance?.now?.()??1200;
-  const hold=still?0:Math.max(0,1200-elapsed);
+  const elapsed=window.performance?.now?.()??0;
+  const hold=still?0:Math.max(0,2500-elapsed);
   window.setTimeout(()=>{
    pulse.classList.add('rb-leaving');
    window.setTimeout(()=>pulse.remove(),still?0:320);
