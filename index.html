@@ -15,6 +15,7 @@
   <style>html{background:#050709}@media(prefers-color-scheme:light){html{background:#f3f2ee}}body{margin:0}</style>
   <link rel="manifest" href="./manifest.webmanifest"/>
   <link rel="icon" href="./icon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="./recomp-boot.css?v=2.8.10-recomp-pulse"/>
   <link rel="stylesheet" href="./styles.css?v=2.5.1-review"/>
   <link rel="stylesheet" href="./nutrition-v2.css?v=2.7-worker-access-compat"/>
   <link rel="stylesheet" href="./premium.css?v=2.5.1-review"/>
@@ -28,8 +29,40 @@
   <title>Recomp — Train. Fuel. Evolve.</title>
 </head>
 <body>
-  <div id="app"><div class="boot" aria-label="Loading Recomp"><div class="boot-mark"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></div><div class="boot-word">recomp.</div></div></div>
+  <div id="recomp-splash" class="recomp-boot" role="status" aria-live="polite" aria-label="Loading Recomp">
+    <div class="rb-top"><span class="rb-top-dot" aria-hidden="true"></span> RECOMP / PERSONAL FITNESS</div>
+    <div class="rb-main">
+      <div class="rb-orbit" aria-hidden="true">
+        <div class="rb-orbit-light"></div>
+        <div class="rb-grain one"></div><div class="rb-grain two"></div>
+        <div class="rb-squircle">
+          <svg class="rb-icon" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="rb-pulse-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#6ef5c8"/><stop offset="1" stop-color="#bff56a"/>
+              </linearGradient>
+              <linearGradient id="rb-dot-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#6ef5c8"/><stop offset="1" stop-color="#bff56a"/>
+              </linearGradient>
+            </defs>
+            <path class="rb-trace" d="M42 104h24l16-38 24 60 18-42 14 20h22"/>
+            <path class="rb-wave" d="M42 104h24l16-38 24 60 18-42 14 20h22"/>
+            <circle class="rb-dot" cx="148" cy="58" r="8"/>
+          </svg>
+        </div>
+      </div>
+      <div class="rb-wordmark" aria-hidden="true">recomp<b>.</b></div>
+      <div class="rb-tagline"><span class="rb-accent">TRAIN</span> &nbsp;·&nbsp; FUEL &nbsp;·&nbsp; EVOLVE</div>
+      <div class="rb-traindots" aria-hidden="true"><span>MOVE</span><span>GROW</span><span>REPEAT</span></div>
+    </div>
+    <div class="rb-foot">
+      <div class="rb-progress" aria-hidden="true"></div>
+      <div class="rb-progress-title">GETTING YOUR SPACE READY</div>
+      <div class="rb-foot-copy">Small wins stack. One day at a time.</div>
+    </div>
+  </div>
+  <div id="app" aria-busy="true"></div>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=2.8.9-add-plan-fab"></script>
+  <script type="module" src="./app.js?v=2.8.10-recomp-pulse"></script>
 </body>
 </html>
