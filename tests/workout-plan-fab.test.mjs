@@ -23,7 +23,7 @@ const workoutView=viewBuilder(
   {id:'fts-workout-1',name:'Workout 1 · Leg Day',subtitle:'FTS',items:[['a','Leg Press',3,10,100,90,[]]]}
  ]},
  ()=>'<header>Workouts</header>',()=>'<svg></svg>',
- htmlEscape,null,()=>'',()=>'',()=>'');
+ htmlEscape,null,()=>'',()=>'',()=>'')();
 
 const beginFab=app.indexOf("${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?");
 const endFab=app.indexOf('${state.session&&!active?',beginFab);
