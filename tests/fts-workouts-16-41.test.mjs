@@ -82,7 +82,7 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/FTS_WORKOUTS_16_TO_41/);
  assert.match(app,/ftsWorkoutImportVersion:4/);
  assert.match(app,/previousVersion>=3/);
- assert.match(app,/empty\.name==='Workout 40 · Details needed \(video unclear\)'/);
+ assert.match(app,/empty\?\.name==='Workout 40 · Details needed \(video unclear\)'/);
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
  assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<4/);
  assert.match(app,/await put\('state',state\)/);
