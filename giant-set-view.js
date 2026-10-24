@@ -37,7 +37,7 @@ export function renderGiantSetView(session){
  }).join('');
  return `<section class="giant-tracker" aria-label="Giant set round tracker">
   <div class="giant-tracker-top">
-   <div><span class="eyebrow">ROUND-BASED TRACKER</span><h2>Group ${safe(selected.id)} <span class="giant-muted">· Giant set</span></h2><p>${selected.items.length} exercises · ${selected.rounds} rounds · ${completeRounds} rounds complete</p></div>
+   <div><span class="eyebrow">ROUND-BASED TRACKER</span><h2>Group ${safe(selected.id)} <span class="giant-muted">· ${selected.rounds===1?'Single-round finisher':'Giant set'}</span></h2><p>${selected.items.length} exercises · ${selected.rounds} rounds · ${completeRounds} rounds complete</p></div>
    <div class="giant-round-count"><b>${round+1}/${selected.rounds}</b><small>Current round</small></div>
   </div>
   <div class="giant-group-tabs" role="group" aria-label="Choose exercise group">${groups.map(g=>`<button type="button" data-action="giant-group" data-group="${safe(g.id)}" aria-pressed="${g.id===selected.id}" class="${g.id===selected.id?'selected':''}">Group ${safe(g.id)}${Array.from({length:g.rounds},(_,r)=>isRoundDone(g,r)).every(Boolean)?' ✓':''}</button>`).join('')}</div>
