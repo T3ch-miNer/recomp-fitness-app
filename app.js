@@ -1,7 +1,7 @@
 import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
 import {FTS_WORKOUTS} from './fts-workouts.js';
 import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15.js';
-import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts} from './fts-workouts-16-41.js';
+import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts,mergeFtsReviewedWorkouts} from './fts-workouts-16-41.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
@@ -112,7 +112,7 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:4,
+ photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null;
@@ -1387,7 +1387,7 @@ async function init(){try{
   if(!Array.isArray(state[key]))state[key]=defaults[key];
  }
  // One-time FTS expansion. Keep existing edits, session records and personal workout plans.
- if(hadSavedState && Number(state.ftsWorkoutImportVersion||0)<4){
+ if(hadSavedState && Number(state.ftsWorkoutImportVersion||0)<5){
   const previousVersion=Number(state.ftsWorkoutImportVersion||0);
   if(previousVersion<2)state.templates=mergeFtsWorkoutExpansion(state.templates);
   if(previousVersion<3)state.templates=mergeFtsFinalWorkouts(state.templates);
@@ -1400,7 +1400,10 @@ async function init(){try{
     if(verified)state.templates=state.templates.map(t=>t===empty?structuredClone(verified):t);
    }
   }
-  state.ftsWorkoutImportVersion=4;
+  // Finish only the three previously marked incomplete FTS groups (17, 24, 29).
+  // Existing edited sets, personal plans and workout history are not replaced.
+  state.templates=mergeFtsReviewedWorkouts(state.templates);
+  state.ftsWorkoutImportVersion=5;
   await put('state',state);
  }
  if(state.session&&(!Array.isArray(state.session.exercises)||!Number.isFinite(Number(state.session.startedAt)))){
