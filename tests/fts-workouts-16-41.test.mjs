@@ -8,10 +8,11 @@ const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 
-test('workouts 16–41 have sequential IDs, 26 plans, 198 prescribed movement entries',()=>{
+test('workouts 16–41 have sequential IDs, 26 plans, 190 confirmed movement entries and one review-only slot',()=>{
  assert.equal(FTS_WORKOUTS_16_TO_41.length,26);
  assert.deepEqual(FTS_WORKOUTS_16_TO_41.map(p=>p.id),Array.from({length:26},(_,i)=>'fts-workout-'+(i+16)));
- assert.equal(FTS_WORKOUTS_16_TO_41.reduce((sum,p)=>sum+p.items.length,0),198);
+ assert.equal(FTS_WORKOUTS_16_TO_41.reduce((sum,p)=>sum+p.items.length,0),190);
+ assert.equal(FTS_WORKOUTS_16_TO_41.find(p=>p.id==='fts-workout-40').items.length,0,'Workout 40 must not duplicate unverified sets');
  const entries=FTS_WORKOUTS_16_TO_41.flatMap(p=>p.items);
  assert.equal(new Set(entries.map(e=>e[0])).size,entries.length,'all exercise IDs must be unique');
  for(const plan of FTS_WORKOUTS_16_TO_41){
@@ -35,7 +36,7 @@ test('recovery, prescription ladders, circuits and ambiguous details retained',(
  assert.match(find(24).notes,/Confirm exercise title/i);
  assert.match(find(29).notes,/incomplete/i);
  assert.match(find(32).notes,/1 kg/);
- assert.match(find(40).notes,/REVIEW THIS WORKOUT/);
+ assert.match(find(40).notes,/Please send Workout 40 screenshots/);
  const squats=find(17).items.find(i=>i[1]==='Goblet Squat');
  assert.deepEqual(squats[7].map(s=>s.reps),[30,20,10]);
  const arms=find(18).items.find(i=>i[1]==='Dumbbell Bicep Curl');
