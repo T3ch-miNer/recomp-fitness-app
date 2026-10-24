@@ -88,7 +88,7 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/await put\('state',state\)/);
  assert.match(sw,/recomp-shell-v2\.9-recomp-pulse/);
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
- assert.ok(page.includes('app.js?v=2.9-recomp-pulse'));
+ assert.ok(page.includes('app.js?v=2.9.2-muscle-focus'));
 });
 
 test('Workout 17 C group is two back-to-back supersets with weights left unspecified',()=>{
