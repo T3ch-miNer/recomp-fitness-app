@@ -1,7 +1,6 @@
 /* Detailed View • dynamic muscle focus and reversible glass workout header. */
 /* Scoped to the focused workout so the rest of the application is unchanged. */
 .workout-focus-shell .workout-scroll-header{
- --focus-amount:0;
  position:sticky;top:0;z-index:36;
  display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,1fr) minmax(0,1fr);
  align-items:center;gap:6px;min-height:68px;margin:0 -12px 17px;padding:8px 12px;
