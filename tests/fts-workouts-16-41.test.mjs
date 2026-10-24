@@ -36,7 +36,7 @@ test('recovery, prescription ladders, circuits and ambiguous details retained',(
  assert.match(find(16).notes,/40–60/);
  assert.match(find(17).notes,/2 supersets/i);
  assert.match(find(21).notes,/75 kg/);
- assert.match(find(24).notes,/Chest & Back/i);
+ assert.equal(find(24).name,'Workout 24 · Chest & Back');
  assert.match(find(29).notes,/3 giant sets/i);
  assert.match(find(32).notes,/1 kg/);
  assert.match(find(40).notes,/Back Squat/);
