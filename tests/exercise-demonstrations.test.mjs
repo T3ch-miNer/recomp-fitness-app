@@ -70,9 +70,12 @@ test('unknown custom exercises retain safe video search fallback and escape user
 
 test('responsive exercise demo connected to modal with safe PWA caching',()=>{
  assert.match(app,/renderExerciseDemonstration\(exercise,\{playing:modal\.playing\}\)/);
- assert.match(app,/case 'browse-template-videos':/);
  assert.match(app,/case 'preview-template-exercise':/);
- assert.match(app,/data-action="browse-template-videos"/);
+ assert.match(app,/data-action="preview-template-exercise"/);
+ assert.doesNotMatch(app,/data-action="browse-template-videos"/);
+ assert.match(app,/data-action="edit-template" data-id="\$\{escapeHtml\(t.id\)\}">\$\{svg\('edit','tiny-icon'\)\} Edit plan/);
+ assert.match(app,/case 'exercise-video':/);
+ assert.match(app,/data-action="exercise-video"/);
  assert.match(app,/case 'load-exercise-video':/);
  assert.match(css,/exercise-demo-frame/);
  assert.match(css,/aspect-ratio:16\/9/);
