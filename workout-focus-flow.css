@@ -1,4 +1,5 @@
 /* Detailed View • dynamic muscle focus and reversible glass workout header. */
+/* Highlight active muscle anatomy in red without changing the app's mint theme. */
 /* Scoped to the focused workout so the rest of the application is unchanged. */
 .workout-focus-shell .workout-scroll-header{
  position:sticky;top:0;z-index:36;
@@ -69,18 +70,18 @@
 .workout-focus-shell .muscle-body-outline{fill:color-mix(in srgb,var(--muted) 15%,var(--panel2));stroke:color-mix(in srgb,var(--muted) 48%,transparent);stroke-width:1.1}
 .workout-focus-shell .muscle-anatomy-lines{stroke:var(--muted);stroke-opacity:.34;stroke-width:.8}
 .workout-focus-shell .muscle-highlight{stroke-linecap:round;stroke-linejoin:round;stroke-width:.6}
-.workout-focus-shell .muscle-highlight.primary{fill:var(--accent);stroke:color-mix(in srgb,var(--accent) 80%,white)}
-.workout-focus-shell .muscle-highlight.secondary{fill:color-mix(in srgb,var(--accent) 48%,var(--panel2));stroke:var(--accent)}
+.workout-focus-shell .muscle-highlight.primary{fill:#ef4255;stroke:#ffb2ba}
+.workout-focus-shell .muscle-highlight.secondary{fill:#bb6670;stroke:#e9a0a7}
 .workout-focus-shell .muscle-focus-legend{display:flex;gap:20px;align-items:center;justify-content:center;margin:13px 0 15px;color:var(--muted);font-size:11px}
 .workout-focus-shell .muscle-focus-legend span{display:inline-flex;align-items:center;gap:7px}
 .workout-focus-shell .muscle-focus-legend i{display:inline-block;width:10px;height:10px;border-radius:3px}
-.workout-focus-shell .muscle-key-primary{background:var(--accent)}
-.workout-focus-shell .muscle-key-secondary{background:color-mix(in srgb,var(--accent) 48%,var(--panel2));border:1px solid var(--accent)}
+.workout-focus-shell .muscle-key-primary{background:#ef4255}
+.workout-focus-shell .muscle-key-secondary{background:#bb6670;border:1px solid #e9a0a7}
 .workout-focus-shell .muscle-focus-list{border-top:1px solid var(--line)}
 .workout-focus-shell .muscle-focus-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:13px}
 .workout-focus-shell .muscle-focus-row b{font-size:10px;letter-spacing:.03em}
-.workout-focus-shell .muscle-focus-row b.primary{color:var(--accent)}
-.workout-focus-shell .muscle-focus-row b.secondary{color:var(--muted)}
+.workout-focus-shell .muscle-focus-row b.primary{color:#e34255}
+.workout-focus-shell .muscle-focus-row b.secondary{color:#b96a75}
 .workout-focus-shell .muscle-focus-hint{font-size:11px;color:var(--muted);line-height:1.5;margin:14px 0 0}
 .workout-focus-shell .muscle-focus-empty{font-size:13px;line-height:1.5;color:var(--muted);padding:20px 0}
 @media(min-width:761px){
