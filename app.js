@@ -6,6 +6,7 @@ import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
+import {revealRecompApp} from './recomp-boot.js';
 import {nextAvailableGroup,listCustomGiantSets,saveCustomGiantSet,removeCustomGiantSet} from './custom-giant-sets.js';
 import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
@@ -1513,6 +1514,8 @@ async function init(){try{
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
+ // The boot overlay fades only when Recomp's actual app has rendered.
+ revealRecompApp();
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
