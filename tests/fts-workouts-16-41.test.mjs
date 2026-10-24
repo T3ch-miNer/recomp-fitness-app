@@ -86,9 +86,9 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
  assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<5/);
  assert.match(app,/await put\('state',state\)/);
- assert.match(sw,/recomp-shell-v2\.8\.4-fts-groups-17-24-29/);
+ assert.match(sw,/recomp-shell-v2\.8\.5-group-d-finisher/);
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
- assert.ok(page.includes('app.js?v=2.8.4-fts-groups-17-24-29'));
+ assert.ok(page.includes('app.js?v=2.8.5-group-d-finisher'));
 });
 
 test('Workout 17 C group is two back-to-back supersets with weights left unspecified',()=>{
