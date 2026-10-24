@@ -85,7 +85,7 @@ test('one-time migration retains every pre-existing FTS edit and custom plan',()
  merged[4].name='Modified on device';
  assert.equal(FTS_WORKOUTS_5_TO_15[0].name,'Workout 5 · Posterior');
  assert.match(app,/state=hadSavedState\?saved:INITIAL\(\)/);
- assert.match(app,/ftsWorkoutImportVersion\|\|0\)<3/);
+ assert.match(app,/ftsWorkoutImportVersion\|\|0\)<4/);
  assert.match(app,/mergeFtsWorkoutExpansion\(state.templates\)/);
  assert.match(app,/await put\('state',state\)/);
  assert.match(app,/instructions:desired.notes/);
