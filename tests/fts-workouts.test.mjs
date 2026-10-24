@@ -38,7 +38,7 @@ test('recorded weights are next-session defaults, not fabricated completed histo
  const press=FTS_WORKOUTS[0].items.find(e=>e[1]==='Leg Press');
  assert.deepEqual(press[7].map(set=>[set.kg,set.reps]),[[100,15],[100,15],[100,15]]);
  assert.equal(JSON.stringify(FTS_WORKOUTS).includes('"done":true'),false);
- assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15\]\)/);
+ assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15,\.\.\.FTS_WORKOUTS_16_TO_41\]\)/);
  assert.match(app,/notes:item\[8\]/);
  assert.match(app,/instructions:template.notes/);
 });
@@ -54,13 +54,13 @@ test('one-time migration preserves existing templates including personal edits',
  assert.equal(imported[5],previous[2]);
  imported[0].name='Changed on device';
  assert.equal(FTS_WORKOUTS[0].name,'Workout 1 · Leg Day','the source template must not be mutated');
- assert.match(app,/ftsWorkoutImportVersion!==2/);
+ assert.match(app,/ftsWorkoutImportVersion\|\|0\)<3/);
  assert.match(app,/await put\('state',state\)/);
  assert.match(app,/state=hadSavedState\?saved:INITIAL\(\)/);
 });
 
 test('updated PWA caches plans offline and forces latest app script',()=>{
  assert.ok(worker.includes("'./fts-workouts.js'"));
- assert.ok(worker.includes('recomp-shell-v2.8.1-exercise-videos'));
- assert.ok(index.includes('app.js?v=2.8.1-exercise-videos'));
+ assert.ok(worker.includes('recomp-shell-v2.8.2-fts-final'));
+ assert.ok(index.includes('app.js?v=2.8.2-fts-final'));
 });
