@@ -6,6 +6,7 @@ import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
+import {nextAvailableGroup,listCustomGiantSets,saveCustomGiantSet,removeCustomGiantSet} from './custom-giant-sets.js';
 import {confirmationHtml} from './confirmation-dialog.js';
 import * as cloud from './cloud.js';
 import {openNutrition,mealForHour} from './nutrition-v2.js';
@@ -570,11 +571,23 @@ function settleConfirmation(approved){
 }
 function modalShell(title,content,formName='',button='Save'){return `<div class="modal-shade" data-action="close-modal"><div class="modal" role="dialog" aria-label="${escapeHtml(title)}"><div class="modal-title"><h2 class="section-title">${title}</h2><button class="btn round" data-action="close-modal" aria-label="Close">${svg('x')}</button></div>${formName?`<form id="${formName}">${content}<button class="btn primary block" type="submit">${button}</button></form>`:content}</div></div>`;}
 function templateById(id){return state.templates.find(t=>t.id===id);}
+function customGroupControls(t){
+ const groups=listCustomGiantSets(t);
+ const ungrouped=t.items.filter(item=>!item[12]).length;
+ const enabled=ungrouped>=2&&nextAvailableGroup(t);
+ return `<section class="custom-group-tools" aria-label="Your giant sets">
+  <div class="row space"><div><b>Giant sets</b><p class="hint">Group two or more exercises, choose rounds and rest, and track them together.</p></div></div>
+  ${groups.map(g=>`<div class="template-editor-row"><div class="editor-exercise-num">${escapeHtml(g.id)}</div><div class="template-editor-info"><b>Giant set ${escapeHtml(g.id)}</b><span class="small muted">${g.items.length} exercises · ${g.items[0]?.[2]} rounds · ${g.restSeconds} seconds rest</span></div><button class="btn ghost" data-action="edit-custom-giant-set" data-id="${escapeHtml(t.id)}" data-group="${escapeHtml(g.id)}" aria-label="Edit giant set ${escapeHtml(g.id)}">${svg('edit','tiny-icon')}</button><button class="btn ghost danger" data-action="remove-custom-giant-set" data-id="${escapeHtml(t.id)}" data-group="${escapeHtml(g.id)}" aria-label="Remove giant set ${escapeHtml(g.id)}">${svg('trash','tiny-icon')}</button></div>`).join('')}
+  <button type="button" class="btn block" data-action="add-custom-giant-set" data-id="${escapeHtml(t.id)}" ${enabled?'':'disabled'}>${svg('plus','tiny-icon')} Create giant set</button>
+  ${enabled?'':'<p class="hint">Add at least two exercises not already assigned to another group.</p>'}
+  <p class="hint">Exercises run in their saved plan order. Group changes affect future sessions only.</p>
+ </section>`;
+}
 function templateEditorView(t){
- const entries=t.items.map((entry,i)=>`<div class="template-editor-row"><div class="editor-exercise-num">${i+1}</div><div class="template-editor-info"><b>${escapeHtml(entry[1])}</b><span class="muted small">${escapeHtml(entry[9]||`${entry[2]} sets · ${entry[3]} reps`)} · ${entry[5]} sec rest</span></div><button type="button" class="btn ghost" data-action="edit-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Edit ${escapeHtml(entry[1])}">${svg('edit','tiny-icon')}</button><button type="button" class="btn ghost" data-action="preview-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Watch demonstration for ${escapeHtml(entry[1])}" title="Exercise video">${svg('play','tiny-icon')}</button><button type="button" class="btn ghost danger" data-action="delete-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Remove ${escapeHtml(entry[1])}">${svg('trash','tiny-icon')}</button></div>`).join('');
+ const entries=t.items.map((entry,i)=>`<div class="template-editor-row"><div class="editor-exercise-num">${i+1}</div><div class="template-editor-info"><b>${escapeHtml(entry[1])}</b><span class="muted small">${escapeHtml(entry[9]||`${entry[2]} sets · ${entry[3]} reps`)} · ${entry[5]} sec rest${entry[12]?' · Group '+escapeHtml(entry[12]):''}</span></div><button type="button" class="btn ghost" data-action="edit-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Edit ${escapeHtml(entry[1])}">${svg('edit','tiny-icon')}</button><button type="button" class="btn ghost" data-action="preview-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Watch demonstration for ${escapeHtml(entry[1])}" title="Exercise video">${svg('play','tiny-icon')}</button><button type="button" class="btn ghost danger" data-action="delete-template-exercise" data-id="${escapeHtml(t.id)}" data-index="${i}" aria-label="Remove ${escapeHtml(entry[1])}">${svg('trash','tiny-icon')}</button></div>`).join('');
  return `<p class="small muted" style="margin:0 0 15px">Changes to plans apply to future workouts. Your active session and history won't change.</p>${t.notes?`<p class="hint" style="white-space:pre-line">Coach notes: ${escapeHtml(t.notes)}</p>`:''}
  <div class="template-edit-tools"><button type="button" class="btn" data-action="rename-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Rename</button><button type="button" class="btn danger" data-action="delete-template" data-id="${escapeHtml(t.id)}">${svg('trash','tiny-icon')} Delete plan</button></div>
- <div class="template-editor-list">${entries||'<p class="muted small">No exercises yet. Add one below.</p>'}</div><button class="btn primary block" data-action="add-template-exercise" data-id="${escapeHtml(t.id)}">${svg('plus','tiny-icon')} Add exercise</button>`;
+ <div class="template-editor-list">${entries||'<p class="muted small">No exercises yet. Add one below.</p>'}</div><button class="btn primary block" data-action="add-template-exercise" data-id="${escapeHtml(t.id)}">${svg('plus','tiny-icon')} Add exercise</button>${customGroupControls(t)}`;
 }
 function pendingPlanSwitch(targetId){
  const session=state.session,desired=templateById(targetId);
