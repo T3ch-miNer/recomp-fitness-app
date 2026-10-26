@@ -56,7 +56,7 @@ test('dashboard merges today-only tasks with recurring routine, allows edit & de
 test('first-run questionnaire takes precedence, snooze and tasks persist',()=>{
  const app=file('../app.js');
  assert.match(app,/document\.getElementById\('recomp-targets-setup'\)/);
- assert.match(app,/state\.dailyTargetsOnboarded!==true/);
+ assert.match(app,/state\?\.dailyTargetsOnboarded!==true/);
  assert.match(app,/state\.dailyTaskPlanning=dailyTaskRecord\(date,'snoozed'\)/);
  assert.match(app,/state\.dailyTaskPlanning=dailyTaskRecord\(date,'planned'\)/);
  assert.match(app,/state\.dailyTasks\.push\(\.\.\.added\)/);
