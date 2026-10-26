@@ -1,4 +1,4 @@
-import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos} from './db.js';
+import {get,put,getPhoto,putPhoto,deletePhoto,getAllPhotos,clearAllLocalRecords} from './db.js';
 import {FTS_WORKOUTS} from './fts-workouts.js';
 import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15.js';
 import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts,mergeFtsReviewedWorkouts} from './fts-workouts-16-41.js';
@@ -7,6 +7,7 @@ import {createWorkoutBackGuard} from './workout-back.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus} from './muscle-focus.js';
+import {reopenCompletedWorkout,saveSessionDetails} from './workout-recovery.js';
 import {nextScrollChromeState} from './scroll-chrome.js';
 import {warmupView,WARMUP_VIDEO_ID} from './warmup.js';
 import {orderedWorkoutPlans,workoutHistoryHtml,foodHistoryHtml} from './history-view.js';
@@ -546,7 +547,7 @@ function settingsView(){
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
 
-<div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
+<div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><div class="local-reset-control"><b>Delete data from this device</b><p class="small muted">Delete completed workouts, food logs, measurements, photos, custom plans and other personal settings saved here. Built-in workout plans will still appear. Cloud backups are separate.</p><button class="btn danger block" type="button" data-action="reset-all-local-data">${svg('trash','tiny-icon')} Delete all local fitness data</button></div><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
  <span class="settings-advanced-summary-icon" aria-hidden="true">${svg('cloud','tiny-icon')}</span>
@@ -554,7 +555,7 @@ function settingsView(){
  ${svg('chevron','tiny-icon')}
  </summary><div class="settings-advanced-body">
 
-<div class="card settings-cloud-card"><div class="row space"><span class="strong">${ses?`Signed in as ${escapeHtml(ses.user?.email||'Google user')}`:'Not signed in'}</span><span class="pill">${state.lastSync?'Last saved '+dateDisplay(state.lastSync.slice(0,10)):'Device-first'}</span></div><p class="small muted">${ses?'You can back up your data and restore it on another device. Automatic uploads can be enabled after your first manual backup.':'To enable private cloud sync, create your own Supabase project and configure Google OAuth using the provided SQL and setup guide.'}</p>${cfg?`<p class="hint">Project: ${escapeHtml(new URL(cfg.url).host)}</p>`:''}<div class="row" style="flex-wrap:wrap"><button class="btn" data-action="configure-cloud">${svg('settings','tiny-icon')} Configure</button>${ses?`<button class="btn" data-action="cloud-upload">Back up now</button><button class="btn" data-action="cloud-download">Restore</button><button class="btn ghost" data-action="cloud-logout">Sign out</button>`:`<button class="btn primary" data-action="google-login">Continue with Google</button>`}</div>${ses?`<label class="check-task"><input type="checkbox" class="checkbox" id="auto-cloud-sync" ${localStorage.getItem('recomp-auto-sync')==='yes'?'checked':''}/> Automatically back up changes after initial sync</label>`:''}</div>
+<div class="card settings-cloud-card"><div class="row space"><span class="strong">${ses?`Signed in as ${escapeHtml(ses.user?.email||'Google user')}`:'Not signed in'}</span><span class="pill">${state.lastSync?'Last saved '+dateDisplay(state.lastSync.slice(0,10)):'Device-first'}</span></div><p class="small muted">${ses?'You can back up your data and restore it on another device. Automatic uploads can be enabled after your first manual backup.':'To enable private cloud sync, create your own Supabase project and configure Google OAuth using the provided SQL and setup guide.'}</p>${cfg?`<p class="hint">Project: ${escapeHtml(new URL(cfg.url).host)}</p>`:''}<div class="row" style="flex-wrap:wrap"><button class="btn" data-action="configure-cloud">${svg('settings','tiny-icon')} Configure</button>${ses?`<button class="btn" data-action="cloud-upload">Back up now</button><button class="btn" data-action="cloud-download">Restore</button><button class="btn ghost" data-action="cloud-logout">Sign out</button><button class="btn danger" data-action="delete-cloud-backup">Delete cloud backup</button>`:`<button class="btn primary" data-action="google-login">Continue with Google</button>`}</div>${ses?`<label class="check-task"><input type="checkbox" class="checkbox" id="auto-cloud-sync" ${localStorage.getItem('recomp-auto-sync')==='yes'?'checked':''}/> Automatically back up changes after initial sync</label>`:''}</div>
 </div></details></section></div>`;
 }
 const REST_CIRC=2*Math.PI*88;
@@ -732,7 +733,7 @@ if(modal.type==='video'){
 }
 if(modal.type==='clerk')return modalShell('Set up Clerk sign-in',`${modalField('key','Clerk publishable key (pk_test_ or pk_live_)','','text','required autocomplete="off" spellcheck="false"')}<p class="hint">Paste only the public publishable key from your Clerk Dashboard. This enables your own phone to test the sign-in flow. For all users, set the key in clerk-auth.js before releasing. Do not use a secret key here.</p>`,'form-clerk','Save publishable key');
 if(modal.type==='cloud'){const cfg=cloud.getConfig();return modalShell('Configure private cloud',`${modalField('url','Supabase project URL',cfg?.url||'','url','placeholder="https://your-project.supabase.co" required')}${modalField('key','Supabase public publishable/anon key',cfg?.key||'','text','required')}<p class="hint">Use only a Supabase public publishable/anon key, never a service-role or secret key. Google OAuth must first be enabled in your Google Cloud and Supabase projects. Sign-in is optional and does not erase local records.</p>`,'form-cloud','Save cloud configuration');}
-if(modal.type==='workout-summary')return modalShell('Session banked',`<div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><div class="history-summary-actions"><button class="btn primary block" data-action="view-workout-history">View workout history</button><button class="btn block" data-action="close-modal">Back to workout plans</button></div>`);
+if(modal.type==='workout-summary')return modalShell('Session banked',`<div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><div class="history-summary-actions"><button class="btn block" data-action="undo-finish-workout" data-id="${escapeHtml(modal.historyId||'')}" ${modal.historyId?'':'disabled'}>↶ Undo finish · Reopen workout</button><button class="btn primary block" data-action="view-workout-history">View workout history</button><button class="btn block" data-action="close-modal">Back to workout plans</button></div>`);
 return '';
 }
 function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
@@ -872,7 +873,36 @@ function tickSet(exI,setI){
  }
  persist().then(render).catch(console.error);
 }
-async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);state.workoutHistory.push({id:uid(),templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',duration:minutes,volume,sets:done.length};await commit();}
+// Undo moves one saved entry back to the active workout; it keeps each completed set.
+async function restoreFinishedSession(id){
+ if(state.session){notify('Finish or discard the current workout before reopening saved history.');return false;}
+ const record=state.workoutHistory.find(item=>String(item.id)===String(id));
+ if(!record){notify('Saved workout not found.');return false;}
+ const session=reopenCompletedWorkout(record,templateById(record.templateId),Date.now());
+ if(!session){notify('This old history entry cannot be reopened.');return false;}
+ state.session={id:uid(),...session};state.workoutHistory=state.workoutHistory.filter(item=>item!==record);
+ tab='workouts';state.lastTab='workouts';historyPanel=null;modal=null;restSheet=false;
+ exerciseOpen=state.session.activeIndex||0;window.scrollTo({top:0,behavior:'instant'});
+ await commit();notify('Workout reopened. Edit your sets and finish again when ready.');return true;
+}
+async function eraseLocalFitnessData(){
+ // Do not remove the independently hosted optional Supabase backup.
+ localStorage.removeItem('recomp-auto-sync');
+ await clearAllLocalRecords();
+ for(const url of photoUrls.values())URL.revokeObjectURL(url);
+ photoUrls.clear();
+ for(let index=localStorage.length-1;index>=0;index--){
+  const key=localStorage.key(index);
+  if(key?.startsWith('recomp-'))localStorage.removeItem(key);
+ }
+ cloud.signOut();
+ state=INITIAL();tab='home';state.lastTab='home';modal=null;historyPanel=null;restSheet=false;
+ settingsCloudOpen=false;exerciseOpen=null;goalDraft=null;foodMenuOpen=false;
+ await put('state',state);
+ window.scrollTo({top:0,behavior:'instant'});render();
+ notify('Local fitness data cleared. Built-in workout plans remain available.');
+}
+async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);const historyId=uid();state.workoutHistory.push({id:historyId,templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises,sessionDetails:saveSessionDetails(s)});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',historyId,duration:minutes,volume,sets:done.length};await commit();}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -1142,7 +1172,29 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'cloud-logout':if(await confirmInApp('Sign out of cloud backup on this device? Your offline data will remain.')){cloud.signOut();render();}break;
  case 'test-chime':await chime();notify('Chime test played, if audio is permitted');break;
  case 'notification-permission':if(typeof Notification==='undefined')notify('Notifications are not supported in this browser');else{let status=await Notification.requestPermission();notify('Notification permission: '+status);}break;
- case 'export-backup':await exportData();break;
+  case 'undo-finish-workout':
+ case 'reopen-workout-history':await restoreFinishedSession(el.dataset.id);break;
+ case 'delete-workout-history':{
+  const record=state.workoutHistory.find(item=>String(item.id)===String(el.dataset.id));
+  if(!record)break;
+  if(!await confirmInApp('Permanently delete this completed workout from local History? This cannot be undone. Cloud backups, if any, are separate.',{title:'Delete saved workout?',approveLabel:'Delete workout'}))break;
+  state.workoutHistory=state.workoutHistory.filter(item=>item!==record);
+  await commit();notify('Workout deleted from local History.');break;
+ }
+ case 'reset-all-local-data':{
+  if(!await confirmInApp('Erase ALL locally saved Recomp workouts, food, measurements, photos, custom plans and settings? Built-in FTS plans will still appear. Optional cloud backups will NOT be deleted.',{title:'Reset local fitness data?',approveLabel:'Review final warning'}))break;
+  if(!await confirmInApp('Final confirmation: permanently delete all Recomp fitness records stored on this device? Only a previously exported backup could restore them.',{title:'Delete all local fitness data?',approveLabel:'Yes, delete local data'}))break;
+  await eraseLocalFitnessData();break;
+ }
+ case 'delete-cloud-backup':{
+  if(!cloud.getSession())throw new Error('Sign in to Advanced cloud backup first');
+  if(!await confirmInApp('Permanently delete your Supabase backup and any progress photos stored with it? Local Recomp records stay on this device. This cannot be undone.',{title:'Delete cloud backup?',approveLabel:'Delete cloud backup'}))break;
+  localStorage.removeItem('recomp-auto-sync');
+  const result=await cloud.deleteRemoteBackup();
+  state.lastSync=null;state.dirty=false;await put('state',state);render();
+  notify(result.deleted?'Cloud backup and linked photos deleted.':'No cloud backup was found.');break;
+ }
+case 'export-backup':await exportData();break;
  case 'import-backup':$('#import-file')?.click();break;
  }
 }

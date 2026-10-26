@@ -87,3 +87,23 @@ export async function downloadPhoto(path) {
   const r=await authenticated('/storage/v1/object/authenticated/progress-photos/'+path);
   return r.blob();
 }
+
+// Explicit user-requested deletion of their own optional Supabase backup.
+// Remove stored photo objects via the Storage API, then the scoped user row.
+// This never deletes the user's Recomp local records or identity account.
+export async function deleteRemoteBackup(){
+ const ses=await usableSession();
+ if(!ses)throw new Error('Sign in to your configured cloud backup first');
+ const existing=await downloadSnapshot();
+ if(!existing)return {deleted:false,photos:0};
+ const paths=[...new Set((Array.isArray(existing.payload?.photos)?existing.payload.photos:[])
+  .map(p=>String(p?.cloudPath||''))
+  .filter(path=>path.startsWith(ses.user.id+'/')&&!path.includes('..')))];
+ for(const path of paths){
+  await authenticated('/storage/v1/object/progress-photos/'+path.split('/').map(encodeURIComponent).join('/'),{method:'DELETE'});
+ }
+ const id=encodeURIComponent(ses.user.id);
+ await authenticated('/rest/v1/user_data?user_id=eq.'+id,{method:'DELETE'});
+ if(await downloadSnapshot())throw new Error('Cloud backup is still present. Check Supabase deletion permissions.');
+ return {deleted:true,photos:paths.length};
+}

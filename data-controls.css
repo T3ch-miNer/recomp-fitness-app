@@ -1,0 +1,18 @@
+/* Session recovery and user-owned data controls. */
+.history-record-actions{
+ display:flex;gap:9px;align-items:stretch;flex-wrap:wrap;
+ margin-top:16px;padding-top:13px;border-top:1px solid var(--line);
+}
+.history-record-actions .btn{min-height:44px;flex:1 1 135px}
+.local-reset-control{margin-top:8px;padding:18px 14px;border:1px solid color-mix(in srgb,var(--red) 45%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--red) 5%,var(--panel))}
+.local-reset-control>b{font-size:14px;color:var(--text)}
+.local-reset-control p{line-height:1.65;margin:8px 0 13px}
+.local-reset-control .btn.danger{min-height:46px;border:1px solid color-mix(in srgb,var(--red) 40%,var(--line));background:color-mix(in srgb,var(--red) 10%,var(--panel))}
+.history-summary-actions [data-action="undo-finish-workout"]{
+ min-height:47px;border-color:color-mix(in srgb,var(--accent) 45%,var(--line));
+ color:var(--accent);background:var(--accent2);
+}
+@media(max-width:370px){
+ .history-record-actions{flex-direction:column}
+ .history-record-actions .btn{flex:initial;width:100%}
+}

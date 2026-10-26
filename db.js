@@ -28,3 +28,16 @@ export const getPhoto = (key) => request('photos','readonly',s=>s.get(key));
 export const putPhoto = (key,value) => request('photos','readwrite',s=>s.put(value,key));
 export const deletePhoto = key => request('photos','readwrite',s=>s.delete(key));
 export const getAllPhotos = () => request('photos','readonly',s=>s.getAllKeys());
+
+// Clear Recomp's local records and progress-photo blobs together.
+// Wait for the transaction's completion, not merely the individual requests.
+export async function clearAllLocalRecords(){
+ const db=await openDb();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(STORES,'readwrite');
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(tx.error||new Error('Could not clear Recomp local data'));
+  tx.onabort=()=>reject(tx.error||new Error('Local reset was aborted'));
+  for(const store of STORES)tx.objectStore(store).clear();
+ });
+}
