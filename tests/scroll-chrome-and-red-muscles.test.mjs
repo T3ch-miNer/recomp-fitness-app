@@ -54,7 +54,7 @@ test('muscle diagram uses red emphasis for focused muscles and distinct secondar
 test('new nav script and CSS precached and versioned',()=>{
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(sw,/recomp-shell-v2\.9\.7-initial-targets/);
+ assert.match(sw,/recomp-shell-v2\.9\.8-daily-tasks/);
  assert.ok(sw.includes("'./scroll-chrome.js'"));
  assert.ok(sw.includes("'./scroll-chrome.css'"));
  assert.ok(html.includes('scroll-chrome.css?v=2.9.5-red-muscle-scroll'));
