@@ -41,7 +41,8 @@ test('new users are prompted, existing saved users are exempt, pending setup res
  assert.match(app,/onGuest:.*queueMicrotask\(maybeShowInitialDailyTargets\)/);
  assert.match(app,/queueMicrotask\(maybeShowInitialDailyTargets\)/);
  assert.match(app,/await persist\(\);render\(\)/);
- assert.match(app,/maybeShowInitialDailyTargets\(\);\s*\}\s*setInterval\(timerTick/);
+ assert.match(app,/maybeShowInitialDailyTargets\(\);/);
+ assert.match(app,/setTimeout\(\(\)=>maybeShowDailyTaskPrompt\(\),0\)/);
 });
 
 test('goals are validated with existing settings input limits',()=>{
