@@ -78,9 +78,9 @@ test('IndexedDB reset clears records and photos, leaving optional cloud backup i
 test('release and offline shell include recovery and reset assets',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
- assert.match(html,/app\.js\?v=2\.9\.6-data-control/);
+ assert.match(html,/app\.js\?v=2\.9\.7-initial-targets/);
  assert.match(html,/data-controls\.css\?v=2\.9\.6-data-control/);
- assert.match(sw,/recomp-shell-v2\.9\.6-data-control/);
+ assert.match(sw,/recomp-shell-v2\.9\.7-initial-targets/);
  assert.ok(sw.includes("'./workout-recovery.js'"));
  assert.ok(sw.includes("'./data-controls.css'"));
 });
