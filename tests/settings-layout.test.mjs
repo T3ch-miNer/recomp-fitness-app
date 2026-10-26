@@ -63,5 +63,5 @@ test('responsive stylesheet is loaded and cached with the same release',()=>{
  assert.match(css,/\.settings-advanced-summary:focus-visible/);
  assert.match(htmlPage,/settings-layout\.css\?v=2\.7-settings-hub/);
  assert.match(sw,/settings-layout\.css/);
- assert.match(sw,/recomp-shell-v2\.9\.6-data-control/);
+ assert.match(sw,/recomp-shell-v2\.9\.7-initial-targets/);
 });

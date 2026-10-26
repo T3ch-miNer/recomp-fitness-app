@@ -1,0 +1,57 @@
+/* Recomp first-use goal questionnaire; isolated from normal Settings forms. */
+.targets-setup-overlay{
+ position:fixed;inset:0;z-index:2100;display:flex;align-items:center;justify-content:center;
+ padding:16px;overflow-y:auto;overscroll-behavior:contain;
+ background:rgba(5,10,13,.85);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+ color:#f1f8f4;font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+.targets-setup-card{
+ width:min(100%,480px);max-height:min(95dvh,850px);overflow-y:auto;overscroll-behavior:contain;
+ border-radius:25px;border:1px solid rgba(145,242,198,.27);
+ background:linear-gradient(155deg,#1a2929,#111a20 62%,#142122);
+ box-shadow:0 30px 100px rgba(0,0,0,.63),inset 0 1px rgba(255,255,255,.08);
+ padding:clamp(20px,5vw,30px);scrollbar-width:thin;scrollbar-color:#41675a transparent;
+}
+.targets-setup-eyebrow{font-size:10px;font-weight:800;letter-spacing:.18em;color:#8ff1c0}
+.targets-setup-eyebrow span{color:#7c9890}
+.targets-setup-card h1{font-size:clamp(26px,6vw,35px);line-height:1.12;letter-spacing:-.055em;margin:13px 0 9px;color:#f6faf9}
+.targets-setup-description{font-size:13px;line-height:1.65;margin:0 0 16px;color:#b6c8c3}
+.targets-setup-note{
+ display:flex;align-items:flex-start;gap:9px;background:#23362d;border:1px solid #3c6251;
+ border-radius:13px;padding:12px 13px;margin:0 0 18px;color:#d7f5e5;
+ font-size:12px;line-height:1.55;
+}
+.targets-setup-note>span:first-child{color:#95efbc;font-size:17px;line-height:1.2}
+.targets-setup-group{min-width:0;padding:0;margin:0 0 16px;border:0}
+.targets-setup-group legend{font-size:15px;font-weight:800;letter-spacing:-.02em;padding:0}
+.targets-setup-group>p{color:#8ea69f;font-size:11px;margin:4px 0 9px}
+.targets-setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.targets-setup-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.targets-setup-field span{font-size:12px;color:#d7e6de;font-weight:650}
+.targets-setup-field small{font-size:10px;color:#91aaa3;font-weight:500}
+.targets-setup-field input{
+ box-sizing:border-box;width:100%;min-width:0;min-height:46px;padding:11px 12px;
+ font:inherit;font-weight:650;color:#f2fcf8;font-size:15px;
+ border-radius:12px;border:1px solid #3b524c;background:#121c20;outline:none;
+ font-variant-numeric:tabular-nums;
+}
+.targets-setup-field input:focus-visible{border-color:#91f0c0;box-shadow:0 0 0 3px #80eebb25}
+.targets-setup-footnote{font-size:11px;line-height:1.5;color:#91a39e;margin:2px 0 14px}
+.targets-setup-error{background:#422329;color:#ffced3;border:1px solid #b85c69;
+ border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.4}
+.targets-setup-submit{
+ display:flex;align-items:center;justify-content:center;gap:8px;
+ width:100%;min-height:51px;padding:12px 16px;border-radius:14px;border:0;
+ background:linear-gradient(115deg,#76eec6,#b6f38e);
+ color:#122b21;font:inherit;font-weight:850;font-size:13px;cursor:pointer;
+ box-shadow:0 9px 20px #46ea9d26;
+}
+.targets-setup-submit:focus-visible{outline:3px solid #f0fff5;outline-offset:3px}
+.targets-setup-submit:disabled{opacity:.65;cursor:progress}
+@media(max-width:390px){
+ .targets-setup-overlay{padding:9px}
+ .targets-setup-card{max-height:97dvh;padding:17px;border-radius:17px}
+ .targets-setup-grid{gap:7px}
+ .targets-setup-field input{min-height:42px}
+}
+@media(prefers-reduced-motion:reduce){.targets-setup-overlay,.targets-setup-submit{scroll-behavior:auto!important;transition:none!important}}
