@@ -752,7 +752,7 @@ if(modal.type==='template-exercise'){
 }
 if(modal.type==='water')return modalShell('Log water',`${modalField('amount','Water amount (ml)',250,'number','min="1" max="15000" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Use any amount. Set your preferred quick-add size with the water controls on the dashboard.</p>`,'form-water','Add water');
 if(modal.type==='water-config')return modalShell('Water controls',`${modalField('waterDefault','Amount added by + or a Water card tap (ml)',state.waterDefault||250,'number','min="1" max="5000" required')}${modalField('waterGoal','Daily water goal (ml)',state.goals.water,'number','min="1" max="15000" required')}<p class="hint">The − and + buttons subtract or add this amount. Set your usual glass size here.</p>`,'form-water-config','Save water settings');
-if(modal.type==='edit-task'){const t=state.tasks.find(t=>t.id===modal.id);return t?modalShell('Edit daily task',`${modalField('name','Task description',t.label,'text','maxlength="100" required')}`,'form-edit-task','Save task'):'';}
+if(modal.type==='edit-task'){const t=todaysTasks().find(t=>t.id===modal.id);return t?modalShell('Edit daily task',`${modalField('name','Task description',t.label,'text','maxlength="100" required')}`,'form-edit-task','Save task'):'';}
 if(modal.type==='meal-guide-item'){
  const item=mealGuideItems().find(x=>x.id===modal.id);
  const group=item?.group||'Breakfast',label=item?.label||'',description=item?.description||'';
