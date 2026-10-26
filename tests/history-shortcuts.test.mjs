@@ -52,6 +52,6 @@ test('history shortcut sits beside both Plan and Food and completed sessions ret
  assert.ok(app.includes('templateId:s.templateId'));
  assert.ok(app.includes('templateId:prior.templateId'));
  assert.match(html,/history-shortcuts\.css\?v=2\.9\.4-history-shortcuts/);
- assert.match(sw,/recomp-shell-v2\.9\.7-initial-targets/);
+ assert.match(sw,/recomp-shell-v2\.9\.8-daily-tasks/);
  assert.match(sw,/history-view\.js/);
 });
