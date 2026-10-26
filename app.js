@@ -20,6 +20,7 @@ import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
+import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTasks} from './daily-task-prompt.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 
@@ -117,7 +118,7 @@ const INITIAL = () => ({
  version:1, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
  waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true,appSounds:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
- taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
+ taskChecks:{},dailyTasks:[],dailyTaskPlanning:null, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
  photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
@@ -270,7 +271,8 @@ function motionChange(change,kind='tab',direction=1){
 
 function notify(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(notify.timeout);notify.timeout=setTimeout(()=>el.classList.remove('show'),3000);}
 async function persist(){state.dirty=true;await put('state',state);}
-function allTasksComplete(){return state.tasks.length>0 && state.tasks.every(checkboxDone);}
+function todaysTasks(){return [...state.tasks,...(state.dailyTasks||[]).filter(t=>t.date===today())];}
+function allTasksComplete(){const list=todaysTasks();return list.length>0&&list.every(checkboxDone);}
 function celebrateAllTasksIfNew(){
  const complete=allTasksComplete(),day=today();
  if(complete&&!wasAllTasksComplete&&state.taskCelebratedOn!==day){
@@ -288,8 +290,41 @@ function maybeShowInitialDailyTargets(){
  showDailyTargetsSetup({goals:state.goals,onSave:async next=>{
   const previous=state.goals;
   state.goals={...state.goals,...next};state.dailyTargetsOnboarded=true;
-  try{await persist();render();}catch(err){state.goals=previous;state.dailyTargetsOnboarded=false;throw err;}
+  try{await persist();render();setTimeout(()=>maybeShowDailyTaskPrompt(),0);}catch(err){state.goals=previous;state.dailyTargetsOnboarded=false;throw err;}
  }});
+}
+// First app open per calendar day. A snoozed planner can reappear after one hour
+// when the user returns, or immediately via Plan today on the Home screen.
+function maybeShowDailyTaskPrompt(force=false){
+ const date=today();
+ if(state?.dailyTargetsOnboarded!==true||document.hidden||
+  document.getElementById('recomp-first-run')||
+  document.getElementById('recomp-targets-setup')||
+  document.getElementById('recomp-daily-tasks-prompt')||
+  modal||confirmation||restSheet||(state.session&&!state.session.minimized&&tab==='workouts'))return false;
+ if(!force&&!shouldAskForDailyTasks(state.dailyTaskPlanning,date,Date.now()))return false;
+ return showDailyTaskPrompt({date,
+  onSave:async labels=>{
+   const added=makeTodaysTasks(labels,date,uid);
+   const previous=state.dailyTaskPlanning;
+   state.dailyTasks??=[];state.dailyTasks.push(...added);
+   state.dailyTaskPlanning=dailyTaskRecord(date,'planned');
+   try{await persist();render();}catch(err){state.dailyTasks.splice(-added.length,added.length);state.dailyTaskPlanning=previous;throw err;}
+   notify(added.length+' task'+(added.length===1?'':'s')+' added for today.');
+  },
+  onSnooze:async()=>{
+   const previous=state.dailyTaskPlanning;
+   state.dailyTaskPlanning=dailyTaskRecord(date,'snoozed');
+   try{await persist();render();}catch(err){state.dailyTaskPlanning=previous;throw err;}
+   notify('Snoozed for 1 hour. Use Plan today to add tasks sooner.');
+  },
+  onSkip:async()=>{
+   const previous=state.dailyTaskPlanning;
+   state.dailyTaskPlanning=dailyTaskRecord(date,'skipped');
+   try{await persist();render();}catch(err){state.dailyTaskPlanning=previous;throw err;}
+   notify('No extra tasks today. Your routine stays ready.');
+  }
+ });
 }
 async function addQuickWater(ml){ml=Math.round(ml);if(ml<1)return;playWaterSound();const entry={id:uid(),date:today(),ml};state.water.push(entry);waterCelebration={id:entry.id,ml};haptic('success');await commit();const id=entry.id;setTimeout(()=>{if(waterCelebration?.id===id){waterCelebration=null;if(tab==='home'&&!modal)render();}},5200);}
 async function undoCelebrationWater(){if(!waterCelebration)return;const {id}=waterCelebration;state.water=state.water.filter(x=>x.id!==id);waterCelebration=null;await commit();notify('Sip un-sipped.');}
@@ -375,13 +410,14 @@ function metric(title,value,goal,unit,iconName,action='',quip=''){
  return `<${tag} class="card metric ${action?'metric-interactive':''} ${iconName==='flame'?'energy-out':''}" style="--mc:${METRIC_COLOURS[iconName]||'var(--accent)'}" ${action?`type="button" data-action="${action}" aria-label="${escapeHtml(title)}: ${logged?num(value):'not recorded'} ${unit}. Tap to ${action==='metric-water'?'log water':action==='refresh-steps'?'refresh steps':'update activity'}."`:''}><div class="metric-top"><span class="muted strong small">${title}</span><span class="metric-icon">${svg(iconName,'sm-icon')}</span></div><div class="big">${logged?num(value):'—'} <span class="small muted">${logged?unit:''}</span></div>${goal?progress(value,goal):'<div></div>'}<div class="metric-foot"><span>${quip|| (!logged?'Not recorded yet':goal===null?'Manually tracked':`Goal: ${num(goal)} ${unit}`)}</span><span>${goal?Math.round(value/goal*100)+'%':''}</span></div></${tag}>`;
 }
 function taskList(){
- if(!state.tasks.length)return `<div class="empty-tasks">A fresh start. Add a daily task to build your routine.</div>`;
- return state.tasks.map(t=>{
+ const tasks=todaysTasks();
+ if(!tasks.length)return `<div class="empty-tasks">A fresh start. Add a daily task to build your routine.</div>`;
+ return tasks.map(t=>{
    const done=checkboxDone(t);
    const id=escapeHtml(t.id),name=escapeHtml(t.label);
    const managing=taskActionsId===t.id;
    return `<div class="check-task ${done?'is-done':''} ${managing?'task-management-open':''}" data-task-row="${id}" tabindex="0" role="group" aria-label="${name}. Tap the checkbox to complete; press and hold to edit or delete.">
-    <label class="task-check-label"><input class="checkbox" type="checkbox" data-task-id="${id}" ${done?'checked':''} aria-label="Mark ${name} as ${done?'not done':'done'}"/><span class="task-text">${name}</span></label>
+    <label class="task-check-label"><input class="checkbox" type="checkbox" data-task-id="${id}" ${done?'checked':''} aria-label="Mark ${name} as ${done?'not done':'done'}"/><span class="task-text">${name}</span>${t.date?'<span class="daily-task-once">Today only</span>':''}</label>
     ${managing?`<div class="task-row-actions" aria-label="Actions for ${name}"><button type="button" class="task-icon-btn" data-action="edit-task" data-id="${id}" aria-label="Edit ${name}" title="Edit task">${svg('edit','tiny-icon')}</button><button type="button" class="task-icon-btn delete-task" data-action="delete-task" data-id="${id}" aria-label="Delete ${name}" title="Delete task">${svg('trash','tiny-icon')}</button></div>`:''}
    </div>`;
  }).join('');
@@ -397,12 +433,12 @@ function taskWinView(){
  </div>`;
 }
 function homeTasksSection(checked){return `<section class="dashboard-tasks" aria-label="Daily tasks">
-  <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Tap to tick · hold to edit.</div></div><div class="row"><span class="pill">${checked}/${state.tasks.length} done</span><button type="button" class="btn task-add-btn" data-action="add-task">${svg('plus','tiny-icon')} Add</button></div></div>
+  <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Tap to tick · hold to edit.</div></div><div class="row daily-task-header-actions"><span class="pill">${checked}/${todaysTasks().length} done</span><button type="button" class="btn daily-plan-reopen" data-action="plan-today">${svg('calendar','tiny-icon')} Plan today</button><button type="button" class="btn task-add-btn" data-action="add-task">${svg('plus','tiny-icon')} Add</button></div></div>
   <div class="card daily-tasks">${taskList()}</div>
  </section>`;}
-function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=state.tasks.filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;const account=getClerkAccount(),viewerName=account?.firstName||account?.name?.split(/\s+/)[0]||'';return `
+function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=todaysTasks().filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;const account=getClerkAccount(),viewerName=account?.firstName||account?.name?.split(/\s+/)[0]||'';return `
 ${heading(greeting(new Date().getHours(),viewerName),new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))}
-<div class="dashboard-intro"><span class="orbit-dot"></span><span>${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:state.tasks.length}))}</span></div>
+<div class="dashboard-intro"><span class="orbit-dot"></span><span>${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
 <section class="summary-hero hero-rings" aria-label="Today's rings"><div class="rings-wrap">${ringSvg([{pct:n(nutr.calories)/n(state.goals.calories,1),cls:'fuel',r:90},{pct:n(nutr.protein)/n(state.goals.protein,1),cls:'protein',r:75},{pct:w/n(state.goals.water,1),cls:'water',r:60}])}<div class="rings-center"><span class="rings-num">${num(Math.max(0,state.goals.calories-nutr.calories))}</span><span class="rings-label">kcal left</span></div></div><div class="rings-legend"><div class="legend-row" style="--c:var(--c-fuel)"><i></i><span>Fuel</span><b>${num(nutr.calories)}<small>/ ${num(state.goals.calories)}</small></b></div><div class="legend-row" style="--c:var(--c-protein)"><i></i><span>Protein</span><b>${num(nutr.protein)}<small>/ ${num(state.goals.protein)} g</small></b></div><div class="legend-row" style="--c:var(--c-water)"><i></i><span>Water</span><b>${num(w)}<small>/ ${num(state.goals.water)} ml</small></b></div></div></section>
 <div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','',nutr.protein>=state.goals.protein?'Gains secured':'Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','flame','metric-active',act.activeCalories?'Tap to update':'Go on, break a sweat ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Health Connect is not available in this browser.</b> You can still enter steps and calories manually.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
@@ -1036,9 +1072,10 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'photo-upload-mode':await stopGuideCamera();modal={type:'photo'};render();break;
  case 'take-guided-photo':try{await captureGuidePhoto();}catch(err){notify(err.message);}break;
  case 'activity':modal={type:'activity'};render();break;
- case 'add-task':modal={type:'task'};render();break;
- case 'edit-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
- case 'delete-task':{const t=state.tasks.find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
+ case 'plan-today':maybeShowDailyTaskPrompt(true);break;
+  case 'add-task':modal={type:'task'};render();break;
+ case 'edit-task':{const t=todaysTasks().find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
+ case 'delete-task':{const t=todaysTasks().find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;if(t.date)state.dailyTasks=state.dailyTasks.filter(x=>x.id!==t.id);else state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
  case 'close-modal':if(modal?.type==='video'&&modal.templateId){modal={type:modal.returnTo==='video-library'?'video-library':'edit-template',id:modal.templateId};render();break;}if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
@@ -1264,7 +1301,7 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  else if(id==='form-photo'){const file=data.get('photo');if(!(file instanceof File)||!file.size)throw new Error('Choose a photograph');if(file.size>40*1024*1024)throw new Error('Photo is too large (maximum 40 MB)');if(!file.type.startsWith('image/'))throw new Error('Choose an image file');const blob=await makePhotoJpeg(file);await savePhotoBlob(blob,data.get('date'),data.get('view'));return;}
  else if(id==='form-activity'){let entry={date:data.get('date'),steps:Math.max(0,n(data.get('steps'))),activeCalories:Math.max(0,n(data.get('activeCalories')))};state.activity=state.activity.filter(a=>a.date!==entry.date);state.activity.push(entry);}
  else if(id==='form-task'){let name=String(data.get('name')).trim();if(!name)throw new Error('Enter a task');state.tasks.push({id:uid(),label:name,auto:null});}
- else if(id==='form-edit-task'){let t=state.tasks.find(x=>x.id===modal.id),name=String(data.get('name')).trim();if(!t||!name)throw new Error('Enter a valid task');t.label=name.slice(0,100);}
+ else if(id==='form-edit-task'){let t=todaysTasks().find(x=>x.id===modal.id),name=String(data.get('name')).trim();if(!t||!name)throw new Error('Enter a valid task');t.label=name.slice(0,100);}
  else if(id==='form-session-exercise'){
   const session=state.session;if(!session)throw new Error('Start a workout first');
   const name=String(data.get('name')||'').trim().slice(0,90),sets=Number(data.get('sets')),reps=Number(data.get('reps')),kg=Number(data.get('kg')),rest=Number(data.get('rest'));
@@ -1626,7 +1663,7 @@ async function init(){try{
   // Do not erase the original stored state during recovery.
   state.session=null;
  }
- if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);const defaultBreakfast=state.mealGuideItems.find(item=>item.id==='guide-breakfast');if(defaultBreakfast?.label==='Breakfast'&&defaultBreakfast.description==='2 eggs + 1 slice of toast')defaultBreakfast.label='Eggs & toast';tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
+ if(!Number.isFinite(n(state.waterDefault))||n(state.waterDefault)<=0)state.waterDefault=250;if(!Array.isArray(state.tasks))state.tasks=INITIAL().tasks;if(!Array.isArray(state.dailyTasks))state.dailyTasks=[];if(!state.dailyTaskPlanning||typeof state.dailyTaskPlanning!=='object')state.dailyTaskPlanning=null;if(!state.preferences||typeof state.preferences!=='object')state.preferences={haptics:true,waterSound:true};if(!['system','light','dark'].includes(state.preferences.themeMode))state.preferences.themeMode='system';if(!state.taskChecks || typeof state.taskChecks!=='object')state.taskChecks={};if(!Array.isArray(state.mealGuideItems))state.mealGuideItems=structuredClone(DEFAULT_MEAL_GUIDE);const defaultBreakfast=state.mealGuideItems.find(item=>item.id==='guide-breakfast');if(defaultBreakfast?.label==='Breakfast'&&defaultBreakfast.description==='2 eggs + 1 slice of toast')defaultBreakfast.label='Eggs & toast';tab=['home','workouts','nutrition','body','settings'].includes(state.lastTab)?state.lastTab:'home';
  bodyPanel=['measurements','photos','weight'].includes(state.lastBodyPanel)?state.lastBodyPanel:'measurements';
  nutritionPanel=['diary','favourites'].includes(state.lastNutritionPanel)?state.lastNutritionPanel:'diary';
  if(state.session){
@@ -1737,6 +1774,9 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
   // Restore setup after reloads; authenticated fresh installs skip the welcome.
   maybeShowInitialDailyTargets();
  }
+ // First-time users complete Daily Targets before seeing this planner.
+ setTimeout(()=>maybeShowDailyTaskPrompt(),0);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>maybeShowDailyTaskPrompt(),250);});
 setInterval(timerTick,500);
 setInterval(async()=>{if(!state.dirty||localStorage.getItem('recomp-auto-sync')!=='yes'||!navigator.onLine||!cloud.getSession())return;try{await pushCloud();}catch(e){console.warn('Auto-sync waiting:',e.message);}},60000);
 }catch(err){console.error(err);document.body.innerHTML=`<div style="max-width:500px;margin:10vh auto;padding:25px"><h1>Unable to open Recomp</h1><p>${escapeHtml(err.message)}</p><p>Your locally stored data has not been cleared. Try reloading. If the problem continues, do not clear site data, as it may contain your only copy of your records.</p><button id="recomp-retry" type="button" style="padding:12px 24px;border-radius:12px;background:#75eac4;color:#09241c;font:inherit">Reload Recomp</button></div>`;document.getElementById('recomp-retry')?.addEventListener('click',()=>location.reload());}}
