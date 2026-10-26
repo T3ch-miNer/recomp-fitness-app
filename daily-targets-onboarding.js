@@ -13,9 +13,10 @@ const GROUPS=[
  ]}
 ];
 const escape=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-export function shouldShowDailyTargetsSetup({hasSavedState=false,completed=false}={}){
- // A pre-existing state is not newly onboarded. Older saves are migrated as done.
- return !completed&&!hasSavedState;
+export function shouldShowDailyTargetsSetup({completed=false,welcomeOpen=false}={}){
+ // Persisted unfinished onboarding should continue after reload. Legacy saves
+ // are marked complete when they load; the guest welcome comes first.
+ return !completed&&!welcomeOpen;
 }
 export function dailyTargetsSetupHtml(goals){
  const inputs=GROUPS.map(group=>`<fieldset class="targets-setup-group">
