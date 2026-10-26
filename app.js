@@ -19,7 +19,7 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './fo
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
-import {showDailyTargetsSetup} from './daily-targets-onboarding.js';
+import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 
@@ -284,7 +284,7 @@ async function commit(){celebrateAllTasksIfNew();await persist();render();}
 // First-use goal setup for guest access and successful account login.
 // Existing saved fitness records never trigger this step retroactively.
 function maybeShowInitialDailyTargets(){
- if(state?.dailyTargetsOnboarded!==false||document.getElementById('recomp-first-run')||document.getElementById('recomp-targets-setup'))return;
+ if(!shouldShowDailyTargetsSetup({completed:state?.dailyTargetsOnboarded!==false,welcomeOpen:Boolean(document.getElementById('recomp-first-run'))})||document.getElementById('recomp-targets-setup'))return;
  showDailyTargetsSetup({goals:state.goals,onSave:async next=>{
   const previous=state.goals;
   state.goals={...state.goals,...next};state.dailyTargetsOnboarded=true;
