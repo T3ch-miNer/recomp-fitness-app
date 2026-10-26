@@ -19,6 +19,7 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams} from './fo
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
+import {showDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 
@@ -113,7 +114,7 @@ function mealGuideItems(){
  return state.mealGuideItems;
 }
 const INITIAL = () => ({
- version:1, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
+ version:1, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
  waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true,appSounds:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{}, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
@@ -280,6 +281,16 @@ function celebrateAllTasksIfNew(){
  wasAllTasksComplete=complete;
 }
 async function commit(){celebrateAllTasksIfNew();await persist();render();}
+// First-use goal setup for guest access and successful account login.
+// Existing saved fitness records never trigger this step retroactively.
+function maybeShowInitialDailyTargets(){
+ if(state?.dailyTargetsOnboarded!==false||document.getElementById('recomp-first-run')||document.getElementById('recomp-targets-setup'))return;
+ showDailyTargetsSetup({goals:state.goals,onSave:async next=>{
+  const previous=state.goals;
+  state.goals={...state.goals,...next};state.dailyTargetsOnboarded=true;
+  try{await persist();render();}catch(err){state.goals=previous;state.dailyTargetsOnboarded=false;throw err;}
+ }});
+}
 async function addQuickWater(ml){ml=Math.round(ml);if(ml<1)return;playWaterSound();const entry={id:uid(),date:today(),ml};state.water.push(entry);waterCelebration={id:entry.id,ml};haptic('success');await commit();const id=entry.id;setTimeout(()=>{if(waterCelebration?.id===id){waterCelebration=null;if(tab==='home'&&!modal)render();}},5200);}
 async function undoCelebrationWater(){if(!waterCelebration)return;const {id}=waterCelebration;state.water=state.water.filter(x=>x.id!==id);waterCelebration=null;await commit();notify('Sip un-sipped.');}
 async function removeRecentWater(){let left=n(state.waterDefault,250)||250,removed=0;for(let i=state.water.length-1;i>=0&&left>0;i--){const entry=state.water[i];if(entry.date!==today())continue;const deduction=Math.min(left,n(entry.ml));entry.ml-=deduction;removed+=deduction;left-=deduction;if(waterCelebration?.id===entry.id)waterCelebration=null;if(entry.ml<=0)state.water.splice(i,1);}if(!removed){notify('No water logged today to subtract.');return;}await commit();notify(`−${num(removed)} ml. Adjusted your water total.`);}
@@ -1582,6 +1593,8 @@ async function init(){try{
  const saved=await get('state');
  const hadSavedState=Boolean(saved&&typeof saved==='object'&&!Array.isArray(saved));
  state=hadSavedState?saved:INITIAL();
+ // Previous Recomp users already have targets: don't interrupt them.
+ if(hadSavedState&&typeof state.dailyTargetsOnboarded!=='boolean')state.dailyTargetsOnboarded=true;
  const defaults=INITIAL();
  // Safely repair an old or partial schema in memory, preserving all existing logs.
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
@@ -1694,6 +1707,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     if(user){
      try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
      document.getElementById('recomp-first-run')?.remove();
+     queueMicrotask(maybeShowInitialDailyTargets);
     }
     if((tab==='settings'||tab==='home') && !modal)render();
    },{skipInitialEmit:true});
@@ -1712,13 +1726,16 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
   showFirstRunWelcome({
    googleEnabled:isClerkLoginAvailable(),
    developmentMode:isClerkDevelopmentMode(),
-   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}},
+   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(maybeShowInitialDailyTargets);},
    onGoogle:async()=>{
     if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in still needs testing in the native Android wrapper. Continue as a guest for now.';
     if(!isClerkLoginAvailable())return 'Clerk sign-in is not configured yet. Continue without signing in for now.';
     await openClerkSignIn();
    }
   });
+ }else{
+  // Restore setup after reloads; authenticated fresh installs skip the welcome.
+  maybeShowInitialDailyTargets();
  }
 setInterval(timerTick,500);
 setInterval(async()=>{if(!state.dirty||localStorage.getItem('recomp-auto-sync')!=='yes'||!navigator.onLine||!cloud.getSession())return;try{await pushCloud();}catch(e){console.warn('Auto-sync waiting:',e.message);}},60000);
