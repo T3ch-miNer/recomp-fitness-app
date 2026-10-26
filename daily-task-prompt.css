@@ -1,0 +1,34 @@
+/* Recomp morning planner. Separate from the first-use goal questionnaire. */
+.daily-plan-overlay{position:fixed;inset:0;z-index:2150;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;overscroll-behavior:contain;background:rgba(5,10,13,.82);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#effbf5}
+.daily-plan-card{box-sizing:border-box;width:min(100%,470px);max-height:min(94dvh,830px);overflow-y:auto;overscroll-behavior:contain;padding:clamp(20px,5vw,29px);border-radius:25px;background:linear-gradient(153deg,#19302a,#111b20 58%,#162425);border:1px solid #466e5b;box-shadow:0 30px 100px #0009,inset 0 1px #ffffff17;scrollbar-width:thin;scrollbar-color:#467261 transparent}
+.daily-plan-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.daily-plan-eyebrow{font-size:10px;letter-spacing:2px;color:#8af2b7;font-weight:850}
+.daily-plan-date{font-size:11px;color:#abbdb4}
+.daily-plan-card h1{font-size:clamp(26px,6vw,35px);line-height:1.13;letter-spacing:-.05em;color:#f4fff9;margin:16px 0 8px}
+.daily-plan-card #daily-plan-description{color:#b6c8bf;font-size:13px;line-height:1.6;margin:0 0 18px}
+.daily-plan-inputs{display:grid;gap:12px}
+.daily-plan-field{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:750;color:#d7e8df}
+.daily-plan-field input{box-sizing:border-box;min-width:0;width:100%;min-height:47px;border-radius:13px;border:1px solid #3e5b4e;background:#0c1719;color:#f6fff9;font:inherit;font-size:14px;font-weight:500;outline:none;padding:10px 13px}
+.daily-plan-field input::placeholder{color:#8caaa0}
+.daily-plan-field input:focus-visible{border-color:#88efbc;box-shadow:0 0 0 3px #7eefba23}
+.daily-plan-add{margin:12px 0 18px;color:#92f3c0;background:none;border:0;padding:8px 0;text-align:left;font:inherit;font-weight:750;font-size:12px;cursor:pointer}
+.daily-plan-error{background:#49242a;border:1px solid #b66470;color:#ffd2d6;border-radius:11px;padding:10px 12px;font-size:12px}
+.daily-plan-primary{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:51px;padding:13px 16px;background:linear-gradient(115deg,#75eec0,#b5fa8a);color:#0d291c;border:0;border-radius:14px;font:inherit;font-weight:850;font-size:13px;cursor:pointer}
+.daily-plan-secondary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.daily-plan-secondary button{min-height:44px;padding:10px 8px;border:1px solid #425d51;border-radius:13px;background:#21352f;color:#e6fff1;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.daily-plan-secondary button:last-child{background:transparent;border-color:#324c41;color:#adbdba}
+.daily-plan-card button:focus-visible{outline:2px solid #e6fff2;outline-offset:3px}
+.daily-plan-card button:disabled{opacity:.58;cursor:wait}
+.daily-plan-hint{margin:13px 0 0;font-size:11px;color:#93aaa0;line-height:1.5}
+.dashboard-tasks .daily-plan-reopen{font-size:11px;white-space:nowrap}
+.daily-task-once{font-size:10px;color:var(--accent);border:1px solid var(--line);padding:3px 6px;border-radius:100px;font-weight:700;margin-left:6px}
+@media(max-width:390px){.daily-plan-overlay{padding:9px}.daily-plan-card{padding:18px;border-radius:17px;max-height:97dvh}.dashboard-tasks .daily-plan-reopen{font-size:10px;padding:8px}}
+@media(prefers-reduced-motion:reduce){.daily-plan-overlay,.daily-plan-card{scroll-behavior:auto!important;transition:none!important}}
+
+/* Keep the manual planner accessible without squeezing the task header. */
+.dashboard-tasks .daily-task-header-actions{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.dashboard-tasks .daily-task-header-actions .pill{white-space:nowrap}
+@media(max-width:400px){
+ .dashboard-tasks .section-head{align-items:flex-start;gap:8px;flex-wrap:wrap}
+ .dashboard-tasks .daily-task-header-actions{width:100%;justify-content:flex-start}
+}

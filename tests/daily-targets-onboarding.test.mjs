@@ -41,7 +41,8 @@ test('new users are prompted, existing saved users are exempt, pending setup res
  assert.match(app,/onGuest:.*queueMicrotask\(maybeShowInitialDailyTargets\)/);
  assert.match(app,/queueMicrotask\(maybeShowInitialDailyTargets\)/);
  assert.match(app,/await persist\(\);render\(\)/);
- assert.match(app,/maybeShowInitialDailyTargets\(\);\s*\}\s*setInterval\(timerTick/);
+ assert.match(app,/maybeShowInitialDailyTargets\(\);/);
+ assert.match(app,/setTimeout\(\(\)=>maybeShowDailyTaskPrompt\(\),0\)/);
 });
 
 test('goals are validated with existing settings input limits',()=>{
@@ -52,8 +53,8 @@ test('goals are validated with existing settings input limits',()=>{
 test('new offline assets and cache version are wired into the HTML',()=>{
  const page=file('../index.html'),sw=file('../sw.js');
  assert.ok(page.includes('daily-targets-onboarding.css?v=2.9.7-initial-targets'));
- assert.ok(page.includes('app.js?v=2.9.7-initial-targets'));
- assert.match(sw,/recomp-shell-v2\.9\.7-initial-targets/);
+ assert.ok(page.includes('app.js?v=2.9.8-daily-tasks'));
+ assert.match(sw,/recomp-shell-v2\.9\.8-daily-tasks/);
  assert.ok(sw.includes("'./daily-targets-onboarding.js'"));
  assert.ok(sw.includes("'./daily-targets-onboarding.css'"));
 });
