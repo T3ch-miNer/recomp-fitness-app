@@ -48,7 +48,7 @@ test('warm-up sits before workout mode controls, exercises and giant-set rounds'
 test('offline cache contains warm-up and page loads its stylesheet',()=>{
  const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
  const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(worker,/recomp-shell-v2\.9\.7-initial-targets/);
+ assert.match(worker,/recomp-shell-v2\.9\.8-daily-tasks/);
  assert.ok(worker.includes("'./warmup.js'"));
  assert.ok(worker.includes("'./warmup.css'"));
  assert.ok(page.includes('./warmup.css?v=2.9.3-universal-warmup'));
