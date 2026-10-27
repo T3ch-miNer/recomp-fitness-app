@@ -656,6 +656,13 @@ function settingsView(){
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
 
+<div class="card online-catalogue-settings">
+ <div class="row space"><b>Online food &amp; workout catalogue</b><span class="pill">${escapeHtml(onlineStatus)}</span></div>
+ <p class="small muted">${onlineCatalog.foods.length} online foods · ${onlineCatalog.workouts.length} workout plans · ${onlineCatalog.exercises.length} exercises</p>
+ <p class="hint">Public, read-only Cloudflare D1 library. Food estimates refresh when Recomp opens and are cached offline. Workout plan updates require your confirmation. Personal diaries and photos are never uploaded here.</p>
+ ${onlineError?`<p class="hint" role="status">${escapeHtml(onlineError)}</p>`:''}
+ <button type="button" class="btn" data-action="online-catalogue-refresh" ${onlineBusy?'disabled':''}>Check for catalogue updates</button>
+ </div>
 <div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><div class="local-reset-control"><b>Delete data from this device</b><p class="small muted">Delete completed workouts, food logs, measurements, photos, custom plans and other personal settings saved here. Built-in workout plans will still appear. Cloud backups are separate.</p><button class="btn danger block" type="button" data-action="reset-all-local-data">${svg('trash','tiny-icon')} Delete all local fitness data</button></div><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
@@ -1079,6 +1086,28 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'online-catalogue-refresh':void updatePublishedCatalogue({showFeedback:true});break;
+ case 'online-workout-import':{
+  const plan=onlineCatalog.workouts.find(p=>p.id===el.dataset.id);
+  if(!plan)throw Error('This online workout is unavailable. Refresh the catalogue.');
+  const existing=publishedWorkoutEntry(plan);
+  if(existing){
+   if(state.session?.templateId===existing.id)throw Error('Finish or discard your active workout before updating this plan.');
+   if(!publishedWorkoutChanged(plan,existing)){notify('This workout is already up to date.');break;}
+   const approved=await confirmInApp('Replace the exercises in your existing plan “'+plan.name+'” with the Cloudflare version? Personal changes to this plan will be overwritten. Completed workout history and all other plans remain unchanged.',{title:'Update my workout plan?',approveLabel:'Update this plan',danger:false});
+   if(!approved)break;
+   state.templates=state.templates.map(t=>t.id===existing.id?{
+    ...t,name:plan.name,subtitle:plan.subtitle,items:structuredClone(plan.items),onlineSourceId:plan.id
+   }:t);
+   await commit();notify('Workout plan updated. Completed sessions preserved.');
+  }else{
+   const approved=await confirmInApp('Add the published workout “'+plan.name+'” to your private workout plans?',{title:'Add online workout?',approveLabel:'Add plan',danger:false});
+   if(!approved)break;
+   state.templates.push({...structuredClone(plan),onlineSourceId:plan.id});
+   await commit();notify('Cloudflare workout plan added to your library.');
+  }
+  break;
+ }
  case 'toggle-theme':{
   state.preferences??={haptics:true,waterSound:true};
   state.preferences.themeMode=effectiveTheme()==='dark'?'light':'dark';
@@ -1759,6 +1788,7 @@ async function init(){try{
  wasAllTasksComplete=allTasksComplete();
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
+ void startOnlineCatalogue();
  // The approved Pulse intro overlays the first app paint, then gracefully disappears.
  // Keep the approved intro for at least 2.5 seconds; slow boots add no further delay.
  // Reduced-motion users enter immediately. No training data is accessed here.
