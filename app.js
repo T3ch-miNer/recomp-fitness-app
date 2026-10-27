@@ -300,7 +300,8 @@ async function setFitnessMode(mode,{firstChoice=false}={}){
  if(state.session&&!state.session.minimized)throw Error('Minimise or complete the current workout before changing modes.');
  const oldMode=state.fitnessMode,oldTemplates=state.templates,oldOnboarded=state.dailyTargetsOnboarded;
  state.fitnessMode=mode;
- if(mode==='basic')ensureStarterWorkouts();
+ if(mode==='basic'&&firstChoice)state.templates=basicWorkoutTemplates();
+ else if(mode==='basic')ensureStarterWorkouts();
  if(firstChoice)state.dailyTargetsOnboarded=true; // Default goals are placeholders until a user chooses personal targets.
  try{await persist();render();}
  catch(err){state.fitnessMode=oldMode;state.templates=oldTemplates;state.dailyTargetsOnboarded=oldOnboarded;throw err;}
