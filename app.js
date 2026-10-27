@@ -317,7 +317,7 @@ function personalProfileFields(){
  const p=state.fitnessProfile||{days:3,minutes:45},field=(id,label,type='number',rest='')=>
   `<label>${label}<input name="${id}" type="${type}" ${rest} value="${escapeHtml(p[id]??'')}"/></label>`;
  const select=(id,label,values)=>`<label>${label}<select name="${id}">${values.map(([value,text])=>`<option value="${value}" ${(p[id]||'')===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
- return `<p class="hint personal-plan-hint">Measurements are optional and stored only in your private Recomp records. They are included in the GPT prompt only if you explicitly copy it.</p>
+ return `<p class="hint personal-plan-hint">Measurements are optional. They stay in your Recomp records and may be included in a separate cloud backup only if you enable that feature. The GPT prompt includes them only if you explicitly copy it.</p>
  <div class="fitness-profile-grid">
  ${select('goal','Primary goal',[['body-recomposition','Build muscle & lose fat'],['build-muscle','Gain muscle'],['lose-fat','Reduce body fat'],['maintain','Maintain'],['improve-fitness','Improve fitness']])}
  ${select('diet','Dietary preference',[['omnivore','Mixed diet'],['vegetarian','Vegetarian'],['vegan','Vegan'],['pescatarian','Pescatarian'],['halal','Halal'],['other','Other / specify']])}
@@ -1474,7 +1474,7 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
   const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
   state.fitnessProfile=profile;
   try{await persist();}catch(err){state.fitnessProfile=previous;throw err;}
-  modal={type:'personal-prompt'};render();notify('Profile saved only on this device. Review your GPT prompt.');return;
+  modal={type:'personal-prompt'};render();notify('Profile saved in your private Recomp records. Review the prompt before sharing it.');return;
  }
 
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
