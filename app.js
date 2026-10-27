@@ -569,7 +569,7 @@ async function updatePublishedCatalogue({showFeedback=false}={}){
   onlineError=String(error?.message||'Catalogue could not be refreshed.').slice(0,160);
   safeRedrawForCatalogue();
   if(showFeedback)notify('Update unavailable. Offline data is still available.');
- }finally{onlineBusy=false;}
+ }finally{onlineBusy=false;if(showFeedback)safeRedrawForCatalogue();}
 }
 async function startOnlineCatalogue(){
  try{
