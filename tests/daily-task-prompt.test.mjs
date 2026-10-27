@@ -67,7 +67,7 @@ test('offline release includes date-specific daily planner module and stylesheet
  const html=file('../index.html'),sw=file('../sw.js');
  assert.ok(html.includes('daily-task-prompt.css?v=2.9.8-daily-tasks'));
  assert.ok(html.includes('app.js?v=2.10-online-catalogue-preview'));
- assert.match(sw,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(sw,/recomp-shell-v3\.0-personal-plan-preview/);
  assert.ok(sw.includes("'./daily-task-prompt.js'"));
  assert.ok(sw.includes("'./daily-task-prompt.css'"));
 });
