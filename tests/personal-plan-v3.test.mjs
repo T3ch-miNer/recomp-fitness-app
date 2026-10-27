@@ -33,8 +33,11 @@ test('private profile produces copyable self-directed GPT request rather than se
  assert.equal(p.age,29);
  assert.equal(p.waistCm,86);
  assert.equal(p.goal,'body-recomposition');
- const prompt=buildPersonalPlanningPrompt(profile);
+ const prompt=buildPersonalPlanningPrompt(profile,{measurements:{chest:39,belly:34,neck:15,wrist:6.5,unknown:42}});
  assert.match(prompt,/recomp-personal-plan-v1/);
+ assert.match(prompt,/"chest":39/);
+ assert.match(prompt,/"belly":34/);
+ assert.doesNotMatch(prompt,/unknown/,'unrecognised profile data must not be copied');
  assert.match(prompt,/Indian\/global meals/);
  assert.match(prompt,/vegetarian/);
  assert.match(prompt,/Review/);
