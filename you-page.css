@@ -1,6 +1,6 @@
 /* Recomp v3: five-tab navigation and private wellbeing dashboard. */
 @media(max-width:760px){
- #recomp-bottom-dock.bottom-nav.premium-dock{grid-template-columns:repeat(5,minmax(0,1fr))!important;width:min(calc(100vw - 12px),440px)!important;padding-left:3px!important;padding-right:3px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock{grid-template-columns:repeat(5,minmax(0,1fr))!important;width:min(calc(100vw - 12px),440px)!important;height:82px!important;min-height:82px!important;max-height:82px!important;padding:7px 3px!important;background:var(--nav-float)!important;border:1px solid var(--nav-float-border)!important;border-radius:29px!important;box-shadow:0 15px 36px rgba(0,0,0,.27)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}#recomp-bottom-dock .dock-cloud-surface{display:none!important}#recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{height:62px!important;min-height:62px!important;max-height:62px!important}
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{width:clamp(52px,17vw,76px)!important;max-width:76px!important;font-size:10px!important}
  #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn span{font-size:10px!important}
 }
