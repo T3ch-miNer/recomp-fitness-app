@@ -22,6 +22,7 @@ import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './h
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
 import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
+import {SUPPLEMENTAL_RECIPE_ESTIMATES} from './popular-foods.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTasks} from './daily-task-prompt.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
@@ -623,7 +624,7 @@ function safeRedrawForCatalogue(){
 }
 function applyPublishedCatalogue(data,status){
  onlineCatalog=validateOnlineCatalogue(data);
- applyOnlineFoodCatalogue(onlineCatalog.foods);
+ applyOnlineFoodCatalogue([...SUPPLEMENTAL_RECIPE_ESTIMATES,...onlineCatalog.foods]);
  onlineStatus=status;onlineError='';
  safeRedrawForCatalogue();
 }
@@ -1934,6 +1935,7 @@ async function init(){try{
  });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
+ applyOnlineFoodCatalogue(SUPPLEMENTAL_RECIPE_ESTIMATES);
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
  void startOnlineCatalogue();
