@@ -862,7 +862,7 @@ function modalView(){if(!modal)return '';
 if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
 if(modal.type==='personal-prompt'){
  if(!state.fitnessProfile)return modalShell('Complete profile first','<p class="hint">Save a fitness profile to generate your personal GPT prompt.</p><button type="button" class="btn primary block" data-action="fitness-profile">Complete profile</button>');
- const prompt=buildPersonalPlanningPrompt(state.fitnessProfile);
+ const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
  return modalShell('Your personalised GPT prompt',`<p class="hint personal-plan-hint">Copy this text into your own GPT chat. It includes any measurements and preferences you entered, so review it before sharing with another service. Recomp does not send anything automatically.</p>
  <textarea id="personal-prompt-text" class="input personal-prompt" readonly aria-label="GPT planning prompt">${escapeHtml(prompt)}</textarea>
  <button type="button" class="btn primary block" data-action="personal-prompt-copy">Copy prompt</button>
@@ -1184,9 +1184,10 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   await setFitnessMode(next);break;
  }
  case 'fitness-profile':modal={type:'fitness-profile'};render();break;
- case 'copy-personal-prompt':case 'personal-prompt-copy':{
+ case 'copy-personal-prompt':modal={type:'personal-prompt'};render();break;
+ case 'personal-prompt-copy':{
   if(!state.fitnessProfile)throw Error('Complete your fitness profile first.');
-  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile);
+  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
   if(navigator.clipboard?.writeText){
    try{await navigator.clipboard.writeText(prompt);notify('Personal GPT prompt copied. Review before sharing it.');break;}catch{}
   }
