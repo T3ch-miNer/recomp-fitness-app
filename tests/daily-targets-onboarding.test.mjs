@@ -53,8 +53,8 @@ test('goals are validated with existing settings input limits',()=>{
 test('new offline assets and cache version are wired into the HTML',()=>{
  const page=file('../index.html'),sw=file('../sw.js');
  assert.ok(page.includes('daily-targets-onboarding.css?v=2.9.7-initial-targets'));
- assert.ok(page.includes('app.js?v=3.0-personal-plan-preview'));
- assert.match(sw,/recomp-shell-v3\.0-personal-plan-preview/);
+ assert.ok(page.includes('app.js?v=3-android-you'));
+ assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
  assert.ok(sw.includes("'./daily-targets-onboarding.js'"));
  assert.ok(sw.includes("'./daily-targets-onboarding.css'"));
 });
