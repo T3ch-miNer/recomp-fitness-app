@@ -9,6 +9,7 @@ on:
       - feature/v2.5.6-fts-round-based-giant-sets-20261020
       - feature/v2.6-giant-set-final-release-20261020
       - feature/v2.7-private-ai-photo-meals-20261020
+      - feature/v3-android-you-healthconnect-20261027
   pull_request:
     paths:
       - 'app.js'
@@ -28,6 +29,9 @@ on:
       - 'giant-sets.css'
       - 'db.js'
       - 'food-db.js'
+      - 'recipe-variations.js'
+      - 'you-page.js'
+      - 'you-page.css'
       - 'nutrition-v2.js'
       - 'photo-ai.js'
       - 'photo-scan-worker/**'
@@ -66,7 +70,7 @@ jobs:
           node-version: '22'
       - name: Check ES module syntax
         run: |
-          for file in goal-draft.js photo-ai.js photo-scan-worker/worker.js app.js giant-sets.js giant-set-view.js custom-giant-sets.js fts-workouts.js fts-workouts-5-15.js fts-workouts-16-41.js exercise-videos.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
+          for file in goal-draft.js photo-ai.js photo-scan-worker/worker.js app.js giant-sets.js giant-set-view.js custom-giant-sets.js fts-workouts.js fts-workouts-5-15.js fts-workouts-16-41.js exercise-videos.js exercise-guides.js exercise-demonstration.js workout-back.js confirmation-dialog.js db.js food-db.js nutrition-v2.js food-recognition-worker.js meal-planner.js recipe-estimates.js recipe-variations.js you-page.js health-connect.js first-run.js clerk-auth.js cloud.js sw.js; do
             node --input-type=module --check < "$file"
           done
       - name: Test meal planner, recipe integration, barcodes and local storage
