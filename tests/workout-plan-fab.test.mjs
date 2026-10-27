@@ -67,7 +67,7 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
  assert.match(styles,/\.quick-fab\.above-workout/);
  assert.match(dock,/\.quick-fab\.above-workout/);
  assert.match(styles,/\.quick-fab:focus-visible/);
- assert.match(app,/case 'create-template':modal=\{type:'new-template'\}/);
+ assert.match(app,/case 'create-template':if\(state\.fitnessMode==='basic'\)/);
  assert.match(app,/id==='form-new-template'/);
 });
 
