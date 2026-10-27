@@ -1165,6 +1165,37 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'switch-fitness-mode':{
+  const next=state.fitnessMode==='basic'?'advanced':'basic';
+  if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (Full Body A and B)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
+  await setFitnessMode(next);break;
+ }
+ case 'fitness-profile':modal={type:'fitness-profile'};render();break;
+ case 'copy-personal-prompt':case 'personal-prompt-copy':{
+  if(!state.fitnessProfile)throw Error('Complete your fitness profile first.');
+  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile);
+  if(navigator.clipboard?.writeText){
+   try{await navigator.clipboard.writeText(prompt);notify('Personal GPT prompt copied. Review before sharing it.');break;}catch{}
+  }
+  modal={type:'personal-prompt'};render();
+  const input=document.getElementById('personal-prompt-text');input?.focus();input?.select();
+  notify('Copy the selected prompt from the text box.');break;
+ }
+ case 'personal-plan-upload':personalImportReview=null;modal={type:'personal-plan-import'};render();break;
+ case 'personal-plan-apply':{
+  if(!personalImportReview)throw Error('Select and review a JSON plan first.');
+  if(state.session)throw Error('Finish or discard your active workout before importing a routine.');
+  const p=personalImportReview;
+  if(!await confirmInApp('Import '+p.workouts.length+' workouts and '+p.meals.length+' meal suggestions? Previously imported personal plans and daily targets will be replaced. Existing food logs, workout history and other plans stay intact.',{title:'Import your personal plan?',approveLabel:'Apply plan',danger:false}))break;
+  const old={goals:state.goals,templates:state.templates,meals:state.personalMeals,active:state.personalPlanActive,title:state.personalPlanTitle};
+  const id=uid();
+  state.templates=state.templates.filter(t=>!t.personalImported).concat(p.workouts.map((w,i)=>({...structuredClone(w),id:'personal-'+id+'-'+(i+1),personalImported:true})));
+  state.goals={...state.goals,...p.goals};
+  state.personalMeals=structuredClone(p.meals);state.personalPlanActive=true;state.personalPlanTitle=p.title;
+  try{await commit();}
+  catch(err){state.goals=old.goals;state.templates=old.templates;state.personalMeals=old.meals;state.personalPlanActive=old.active;state.personalPlanTitle=old.title;render();throw err;}
+  personalImportReview=null;modal=null;render();notify('Personal routine and updated goals saved.');break;
+ }
  case 'online-catalogue-refresh':void updatePublishedCatalogue({showFeedback:true});break;
  case 'online-workout-import':{
   const plan=onlineCatalog.workouts.find(p=>p.id===el.dataset.id);
