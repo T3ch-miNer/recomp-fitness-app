@@ -38,8 +38,8 @@ test('new users are prompted, existing saved users are exempt, pending setup res
  assert.match(app,/dailyTargetsOnboarded:false/);
  assert.match(app,/if\(hadSavedState&&typeof state\.dailyTargetsOnboarded!=='boolean'\)state\.dailyTargetsOnboarded=true/);
  assert.match(app,/function maybeShowInitialDailyTargets\(\)/);
- assert.match(app,/onGuest:.*queueMicrotask\(maybeShowInitialDailyTargets\)/);
- assert.match(app,/queueMicrotask\(maybeShowInitialDailyTargets\)/);
+ assert.match(app,/onGuest:.*queueMicrotask\(\(\)=>\{maybeShowFitnessMode\(\);maybeShowInitialDailyTargets\(\);\}\)/);
+ assert.match(app,/queueMicrotask\(\(\)=>\{maybeShowFitnessMode\(\);maybeShowInitialDailyTargets\(\);\}\)/);
  assert.match(app,/await persist\(\);render\(\)/);
  assert.match(app,/maybeShowInitialDailyTargets\(\);/);
  assert.match(app,/setTimeout\(\(\)=>maybeShowDailyTaskPrompt\(\),0\)/);
@@ -53,8 +53,8 @@ test('goals are validated with existing settings input limits',()=>{
 test('new offline assets and cache version are wired into the HTML',()=>{
  const page=file('../index.html'),sw=file('../sw.js');
  assert.ok(page.includes('daily-targets-onboarding.css?v=2.9.7-initial-targets'));
- assert.ok(page.includes('app.js?v=2.10-online-catalogue-preview'));
- assert.match(sw,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.ok(page.includes('app.js?v=3.0-personal-plan-preview'));
+ assert.match(sw,/recomp-shell-v3\.0-personal-plan-preview/);
  assert.ok(sw.includes("'./daily-targets-onboarding.js'"));
  assert.ok(sw.includes("'./daily-targets-onboarding.css'"));
 });

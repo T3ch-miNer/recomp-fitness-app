@@ -20,6 +20,9 @@ import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
+import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
+import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
+import {SUPPLEMENTAL_RECIPE_ESTIMATES} from './popular-foods.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTasks} from './daily-task-prompt.js';
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
@@ -116,7 +119,7 @@ function mealGuideItems(){
  return state.mealGuideItems;
 }
 const INITIAL = () => ({
- version:1, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
+ version:1, fitnessMode:null,fitnessProfile:null,personalMeals:[],personalPlanActive:false, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
  waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true,appSounds:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{},dailyTasks:[],dailyTaskPlanning:null, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
@@ -127,6 +130,7 @@ const INITIAL = () => ({
 let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let settingsCloudOpen=false;
+let personalImportReview=null;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
 let photoUrls=new Map(),currentTimerText=0,restAlertedFor=null,waterCelebration=null,stepRefresh=false,stepRefreshInfo=false;
 let taskActionsId=null,taskHoldTimer=null,taskHoldPoint=null,suppressTaskClickUntil=0,swipeGesture=null;
@@ -287,8 +291,67 @@ function celebrateAllTasksIfNew(){
 async function commit(){celebrateAllTasksIfNew();await persist();render();}
 // First-use goal setup for guest access and successful account login.
 // Existing saved fitness records never trigger this step retroactively.
+
+function basicWorkoutTemplates(){return structuredClone(TEMPLATES);}
+function ensureStarterWorkouts(){
+ for(const starter of TEMPLATES)if(!state.templates.some(t=>t.id===starter.id))state.templates.push(structuredClone(starter));
+}
+async function setFitnessMode(mode,{firstChoice=false}={}){
+ if(!FITNESS_MODES.includes(mode))throw Error('Choose Basic or Advanced.');
+ if(state.session&&!state.session.minimized)throw Error('Minimise or complete the current workout before changing modes.');
+ const oldMode=state.fitnessMode,oldTemplates=state.templates,oldOnboarded=state.dailyTargetsOnboarded;
+ state.fitnessMode=mode;
+ if(mode==='basic'&&firstChoice)state.templates=basicWorkoutTemplates();
+ else if(mode==='basic')ensureStarterWorkouts();
+ if(firstChoice)state.dailyTargetsOnboarded=true; // Default goals are placeholders until a user chooses personal targets.
+ try{await persist();render();}
+ catch(err){state.fitnessMode=oldMode;state.templates=oldTemplates;state.dailyTargetsOnboarded=oldOnboarded;throw err;}
+ if(mode==='advanced'&&!state.fitnessProfile){modal={type:'fitness-profile'};render();}
+}
+function maybeShowFitnessMode(){
+ if(state?.fitnessMode||document.getElementById('recomp-first-run')||
+    document.getElementById('recomp-mode-select')||modal)return;
+ showFitnessModeSelection({onChoose:mode=>setFitnessMode(mode,{firstChoice:true})});
+}
+function personalProfileFields(){
+ const p=state.fitnessProfile||{days:3,minutes:45},field=(id,label,type='number',rest='')=>
+  `<label>${label}<input name="${id}" type="${type}" ${rest} value="${escapeHtml(p[id]??'')}"/></label>`;
+ const select=(id,label,values)=>`<label>${label}<select name="${id}">${values.map(([value,text])=>`<option value="${value}" ${(p[id]||'')===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
+ return `<p class="hint personal-plan-hint">Measurements are optional. They stay in your Recomp records and may be included in a separate cloud backup only if you enable that feature. The GPT prompt includes them only if you explicitly copy it.</p>
+ <div class="fitness-profile-grid">
+ ${select('goal','Primary goal',[['body-recomposition','Build muscle & lose fat'],['build-muscle','Gain muscle'],['lose-fat','Reduce body fat'],['maintain','Maintain'],['improve-fitness','Improve fitness']])}
+ ${select('diet','Dietary preference',[['omnivore','Mixed diet'],['vegetarian','Vegetarian'],['vegan','Vegan'],['pescatarian','Pescatarian'],['halal','Halal'],['other','Other / specify']])}
+ ${select('equipment','Available equipment',[['gym','Gym'],['home','Home equipment'],['bodyweight','Bodyweight only']])}
+ ${select('activity','Activity level',[['moderate','Moderately active'],['sedentary','Mostly sitting'],['light','Light activity'],['active','Very active']])}
+ ${field('age','Age (18+, optional)','number','min="18" max="100"')}
+ ${field('heightCm','Height (cm, optional)','number','min="100" max="230" step="0.1"')}
+ ${field('weightKg','Weight (kg, optional)','number','min="30" max="350" step="0.1"')}
+ ${field('waistCm','Waist (cm, optional)','number','min="30" max="250" step="0.1"')}
+ ${field('days','Training days per week','number','required min="1" max="7"')}
+ ${field('minutes','Minutes per workout','number','required min="10" max="180"')}
+ <label class="wide">Food preferences, restrictions and exercise limitations (optional)<textarea name="notes" maxlength="650">${escapeHtml(p.notes||'')}</textarea></label>
+ </div><p class="hint">For medical conditions, injuries or pregnancy, consult a qualified professional before acting on an AI-generated programme.</p>`;
+}
+function personalPromptControls(){
+ const profile=state.fitnessProfile;
+ return `<div class="card stack"><b>Personalised GPT routine</b>
+ <p class="hint">Profile: ${profile?'Saved on this device':'Not completed'}. Your GPT account is separate; Recomp never sends this prompt automatically.</p>
+ <div class="row wrap"><button class="btn" data-action="fitness-profile">${profile?'Edit fitness profile':'Complete fitness profile'}</button>
+ ${profile?'<button class="btn primary" data-action="copy-personal-prompt">Copy GPT planning prompt</button>':''}
+ <button class="btn" data-action="personal-plan-upload">Import GPT JSON plan</button></div>
+ ${Array.isArray(state.personalMeals)&&state.personalMeals.length?`<p class="hint">${state.personalMeals.length} meal suggestions saved from your imported plan (not added to diary).</p>`:''}
+ </div>`;
+}
+function personalPlanPreviewHtml(plan){
+ const info=previewPersonalPlan(plan);
+ return `<div class="personal-plan-preview"><strong>${escapeHtml(info.title)}</strong>
+ <p class="small muted">${info.workoutCount} workouts · ${info.exerciseCount} exercises · ${info.suggestedMeals} suggested meals</p>
+ <p class="small muted">Daily energy: ${info.calories} kcal · Protein: ${info.protein} g (review estimates)</p>
+ ${plan.workouts.map(w=>`<div><b>${escapeHtml(w.name)}</b><p class="small muted">${w.items.map(e=>escapeHtml(e[1])).join(' · ')}</p></div>`).join('')}
+ </div>`;
+}
 function maybeShowInitialDailyTargets(){
- if(!shouldShowDailyTargetsSetup({completed:state?.dailyTargetsOnboarded!==false,welcomeOpen:Boolean(document.getElementById('recomp-first-run'))})||document.getElementById('recomp-targets-setup'))return;
+ if(!state?.fitnessMode||document.getElementById('recomp-mode-select')||modal||!shouldShowDailyTargetsSetup({completed:state?.dailyTargetsOnboarded!==false,welcomeOpen:Boolean(document.getElementById('recomp-first-run'))})||document.getElementById('recomp-targets-setup'))return;
  showDailyTargetsSetup({goals:state.goals,onSave:async next=>{
   const previous=state.goals;
   state.goals={...state.goals,...next};state.dailyTargetsOnboarded=true;
@@ -299,7 +362,7 @@ function maybeShowInitialDailyTargets(){
 // when the user returns, or immediately via Plan today on the Home screen.
 function maybeShowDailyTaskPrompt(force=false){
  const date=today();
- if(state?.dailyTargetsOnboarded!==true||document.hidden||
+ if(state?.dailyTargetsOnboarded!==true||!state.fitnessMode||document.hidden||
   document.getElementById('recomp-first-run')||
   document.getElementById('recomp-targets-setup')||
   document.getElementById('recomp-daily-tasks-prompt')||
@@ -471,8 +534,17 @@ function mealGuideView(){
   <p class="meal-guide-compact-note">Portion guide · Hold an entry to edit</p>
  </section>`;
 }
+function personalMealSuggestionsView(){
+ if(state.fitnessMode!=='advanced'||!Array.isArray(state.personalMeals)||!state.personalMeals.length)return '';
+ return `<details class="card personalised-diet-suggestions">
+  <summary>My personalised meal suggestions · ${state.personalMeals.length}</summary>
+  <p class="hint">These are GPT-generated estimates, not verified dietary prescriptions. They are suggestions only and won't count towards today's intake until you choose to log one.</p>
+  ${state.personalMeals.map((m,i)=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(m.name)}</b><p class="small muted">${escapeHtml(m.meal)} · ${Math.round(m.grams)} g · ${Math.round(m.calories)} kcal · ${Math.round(m.protein)} g protein</p>${m.notes?`<p class="hint">${escapeHtml(m.notes)}</p>`:''}</div>
+  <button class="btn" data-action="log-personal-meal" data-index="${i}">Log meal</button></div>`).join('')}
+ </details>`;
+}
 function nutritionView(){if(historyPanel==='food')return foodHistoryHtml(state.food);
- const t=nutritionTotals(),entries=daily(state.food);const MACRO_COLOUR={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${MACRO_COLOUR[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');return `${heading('Fuel up.','Logging beats guessing. Every single time.')}<div class="mp-launch card"><div><b>Recipes & weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div><div class="nutrition-guide-first">${mealGuideView()}</div><div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div><div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div><div style="margin-top:4px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.aiEstimate?' · AI photo estimate':f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">Empty plate, clean slate. Tap Add to fix that.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a few meals and your regulars will queue up here for one-tap repeats.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcode lookup is available. Photo recognition is optional; confirm foods and weights. Review cooking oil and ingredients before logging.</div>`;}
+ const t=nutritionTotals(),entries=daily(state.food);const MACRO_COLOUR={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${MACRO_COLOUR[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');return `${heading('Fuel up.','Logging beats guessing. Every single time.')}<div class="mp-launch card"><div><b>Recipes & weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div><div class="nutrition-guide-first">${mealGuideView()}</div>${personalMealSuggestionsView()}<div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div><div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div><div style="margin-top:4px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.aiEstimate?' · AI photo estimate':f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">Empty plate, clean slate. Tap Add to fix that.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a few meals and your regulars will queue up here for one-tap repeats.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcode lookup is available. Photo recognition is optional; confirm foods and weights. Review cooking oil and ingredients before logging.</div>`;}
 const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
 function photoThumb(p){
  const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
@@ -552,7 +624,7 @@ function safeRedrawForCatalogue(){
 }
 function applyPublishedCatalogue(data,status){
  onlineCatalog=validateOnlineCatalogue(data);
- applyOnlineFoodCatalogue(onlineCatalog.foods);
+ applyOnlineFoodCatalogue([...SUPPLEMENTAL_RECIPE_ESTIMATES,...onlineCatalog.foods]);
  onlineStatus=status;onlineError='';
  safeRedrawForCatalogue();
 }
@@ -611,8 +683,8 @@ function workoutView(){
  return `${heading('Lift something.','Heavy things, repeated, on purpose.')}
  ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div></div>
- ${orderedWorkoutPlans(state.templates,state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
- ${onlineWorkoutLibraryView()}
+ ${orderedWorkoutPlans((state.fitnessMode==='basic'?state.templates.filter(t=>t.id==='A'||t.id==='B'):state.personalPlanActive?state.templates.filter(t=>t.personalImported):state.templates),state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(t.subtitle||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
+ ${state.fitnessMode==='basic'?'':onlineWorkoutLibraryView()}
   <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
 
@@ -633,11 +705,13 @@ function settingsView(){
  <section id="settings-account" class="settings-section" aria-label="Account">
  ${settingsSectionHeading('home','Your account','Manage your Google sign-in and profile.')}
 
+<div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?'Basic: Full Body A & B':'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':''}</div></div>
 <div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" data-action="clerk-login">Continue with Google</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}</div>
 </section>
  <section id="settings-targets" class="settings-section" aria-label="Daily targets">
  ${settingsSectionHeading('chart','Daily targets','Your personal nutrition and activity goals.')}
 
+${state.fitnessMode==='advanced'?personalPromptControls():''}
 <div class="card settings-targets-card"><p class="small muted settings-targets-intro">Edit freely. Targets change only when you press Save goals.</p><form id="settings-goals"><div class="field-row">${[['calories','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbohydrates (g)'],['fat','Fat (g)'],['fibre','Fibre (g)'],['water','Water (ml)'],['steps','Steps']].map(([k,label])=>`<div class="field"><label class="label" for="goal-${k}">${label}</label><input class="input" id="goal-${k}" name="${k}" type="number" inputmode="numeric" min="0" step="1" required value="${escapeHtml(goalDraft?.[k] ?? state.goals[k])}"/></div>`).join('')}</div><button class="btn primary" type="submit">Save goals</button></form></div>
 </section>
  <section id="settings-routine" class="settings-section" aria-label="Activity and routine">
@@ -785,6 +859,22 @@ function toggleFoodMenu(open){
  for(const action of cluster.querySelectorAll('.food-fab-option'))action.tabIndex=foodMenuOpen?0:-1;
 }
 function modalView(){if(!modal)return '';
+if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
+if(modal.type==='personal-prompt'){
+ if(!state.fitnessProfile)return modalShell('Complete profile first','<p class="hint">Save a fitness profile to generate your personal GPT prompt.</p><button type="button" class="btn primary block" data-action="fitness-profile">Complete profile</button>');
+ const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
+ return modalShell('Your personalised GPT prompt',`<p class="hint personal-plan-hint">Copy this text into your own GPT chat. It includes any measurements and preferences you entered, so review it before sharing with another service. Recomp does not send anything automatically.</p>
+ <textarea id="personal-prompt-text" class="input personal-prompt" readonly aria-label="GPT planning prompt">${escapeHtml(prompt)}</textarea>
+ <button type="button" class="btn primary block" data-action="personal-prompt-copy">Copy prompt</button>
+ <p class="hint">Ask your GPT to generate JSON. Save its reply as a UTF-8 file named <b>recomp-plan.json</b> and upload it to Recomp. PDFs and Excel files are not supported by this importer yet.</p>
+ <button type="button" class="btn block" data-action="personal-plan-upload">Import generated JSON</button>`);
+}
+if(modal.type==='personal-plan-import')return modalShell('Import your personal plan',
+ `<p class="hint">Select Recomp JSON generated by your own GPT. It is read on this device, never sent to Cloudflare. Review workouts and nutrition before applying.</p>
+ <label class="label" for="personal-plan-file">Select plan JSON file</label>
+ <input type="file" class="input" id="personal-plan-file" accept=".json,application/json"/>
+ ${personalImportReview?personalPlanPreviewHtml(personalImportReview)+'<button class="btn primary block" type="button" data-action="personal-plan-apply">Apply reviewed plan</button>':'<p class="hint">Only versioned Recomp JSON is supported. Excel/CSV/PDF conversion can be added later.</p>'}`);
+
 if(modal.type==='switch-workout'){
  const current=state.session,next=templateById(modal.targetId),done=current?.exercises.flatMap(e=>e.sets.filter(x=>x.done)).length||0;
  if(!current||!next)return '';
@@ -928,6 +1018,7 @@ let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutr
 $('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button class="quick-fab quick-history-fab" type="button" data-action="toggle-history" aria-label="${historyPanel==='food'?'Back to food diary':'View food history'}" title="Food history">${svg('history')}<span class="quick-fab-label">${historyPanel==='food'?'Diary':'History'}</span></button><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab quick-history-fab" data-action="toggle-history" aria-label="${historyPanel==='workouts'?'Back to workout plans':'View workout history'}" title="Workout history">${svg('history')}<span class="quick-fab-label">${historyPanel==='workouts'?'Plans':'History'}</span></button><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
+if(state.fitnessMode==='basic')document.querySelector('[data-action="create-template"]')?.remove();
 if(active)updateWorkoutScrollHeader();
 if(focusedGoal)document.getElementById('goal-'+focusedGoal)?.focus({preventScroll:true});
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
@@ -942,6 +1033,7 @@ function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrom
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
+ if(state.fitnessMode==='basic'&&!['A','B'].includes(id))return;
  const template=templateById(id);if(!template)return;
  if(state.session){pendingPlanSwitch(id);return;}
  if(!template.items.length){notify('Add an exercise to this plan first.');return;}
@@ -1086,6 +1178,45 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'switch-fitness-mode':{
+  const next=state.fitnessMode==='basic'?'advanced':'basic';
+  if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (Full Body A and B)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
+  await setFitnessMode(next);break;
+ }
+ case 'fitness-profile':modal={type:'fitness-profile'};render();break;
+ case 'copy-personal-prompt':modal={type:'personal-prompt'};render();break;
+ case 'personal-prompt-copy':{
+  if(!state.fitnessProfile)throw Error('Complete your fitness profile first.');
+  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
+  if(navigator.clipboard?.writeText){
+   try{await navigator.clipboard.writeText(prompt);notify('Personal GPT prompt copied. Review before sharing it.');break;}catch{}
+  }
+  modal={type:'personal-prompt'};render();
+  const input=document.getElementById('personal-prompt-text');input?.focus();input?.select();
+  notify('Copy the selected prompt from the text box.');break;
+ }
+ case 'personal-plan-upload':personalImportReview=null;modal={type:'personal-plan-import'};render();break;
+ case 'log-personal-meal':{
+  const index=Number(el.dataset.index),meal=state.personalMeals?.[index];
+  if(!meal||!Number.isInteger(index))throw Error('This suggestion is unavailable.');
+  if(!await confirmInApp('Log “'+meal.name+'” ('+meal.grams+' g, approximately '+meal.calories+' kcal) to today’s diary? Check your actual portion first.',{title:'Log estimated meal?',approveLabel:'Log meal',danger:false}))break;
+  state.food.push({id:uid(),date:today(),...structuredClone(meal),foodSource:'user-reviewed-personal-plan'});
+  await commit();notify('Estimated meal added to today’s diary.');break;
+ }
+ case 'personal-plan-apply':{
+  if(!personalImportReview)throw Error('Select and review a JSON plan first.');
+  if(state.session)throw Error('Finish or discard your active workout before importing a routine.');
+  const p=personalImportReview;
+  if(!await confirmInApp('Import '+p.workouts.length+' workouts and '+p.meals.length+' meal suggestions? Previously imported personal plans and daily targets will be replaced. Existing food logs, workout history and other plans stay intact.',{title:'Import your personal plan?',approveLabel:'Apply plan',danger:false}))break;
+  const old={goals:state.goals,templates:state.templates,meals:state.personalMeals,active:state.personalPlanActive,title:state.personalPlanTitle};
+  const id=uid();
+  state.templates=state.templates.filter(t=>!t.personalImported).concat(p.workouts.map((w,i)=>({...structuredClone(w),id:'personal-'+id+'-'+(i+1),personalImported:true})));
+  state.goals={...state.goals,...p.goals};
+  state.personalMeals=structuredClone(p.meals);state.personalPlanActive=true;state.personalPlanTitle=p.title;
+  try{await commit();}
+  catch(err){state.goals=old.goals;state.templates=old.templates;state.personalMeals=old.meals;state.personalPlanActive=old.active;state.personalPlanTitle=old.title;render();throw err;}
+  personalImportReview=null;modal=null;render();notify('Personal routine and updated goals saved.');break;
+ }
  case 'online-catalogue-refresh':void updatePublishedCatalogue({showFeedback:true});break;
  case 'online-workout-import':{
   const plan=onlineCatalog.workouts.find(p=>p.id===el.dataset.id);
@@ -1175,7 +1306,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
  case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
- case 'create-template':modal={type:'new-template'};render();break;
+ case 'create-template':if(state.fitnessMode==='basic'){notify('Basic mode includes only Full Body A and B. Switch to Advanced to create more plans.');break;}modal={type:'new-template'};render();break;
  case 'toggle-history':historyPanel=(historyPanel===(tab==='nutrition'?'food':'workouts'))?null:(tab==='nutrition'?'food':'workouts');window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'history-close':historyPanel=null;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'view-workout-history':modal=null;historyPanel='workouts';window.scrollTo({top:0,behavior:'instant'});render();break;
@@ -1338,6 +1469,14 @@ case 'export-backup':await exportData();break;
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-fitness-profile'){
+  const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
+  const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
+  state.fitnessProfile=profile;
+  try{await persist();}catch(err){state.fitnessProfile=previous;throw err;}
+  modal={type:'personal-prompt'};render();notify('Profile saved in your private Recomp records. Review the prompt before sharing it.');return;
+ }
+
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
   const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
@@ -1489,6 +1628,16 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.id==='personal-plan-file'&&modal?.type==='personal-plan-import'){
+  const file=el.files?.[0];if(!file)return;
+  personalImportReview=null;
+  if(file.size>300000||file.size===0){notify('Select JSON smaller than 300 KB.');return;}
+  if(!/\.json$/i.test(file.name)){notify('Only Recomp .json plans are supported right now.');return;}
+  try{personalImportReview=parsePersonalPlan(await file.text());render();notify('Plan validated. Review workouts and targets before applying.');}
+  catch(err){render();notify(err.message||'Could not read this plan.');}
+  return;
+ }
+
  if(el.id==='food-photo-input'&&modal?.type==='food-photo'){
   const file=el.files?.[0];if(!file)return;
   if(!file.type.startsWith('image/')||file.size>15*1024*1024){notify('Choose an image smaller than 15 MB');el.value='';return;}
@@ -1723,6 +1872,7 @@ async function init(){try{
  state=hadSavedState?saved:INITIAL();
  // Previous Recomp users already have targets: don't interrupt them.
  if(hadSavedState&&typeof state.dailyTargetsOnboarded!=='boolean')state.dailyTargetsOnboarded=true;
+  if(hadSavedState&&!FITNESS_MODES.includes(state.fitnessMode))state.fitnessMode='advanced'; // No re-onboarding for existing users.
  const defaults=INITIAL();
  // Safely repair an old or partial schema in memory, preserving all existing logs.
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
@@ -1786,6 +1936,7 @@ async function init(){try{
  });
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
+ applyOnlineFoodCatalogue(SUPPLEMENTAL_RECIPE_ESTIMATES);
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
  void startOnlineCatalogue();
@@ -1836,7 +1987,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     if(user){
      try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
      document.getElementById('recomp-first-run')?.remove();
-     queueMicrotask(maybeShowInitialDailyTargets);
+     queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});
     }
     if((tab==='settings'||tab==='home') && !modal)render();
    },{skipInitialEmit:true});
@@ -1855,7 +2006,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
   showFirstRunWelcome({
    googleEnabled:isClerkLoginAvailable(),
    developmentMode:isClerkDevelopmentMode(),
-   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(maybeShowInitialDailyTargets);},
+   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});},
    onGoogle:async()=>{
     if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in still needs testing in the native Android wrapper. Continue as a guest for now.';
     if(!isClerkLoginAvailable())return 'Clerk sign-in is not configured yet. Continue without signing in for now.';
@@ -1863,8 +2014,8 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
    }
   });
  }else{
-  // Restore setup after reloads; authenticated fresh installs skip the welcome.
-  maybeShowInitialDailyTargets();
+  // Restore new-user choice after reloads; legacy users are already advanced.
+  maybeShowFitnessMode();maybeShowInitialDailyTargets();
  }
  // First-time users complete Daily Targets before seeing this planner.
  setTimeout(()=>maybeShowDailyTaskPrompt(),0);
