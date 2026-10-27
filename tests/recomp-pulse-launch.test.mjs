@@ -61,7 +61,7 @@ test('both launcher PNGs are regenerated from the matching heartbeat mark',()=>{
 });
 
 test('offline startup caches the animated stylesheet and new assets',()=>{
- assert.match(sw,/const CACHE='recomp-shell-v2\.10-online-catalogue-preview'/);
+ assert.match(sw,/const CACHE='recomp-shell-v3\.0-personal-plan-preview'/);
  assert.ok(sw.includes("'./recomp-boot.css'"));
  for(const path of ['icon.svg','icon-192.png','icon-512.png','manifest.webmanifest'])
   assert.ok(sw.includes("'./"+path+"'"),path+' should be cached for PWA use');
