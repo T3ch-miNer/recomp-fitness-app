@@ -40,6 +40,7 @@ export function buildPersonalPlanningPrompt(profile){
  return [
  'You are a fitness programming and meal planning assistant. Create a realistic, editable training and nutrition plan for an adult using only the information below.',
  'Do not assert exact calorie needs from incomplete data. Explain assumptions and uncertainty in the plan title/subtitle or supporting notes. Avoid crash diets, extreme calorie deficits or unsafe exercise prescriptions.',
+ 'Review the proposed plan for sensible daily energy goals, progressive training and food portions before emitting the final JSON.',
  'If there are injuries, medical conditions, pregnancy, eating-disorder concerns or medications in notes, suggest qualified professional guidance rather than prescribing treatment.',
  'Profile (provided voluntarily): '+JSON.stringify(p),
  'Respect dietary preferences, equipment, schedule and culturally familiar Indian/global meals. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
