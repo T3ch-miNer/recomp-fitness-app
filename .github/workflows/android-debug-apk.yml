@@ -35,8 +35,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub's Ubuntu runners already provide the Android SDK and sdkmanager.
+      # Avoid setup-android@v3 attempting to install the removed 'tools' package.
       - name: Install Android 16 SDK
         run: |
           yes | sdkmanager --licenses > /dev/null || true
