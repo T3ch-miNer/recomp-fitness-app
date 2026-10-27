@@ -19,6 +19,7 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnline
 import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue} from './online-catalogue.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
+import {renderYouPage,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
 import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
@@ -37,6 +38,7 @@ const dateDisplay = date => new Date(date+'T12:00:00').toLocaleDateString('en-GB
 const num = x => Math.round(n(x)).toLocaleString('en-GB');
 const svg = (name,cls='icon') => `<svg class="${cls}" aria-hidden="true"><use href="#ico-${name}"></use></svg>`;
 const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><defs>
+<symbol id="ico-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2c0-4 3-7 8-7s8 3 8 7v2"/></symbol>
 <symbol id="ico-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-9h6v9"/></symbol>
 <symbol id="ico-dumbbell" viewBox="0 0 24 24"><path d="M6.5 6.5 17.5 17.5M3 8l5-5M16 21l5-5M2 11l9-9M13 22l9-9"/></symbol>
 <symbol id="ico-food" viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M19 21V3c-4 3-5 8-5 12h5"/></symbol>
@@ -417,7 +419,7 @@ function checkboxDone(task){let d=today();if(Object.prototype.hasOwnProperty.cal
 function progress(value,max){return `<div class="progress"><div style="width:${Math.min(100,Math.max(0,max?n(value)/n(max)*100:0))}%"></div></div>`;}
 function iconButton(icon,action,extra='',title=''){return `<button class="btn ${extra}" data-action="${action}" ${title?`aria-label="${escapeHtml(title)}"`:''}>${svg(icon)}</button>`;}
 // ---- Premium UI helpers (v2.2): greetings, rings, witty status lines, charts -------------
-const EYEBROWS={home:'Today',workouts:'Train',nutrition:'Fuel',body:'Progress',settings:'Settings'};
+const EYEBROWS={home:'Today',workouts:'Train',nutrition:'Fuel',body:'Progress',you:'You',settings:'Settings'};
 const METRIC_COLOURS={protein:'var(--c-protein)',walk:'var(--c-steps)',flame:'var(--c-burn)',water:'var(--c-water)',chart:'var(--accent)'};
 function greeting(hour=new Date().getHours(),name=''){
  const who=name?escapeHtml(String(name).trim().slice(0,40)):'';
@@ -942,10 +944,10 @@ if(modal.type==='cloud'){const cfg=cloud.getConfig();return modalShell('Configur
 if(modal.type==='workout-summary')return modalShell('Session banked',`<div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><div class="history-summary-actions"><button class="btn block" data-action="undo-finish-workout" data-id="${escapeHtml(modal.historyId||'')}" ${modal.historyId?'':'disabled'}>↶ Undo finish · Reopen workout</button><button class="btn primary block" data-action="view-workout-history">View workout history</button><button class="btn block" data-action="close-modal">Back to workout plans</button></div>`);
 return '';
 }
-function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
+function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker'],['you','user','You']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
 function syncDock(visible){
  let dock=document.getElementById('recomp-bottom-dock');
- const pages=[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body']];
+ const pages=[['home','home','Home'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body'],['you','user','You']];
  if(!dock){
   dock=document.createElement('nav');dock.id='recomp-bottom-dock';dock.className='bottom-nav premium-dock';dock.setAttribute('aria-label','Main navigation');
   dock.innerHTML='<span class="dock-selection" aria-hidden="true"></span>'+pages.map(([id,ico,label])=>`<button class="bottom-btn" data-action="tab" data-tab="${id}" type="button" aria-label="${label}" title="${label}">${svg(ico)}<span>${label}</span></button>`).join('');
@@ -1012,9 +1014,10 @@ function scheduleScrollChrome(){
 window.addEventListener('scroll',scheduleScrollChrome,{passive:true});
 window.addEventListener('resize',scheduleScrollChrome,{passive:true});
 document.addEventListener('focusin',scheduleScrollChrome);
+function youView(){const tasks=todaysTasks();return renderYouPage({date:today(),activity:activityToday(),stepGoal:state.goals.steps,dailyTasksTotal:tasks.length,dailyTasksDone:tasks.filter(checkboxDone).length});}
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
-let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,settings:settingsView}[tab]||homeView)();
+let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,you:youView,settings:settingsView}[tab]||homeView)();
 $('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button class="quick-fab quick-history-fab" type="button" data-action="toggle-history" aria-label="${historyPanel==='food'?'Back to food diary':'View food history'}" title="Food history">${svg('history')}<span class="quick-fab-label">${historyPanel==='food'?'Diary':'History'}</span></button><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab quick-history-fab" data-action="toggle-history" aria-label="${historyPanel==='workouts'?'Back to workout plans':'View workout history'}" title="Workout history">${svg('history')}<span class="quick-fab-label">${historyPanel==='workouts'?'Plans':'History'}</span></button><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
@@ -1026,7 +1029,7 @@ workoutBackGuard?.arm();
 }
 function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
- const order=['home','workouts','nutrition','body'];
+ const order=['home','workouts','nutrition','body','you'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
@@ -1178,6 +1181,11 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'you-sync-steps':await syncNativeActivity();break;
+ case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
+ case 'you-refresh-device':{const day=await readAndroidWellbeingDay(today());rememberDeviceDay(day);render();notify('Device wellbeing refreshed, stored only on this phone.');break;}
+ case 'you-clear-device':if(await confirmInApp('Erase Recomp\'s saved device-usage totals on this phone?')){clearDeviceDays();render();notify('Local usage history cleared.');}break;
+ case 'you-remove-habit':if(await confirmInApp('Remove this habit from your You dashboard?')){removeYouHabit(el.dataset.id);render();}break;
  case 'switch-fitness-mode':{
   const next=state.fitnessMode==='basic'?'advanced':'basic';
   if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (Full Body A and B)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
@@ -1469,6 +1477,7 @@ case 'export-backup':await exportData();break;
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='you-add-habit-form'){addYouHabit(data.get('habit'));render();notify('Wellbeing habit added.');return;}
  if(id==='form-fitness-profile'){
   const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
   const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
@@ -1628,6 +1637,7 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.matches('[data-you-habit]')){setYouHabit(el.dataset.youHabit,today(),el.checked);haptic('check');render();return;}
  if(el.id==='personal-plan-file'&&modal?.type==='personal-plan-import'){
   const file=el.files?.[0];if(!file)return;
   personalImportReview=null;
@@ -1956,7 +1966,7 @@ async function init(){try{
  if(!reducedMotion()){const first=document.querySelector('.main');first?.classList.add('page-enter');setTimeout(()=>first?.classList.remove('page-enter'),1600);}
  loadPhotoUrls().then(()=>{if(tab==='body'&&bodyPanel==='photos')render();}).catch(err=>console.warn('Photos can be opened later:',err));
 window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change',()=>{if(themeChoice()==='system'){applyTheme();render();}});
-if('serviceWorker' in navigator && location.protocol!=='file:'){
+if('serviceWorker' in navigator && location.protocol!=='file:' && !globalThis.Capacitor?.isNativePlatform?.()){
   const previouslyControlled=Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(previouslyControlled)showUpdateNotice();});
   navigator.serviceWorker.register('./sw.js').then(reg=>{
