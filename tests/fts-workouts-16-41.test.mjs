@@ -86,7 +86,7 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
  assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<5/);
  assert.match(app,/await put\('state',state\)/);
- assert.match(sw,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(sw,/recomp-shell-v3\.0-personal-plan-preview/);
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
  assert.ok(page.includes('app.js?v=2.10-online-catalogue-preview'));
 });
