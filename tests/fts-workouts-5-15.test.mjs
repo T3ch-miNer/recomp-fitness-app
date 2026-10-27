@@ -95,5 +95,5 @@ test('new and existing installs can load all fifteen plans offline',()=>{
  assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15,\.\.\.FTS_WORKOUTS_16_TO_41\]\)/);
  assert.ok(worker.includes("'./fts-workouts-5-15.js'"));
  assert.ok(worker.includes("recomp-shell-v3.0-personal-plan-preview"));
- assert.ok(index.includes("app.js?v=2.10-online-catalogue-preview"));
+ assert.ok(index.includes("app.js?v=3.0-personal-plan-preview"));
 });
