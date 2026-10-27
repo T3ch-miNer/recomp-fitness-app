@@ -35,14 +35,25 @@ export function validateFitnessProfile(p){
  if(!['sedentary','light','moderate','active'].includes(activity))throw Error('Choose an activity level.');
  return {goal,diet,equipment,age,heightCm,weightKg,waistCm,days,minutes,activity,notes};
 }
-export function buildPersonalPlanningPrompt(profile){
+export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  const p=validateFitnessProfile(profile);
+ // Explicit copy only: known saved measurements from the Body tab, in inches.
+ const names=['chest','belly','below','shoulders','neck','rightBicep','leftBicep',
+  'rightThigh','leftThigh','rightCalf','leftCalf','wrist'];
+ const body={};
+ if(measurements&&typeof measurements==='object'){
+  for(const key of names){
+   const value=Number(measurements[key]);
+   if(measurements[key]!=null&&measurements[key]!==''&&Number.isFinite(value)&&value>0&&value<=120)body[key]=value;
+  }
+ }
  return [
  'You are a fitness programming and meal planning assistant. Create a realistic, editable training and nutrition plan for an adult using only the information below.',
  'Do not assert exact calorie needs from incomplete data. Explain assumptions and uncertainty in the plan title/subtitle or supporting notes. Avoid crash diets, extreme calorie deficits or unsafe exercise prescriptions.',
  'Review the proposed plan for sensible daily energy goals, progressive training and food portions before emitting the final JSON.',
  'If there are injuries, medical conditions, pregnancy, eating-disorder concerns or medications in notes, suggest qualified professional guidance rather than prescribing treatment.',
  'Profile (provided voluntarily): '+JSON.stringify(p),
+ 'Latest recorded body measurements, in inches (only if you voluntarily saved them in Recomp): '+JSON.stringify(body),
  'Respect dietary preferences, equipment, schedule and culturally familiar Indian/global meals. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
  'Return ONLY a UTF-8 JSON object (no Markdown fences or commentary). The user will save it as recomp-plan.json and import it into their own Recomp app.',
  'Use EXACT schema:',
