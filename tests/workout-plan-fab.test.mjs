@@ -72,7 +72,7 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
 });
 
 test('updated offline shell installs the Plan FAB code',()=>{
- assert.match(index,/app\.js\?v=2\.10-online-catalogue-preview/);
- assert.match(worker,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(index,/app\.js\?v=3\.0-personal-plan-preview/);
+ assert.match(worker,/recomp-shell-v3\.0-personal-plan-preview/);
  assert.ok(worker.includes("'./app.js'"));
 });
