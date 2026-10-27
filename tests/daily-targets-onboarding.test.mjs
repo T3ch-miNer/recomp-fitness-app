@@ -54,7 +54,7 @@ test('new offline assets and cache version are wired into the HTML',()=>{
  const page=file('../index.html'),sw=file('../sw.js');
  assert.ok(page.includes('daily-targets-onboarding.css?v=2.9.7-initial-targets'));
  assert.ok(page.includes('app.js?v=2.10-online-catalogue-preview'));
- assert.match(sw,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(sw,/recomp-shell-v3\.0-personal-plan-preview/);
  assert.ok(sw.includes("'./daily-targets-onboarding.js'"));
  assert.ok(sw.includes("'./daily-targets-onboarding.css'"));
 });
