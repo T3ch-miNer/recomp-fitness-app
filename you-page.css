@@ -1,0 +1,30 @@
+/* Recomp v3: five-tab navigation and private wellbeing dashboard. */
+@media(max-width:760px){
+ #recomp-bottom-dock.bottom-nav.premium-dock{grid-template-columns:repeat(5,minmax(0,1fr))!important;width:min(calc(100vw - 12px),440px)!important;height:82px!important;min-height:82px!important;max-height:82px!important;padding:7px 3px!important;background:var(--nav-float)!important;border:1px solid var(--nav-float-border)!important;border-radius:29px!important;box-shadow:0 15px 36px rgba(0,0,0,.27)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}#recomp-bottom-dock .dock-cloud-surface{display:none!important}#recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{height:62px!important;min-height:62px!important;max-height:62px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn{width:clamp(52px,17vw,76px)!important;max-width:76px!important;font-size:10px!important}
+ #recomp-bottom-dock.bottom-nav.premium-dock .bottom-btn span{font-size:10px!important}
+}
+.you-header{margin-bottom:22px}
+.you-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:19px;box-shadow:var(--shadow);margin-bottom:12px}
+.you-hero{background:linear-gradient(145deg,var(--panel),var(--panel2))}
+.you-card-top,.you-section-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.you-section-title{margin:23px 0 10px}
+.you-section-title h2{font-size:17px;margin:0}
+.you-section-title>span,.you-muted,.you-caption{font-size:12px;color:var(--muted)}
+.you-flame{color:var(--accent);font-size:24px}
+.you-big{font-size:38px;line-height:1.2;font-weight:850;letter-spacing:-1px;margin:8px 0}
+.you-big small{font-size:17px;font-weight:650}
+.you-card p{margin:8px 0}
+.you-bar{height:9px;border-radius:20px;background:var(--panel2);overflow:hidden;margin-top:12px}
+.you-bar>span{height:100%;display:block;border-radius:inherit;background:var(--accent);transition:width .2s}
+.you-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
+.you-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.you-metric-value{display:block;font-size:27px;line-height:1.5;font-variant-numeric:tabular-nums}
+.you-habit{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.you-habit label{display:flex;align-items:center;gap:12px;cursor:pointer;flex:1}
+.you-habit input{accent-color:var(--accent);width:19px;height:19px}
+.you-habit:has(input:checked) label span{color:var(--muted)}
+.you-remove-habit{border:0;background:transparent;color:var(--muted);font-size:22px;width:32px;height:32px;border-radius:8px}
+.you-remove-habit:focus-visible{outline:2px solid var(--accent)}
+.you-add-form{display:flex;gap:8px;margin-top:14px}
+.you-add-form .input{flex:1;min-width:0}

@@ -61,9 +61,9 @@ test('both launcher PNGs are regenerated from the matching heartbeat mark',()=>{
 });
 
 test('offline startup caches the animated stylesheet and new assets',()=>{
- assert.match(sw,/const CACHE='recomp-shell-v2\.10-online-catalogue-preview'/);
+ assert.match(sw,/const CACHE='recomp-shell-v3-you-1000-recipes'/);
  assert.ok(sw.includes("'./recomp-boot.css'"));
  for(const path of ['icon.svg','icon-192.png','icon-512.png','manifest.webmanifest'])
   assert.ok(sw.includes("'./"+path+"'"),path+' should be cached for PWA use');
- assert.ok(html.includes('app.js?v=2.10-online-catalogue-preview'));
+ assert.ok(html.includes('app.js?v=3-android-you'));
 });

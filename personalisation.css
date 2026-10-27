@@ -1,0 +1,21 @@
+/* Recomp v3 optional private onboarding and personal GPT plan exchange. */
+.fitness-mode-overlay{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;overflow:auto;padding:24px;background:rgba(3,8,11,.84);backdrop-filter:blur(18px)}
+.fitness-mode-card{width:min(100%,560px);background:var(--panel,#141b1b);color:var(--text,#fff);border:1px solid var(--line,#384343);border-radius:24px;padding:clamp(20px,5vw,32px);box-shadow:0 24px 90px rgba(0,0,0,.38)}
+.fitness-mode-eyebrow{font-size:11px;letter-spacing:.18em;font-weight:800;color:var(--accent,#79e8bb)}
+.fitness-mode-card h1{font-size:clamp(27px,6vw,40px);line-height:1.1;margin:10px 0 12px;letter-spacing:-.035em}
+.fitness-mode-hint{font-size:13px;line-height:1.65;color:var(--muted,#aebbbb)}
+.fitness-mode-choices{display:grid;gap:12px;margin:20px 0}
+.fitness-mode-choices button{min-height:100px;width:100%;text-align:left;display:grid;gap:8px;border:1px solid var(--line,#384343);background:var(--panel2,#1d2827);padding:18px;border-radius:16px;color:var(--text,#fff);cursor:pointer;font:inherit}
+.fitness-mode-choices button:focus-visible,.fitness-mode-choices button:hover{outline:2px solid var(--accent,#79e8bb);outline-offset:2px}
+.fitness-mode-choices b{font-size:19px}
+.fitness-mode-choices span{font-size:13px;color:var(--muted,#aebbbb);line-height:1.6}
+.fitness-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.fitness-profile-grid label{display:grid;gap:5px;font-size:12px;font-weight:650}
+.fitness-profile-grid label.wide{grid-column:1/-1}
+.fitness-profile-grid input,.fitness-profile-grid select,.fitness-profile-grid textarea{min-height:42px;min-width:0;width:100%;border-radius:10px;border:1px solid var(--line,#384343);padding:9px;background:var(--panel2,#1d2827);color:var(--text,#fff);font:inherit}
+.fitness-profile-grid textarea{min-height:80px;resize:vertical}
+.personal-prompt{white-space:pre-wrap;width:100%;max-height:250px;min-height:160px;font:12px/1.5 ui-monospace,monospace;resize:vertical}
+.personal-plan-preview{display:grid;gap:9px;max-height:250px;overflow-y:auto;padding:12px;border:1px solid var(--line);border-radius:12px}
+.personal-plan-preview .small{margin:0}
+.personal-plan-hint{line-height:1.6}
+@media(max-width:440px){.fitness-profile-grid{grid-template-columns:1fr}.fitness-mode-overlay{padding:11px}.fitness-mode-card{border-radius:18px}}

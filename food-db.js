@@ -1,3 +1,4 @@
+import {makeRecipeVariations} from './recipe-variations.js';
 // Recomp Indian Home Foods, expanded catalogue (v2.3.1).
 // Recipes and ingredient weights are authored for Recomp as illustrative averages;
 // they were not extracted from commercial applications or restricted recipe datasets.
@@ -340,7 +341,10 @@ function compute(recipe){
 }
 // Guard catalogue IDs so logged historical food references cannot be made ambiguous.
 if(new Set(RECIPES.map(recipe=>recipe[0])).size!==RECIPES.length)throw new Error('Duplicate food recipe ID');
-const BUNDLED_FOODS=Object.freeze(RECIPES.map(compute));
+const BASE_RECIPES=Object.freeze(RECIPES.map(compute));
+// More than 1,000 additional fully calculated meal variations are available offline.
+// This is intentionally labelled as meal variations, not 1,000 independently tested recipes.
+const BUNDLED_FOODS=Object.freeze([...BASE_RECIPES,...makeRecipeVariations(BASE_RECIPES,INGREDIENT_REFERENCE,1000)]);
 export let FOOD_ITEMS=BUNDLED_FOODS;
 export let FOOD_COUNT=FOOD_ITEMS.length;
 /** An online estimate replaces only a catalogue entry with the same stable ID.

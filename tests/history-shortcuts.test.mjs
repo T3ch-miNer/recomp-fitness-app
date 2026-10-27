@@ -48,10 +48,10 @@ test('history shortcut sits beside both Plan and Food and completed sessions ret
  assert.ok(app.includes('plan-fab-cluster history-action-cluster'));
  assert.match(app,/case 'toggle-history'/);
  assert.match(app,/case 'view-workout-history'/);
- assert.ok(app.includes('orderedWorkoutPlans(state.templates,state.workoutHistory).map('));
+ assert.match(app,/orderedWorkoutPlans\(\(state\.fitnessMode==='basic'\?state\.templates\.filter/);
  assert.ok(app.includes('templateId:s.templateId'));
  assert.ok(app.includes('templateId:prior.templateId'));
  assert.match(html,/history-shortcuts\.css\?v=2\.9\.4-history-shortcuts/);
- assert.match(sw,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
  assert.match(sw,/history-view\.js/);
 });

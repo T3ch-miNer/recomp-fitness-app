@@ -67,12 +67,12 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
  assert.match(styles,/\.quick-fab\.above-workout/);
  assert.match(dock,/\.quick-fab\.above-workout/);
  assert.match(styles,/\.quick-fab:focus-visible/);
- assert.match(app,/case 'create-template':modal=\{type:'new-template'\}/);
+ assert.match(app,/case 'create-template':if\(state\.fitnessMode==='basic'\)/);
  assert.match(app,/id==='form-new-template'/);
 });
 
 test('updated offline shell installs the Plan FAB code',()=>{
- assert.match(index,/app\.js\?v=2\.10-online-catalogue-preview/);
- assert.match(worker,/recomp-shell-v2\.10-online-catalogue-preview/);
+ assert.match(index,/app\.js\?v=3-android-you/);
+ assert.match(worker,/recomp-shell-v3-you-1000-recipes/);
  assert.ok(worker.includes("'./app.js'"));
 });

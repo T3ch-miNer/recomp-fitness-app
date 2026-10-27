@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const foodSource=readFileSync(new URL('../food-db.js',import.meta.url),'utf8');
-const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource).toString('base64');
+const variationSource=readFileSync(new URL('../recipe-variations.js',import.meta.url),'utf8');
+const variationUrl='data:text/javascript;base64,'+Buffer.from(variationSource).toString('base64');
+const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource.replace("from './recipe-variations.js'","from '"+variationUrl+"'")).toString('base64');
 const estimateSource=readFileSync(new URL('../recipe-estimates.js',import.meta.url),'utf8');
 const estimateUrl='data:text/javascript;base64,'+Buffer.from(estimateSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
 const {estimateBatchNutrition}=await import(estimateUrl);
@@ -64,7 +66,7 @@ test('plain web PWA has no false native health connection',async()=>{
  await assert.rejects(()=>readHealthConnectDay('2026-10-19'),/native Recomp Android app/);
 });
 
-test('navigation remains all four existing tabs with labelled icon buttons',()=>{
+test('navigation retains the original four tabs and adds You',()=>{
  const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  const css=readFileSync(new URL('../nav-capsule.css',import.meta.url),'utf8');
  assert.ok(app.includes("['home','home','Home']"));

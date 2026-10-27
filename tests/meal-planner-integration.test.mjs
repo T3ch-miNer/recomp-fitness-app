@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const foodSource=await readFile(new URL('../food-db.js',import.meta.url),'utf8');
-const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource).toString('base64');
+const variationSource=await readFile(new URL('../recipe-variations.js',import.meta.url),'utf8');
+const variationUrl='data:text/javascript;base64,'+Buffer.from(variationSource).toString('base64');
+const foodUrl='data:text/javascript;base64,'+Buffer.from(foodSource.replace("from './recipe-variations.js'","from '"+variationUrl+"'")).toString('base64');
 const foodDb=await import(foodUrl);
 const plannerSource=await readFile(new URL('../meal-planner.js',import.meta.url),'utf8');
 const confirmSource=await readFile(new URL('../confirmation-dialog.js',import.meta.url),'utf8');
@@ -14,9 +16,11 @@ const plannerUrl='data:text/javascript;base64,'+Buffer.from(plannerSource.replac
 const {catalogueRecipeFromFood,groceryItems,parseIngredients}=await import(plannerUrl);
 const keys=['calories','protein','carbs','fat','fibre'];
 
-test('all 290 Indian foods can become separate editable four-serving recipes',()=>{
- assert.equal(foodDb.FOOD_COUNT,290);
- const converted=foodDb.FOOD_ITEMS.map(catalogueRecipeFromFood);
+test('all 290 original Indian foods can become separate editable four-serving recipes',()=>{
+ assert.ok(foodDb.FOOD_COUNT>=1290);
+ const classics=foodDb.FOOD_ITEMS.filter(f=>!f.id.startsWith('meal-v3-'));
+ assert.equal(classics.length,290);
+ const converted=classics.map(catalogueRecipeFromFood);
  assert.equal(new Set(converted.map(r=>r.id)).size,290);
  for(const recipe of converted){
   assert.ok(recipe.sourceFoodId,recipe.id);
