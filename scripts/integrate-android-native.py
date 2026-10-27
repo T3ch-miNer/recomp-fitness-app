@@ -26,6 +26,13 @@ for f in ('RecompHealthPlugin.kt','RecompWellbeingPlugin.kt'):
     shutil.copy2(root/'android-health-connect'/f,native/f)
 
 # Kotlin 2.3 + Capacitor v8 Android Gradle 8.13/Gradle 8.14.3.
+# Health Connect is supported only on newer Android devices; target Android 9+.
+variables=android/'variables.gradle'
+variables_txt=variables.read_text()
+if 'minSdkVersion = 24' not in variables_txt:
+    raise SystemExit('Expected Capacitor minSdkVersion not found')
+variables.write_text(variables_txt.replace('minSdkVersion = 24','minSdkVersion = 28',1))
+
 root_gradle=android/'build.gradle'
 content=root_gradle.read_text()
 needle="classpath 'com.android.tools.build:gradle:8.13.0'"
