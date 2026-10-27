@@ -1,0 +1,11 @@
+{
+  "appId": "com.t3chminer.recomp",
+  "appName": "Recomp",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
