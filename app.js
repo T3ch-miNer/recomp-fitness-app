@@ -1851,6 +1851,7 @@ async function init(){try{
  state=hadSavedState?saved:INITIAL();
  // Previous Recomp users already have targets: don't interrupt them.
  if(hadSavedState&&typeof state.dailyTargetsOnboarded!=='boolean')state.dailyTargetsOnboarded=true;
+  if(hadSavedState&&!FITNESS_MODES.includes(state.fitnessMode))state.fitnessMode='advanced'; // No re-onboarding for existing users.
  const defaults=INITIAL();
  // Safely repair an old or partial schema in memory, preserving all existing logs.
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
@@ -1964,7 +1965,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     if(user){
      try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
      document.getElementById('recomp-first-run')?.remove();
-     queueMicrotask(maybeShowInitialDailyTargets);
+     queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});
     }
     if((tab==='settings'||tab==='home') && !modal)render();
    },{skipInitialEmit:true});
@@ -1983,7 +1984,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
   showFirstRunWelcome({
    googleEnabled:isClerkLoginAvailable(),
    developmentMode:isClerkDevelopmentMode(),
-   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(maybeShowInitialDailyTargets);},
+   onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});},
    onGoogle:async()=>{
     if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in still needs testing in the native Android wrapper. Continue as a guest for now.';
     if(!isClerkLoginAvailable())return 'Clerk sign-in is not configured yet. Continue without signing in for now.';
@@ -1991,8 +1992,8 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
    }
   });
  }else{
-  // Restore setup after reloads; authenticated fresh installs skip the welcome.
-  maybeShowInitialDailyTargets();
+  // Restore new-user choice after reloads; legacy users are already advanced.
+  maybeShowFitnessMode();maybeShowInitialDailyTargets();
  }
  // First-time users complete Daily Targets before seeing this planner.
  setTimeout(()=>maybeShowDailyTaskPrompt(),0);
