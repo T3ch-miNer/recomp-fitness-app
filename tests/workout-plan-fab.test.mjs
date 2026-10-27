@@ -14,7 +14,7 @@ const start=app.indexOf('function workoutView(){');
 const end=app.indexOf('function elapsed(',start);
 assert.ok(start>=0&&end>start,'workout plan view present');
 const viewBuilder=new Function('state','heading','svg','escapeHtml','planActionsId',
- 'elapsed','dateDisplay','activeWorkoutView','historyPanel','workoutHistoryHtml','orderedWorkoutPlans',
+ 'elapsed','dateDisplay','activeWorkoutView','historyPanel','workoutHistoryHtml','orderedWorkoutPlans','onlineWorkoutLibraryView',
  app.slice(start,end)+'\nreturn workoutView;');
 const htmlEscape=x=>String(x??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -24,7 +24,7 @@ const workoutView=viewBuilder(
   {id:'fts-workout-1',name:'Workout 1 · Leg Day',subtitle:'FTS',items:[['a','Leg Press',3,10,100,90,[]]]}
  ]},
  ()=>'<header>Workouts</header>',()=>'<svg></svg>',
- htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans)();
+ htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans,()=>'')();
 
 const beginFab=app.indexOf("${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?");
 const endFab=app.indexOf('${state.session&&!active?',beginFab);
@@ -72,7 +72,7 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
 });
 
 test('updated offline shell installs the Plan FAB code',()=>{
- assert.match(index,/app\.js\?v=2\.9\.8-daily-tasks/);
- assert.match(worker,/recomp-shell-v2\.9\.8-daily-tasks/);
+ assert.match(index,/app\.js\?v=2\.10-online-catalogue-preview/);
+ assert.match(worker,/recomp-shell-v2\.10-online-catalogue-preview/);
  assert.ok(worker.includes("'./app.js'"));
 });

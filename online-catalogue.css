@@ -1,0 +1,16 @@
+/* Recomp v2.10 online public catalogue (read-only D1 + local-first records). */
+.online-catalogue-settings{display:grid;gap:10px;margin:0 0 14px}
+.online-catalogue-settings .row.space{align-items:flex-start;gap:14px;flex-wrap:wrap}
+.online-catalogue-settings .pill{flex:none}
+.online-catalogue-settings p{margin:0;line-height:1.65}
+.online-catalogue-settings .btn{min-height:42px;justify-self:start}
+.online-workout-library{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:15px 17px;margin:14px 0 25px}
+.online-workout-library summary{cursor:pointer;font-weight:750;color:var(--text);line-height:1.55}
+.online-workout-library summary span{display:block;font-size:11px;font-weight:550;color:var(--muted)}
+.online-workout-library>.hint{margin:12px 0}
+.online-workout-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px;margin-top:10px}
+.online-workout-option{display:flex;flex-direction:column;justify-content:space-between;gap:13px;padding:15px}
+.online-workout-option b{line-height:1.4;display:block}
+.online-workout-option .small{line-height:1.5;margin-top:5px}
+.online-workout-option button{min-height:43px}
+@media(max-width:520px){.online-workout-grid{grid-template-columns:minmax(0,1fr)}.online-catalogue-settings .btn{justify-self:stretch}}

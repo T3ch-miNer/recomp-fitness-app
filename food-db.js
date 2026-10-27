@@ -340,8 +340,23 @@ function compute(recipe){
 }
 // Guard catalogue IDs so logged historical food references cannot be made ambiguous.
 if(new Set(RECIPES.map(recipe=>recipe[0])).size!==RECIPES.length)throw new Error('Duplicate food recipe ID');
-export const FOOD_ITEMS=Object.freeze(RECIPES.map(compute));
-export const FOOD_COUNT=FOOD_ITEMS.length;
+const BUNDLED_FOODS=Object.freeze(RECIPES.map(compute));
+export let FOOD_ITEMS=BUNDLED_FOODS;
+export let FOOD_COUNT=FOOD_ITEMS.length;
+/** An online estimate replaces only a catalogue entry with the same stable ID.
+ *  Existing food diary records already contain their saved nutrition snapshots.
+ *  Removing the online catalogue restores every bundled offline food.
+ */
+export function applyOnlineFoodCatalogue(entries=[]){
+ const byId=new Map(BUNDLED_FOODS.map(food=>[food.id,food]));
+ for(const item of entries){
+  if(!item?.id||!item?.name||!item.per100)continue;
+  byId.set(item.id,Object.freeze({...item,per100:Object.freeze({...item.per100})}));
+ }
+ FOOD_ITEMS=Object.freeze([...byId.values()]);
+ FOOD_COUNT=FOOD_ITEMS.length;
+ return FOOD_COUNT;
+}
 export function findFood(id){return FOOD_ITEMS.find(item=>item.id===id)||null;}
 function normalise(text){return String(text??'').toLocaleLowerCase('en').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();}
 export function searchFoods(query,limit=24){
