@@ -65,5 +65,5 @@ test('offline startup caches the animated stylesheet and new assets',()=>{
  assert.ok(sw.includes("'./recomp-boot.css'"));
  for(const path of ['icon.svg','icon-192.png','icon-512.png','manifest.webmanifest'])
   assert.ok(sw.includes("'./"+path+"'"),path+' should be cached for PWA use');
- assert.ok(html.includes('app.js?v=2.10-online-catalogue-preview'));
+ assert.ok(html.includes('app.js?v=3.0-personal-plan-preview'));
 });
