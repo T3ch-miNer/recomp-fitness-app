@@ -1,0 +1,82 @@
+{
+  "format": "recomp-personal-plan-v1",
+  "title": "EXAMPLE ONLY — replace with a reviewed plan",
+  "goals": {
+    "calories": 2200,
+    "protein": 140,
+    "carbs": 245,
+    "fat": 70,
+    "fibre": 30,
+    "water": 2500,
+    "steps": 8000
+  },
+  "workouts": [
+    {
+      "name": "Example Full Body A",
+      "subtitle": "Illustrative beginner workout, Monday",
+      "exercises": [
+        {
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Light load, control the movement"
+        },
+        {
+          "name": "Chest press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Use comfortable resistance"
+        },
+        {
+          "name": "Seated cable row",
+          "sets": 3,
+          "reps": 12,
+          "restSeconds": 75,
+          "notes": "Pause and squeeze shoulder blades"
+        }
+      ]
+    },
+    {
+      "name": "Example Full Body B",
+      "subtitle": "Illustrative beginner workout, Thursday",
+      "exercises": [
+        {
+          "name": "Leg press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Comfortable range of motion"
+        },
+        {
+          "name": "Incline dumbbell press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Use moderate resistance"
+        },
+        {
+          "name": "Lat pulldown",
+          "sets": 3,
+          "reps": 12,
+          "restSeconds": 75,
+          "notes": "Pull with control"
+        }
+      ]
+    }
+  ],
+  "meals": [
+    {
+      "name": "Example dal rice bowl",
+      "meal": "Lunch",
+      "grams": 350,
+      "calories": 460,
+      "protein": 17,
+      "carbs": 74,
+      "fat": 9,
+      "fibre": 11,
+      "notes": "ILLUSTRATIVE nutrition only; edit for your ingredients and portion."
+    }
+  ]
+}
