@@ -1448,6 +1448,14 @@ case 'export-backup':await exportData();break;
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-fitness-profile'){
+  const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
+  const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
+  state.fitnessProfile=profile;
+  try{await persist();}catch(err){state.fitnessProfile=previous;throw err;}
+  modal={type:'personal-prompt'};render();notify('Profile saved only on this device. Review your GPT prompt.');return;
+ }
+
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
   const label=String(data.get('label')||'').trim().slice(0,50),description=String(data.get('description')||'').trim().slice(0,350),group=String(data.get('group')||'');
@@ -1599,6 +1607,16 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.id==='personal-plan-file'&&modal?.type==='personal-plan-import'){
+  const file=el.files?.[0];if(!file)return;
+  personalImportReview=null;
+  if(file.size>300000||file.size===0){notify('Select JSON smaller than 300 KB.');return;}
+  if(!/\.json$/i.test(file.name)){notify('Only Recomp .json plans are supported right now.');return;}
+  try{personalImportReview=parsePersonalPlan(await file.text());render();notify('Plan validated. Review workouts and targets before applying.');}
+  catch(err){render();notify(err.message||'Could not read this plan.');}
+  return;
+ }
+
  if(el.id==='food-photo-input'&&modal?.type==='food-photo'){
   const file=el.files?.[0];if(!file)return;
   if(!file.type.startsWith('image/')||file.size>15*1024*1024){notify('Choose an image smaller than 15 MB');el.value='';return;}
