@@ -2026,7 +2026,9 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     await openClerkSignIn();
     // Native sign-in resumes from the Android callback after Chrome completes.
     try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
-    queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});
+    // First-run overlay closes after onGoogle resolves, so schedule onboarding
+    // on the next task (not a microtask that could run before overlay removal).
+    setTimeout(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();},0);
     render();
    }
   });
