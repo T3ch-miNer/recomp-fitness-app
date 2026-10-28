@@ -102,7 +102,9 @@ object RecompAuthCallback {
     fun handle(intent: Intent?) {
         intent?.data?.let { url ->
             if (url.scheme == "clerk" && url.host == "com.t3chminer.recomp.callback") {
-                Clerk.auth.handle(url)
+                CoroutineScope(Dispatchers.Main).launch {
+                    Clerk.auth.handle(url)
+                }
             }
         }
     }
