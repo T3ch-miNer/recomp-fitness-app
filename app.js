@@ -26,7 +26,7 @@ import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,
 import {SUPPLEMENTAL_RECIPE_ESTIMATES} from './popular-foods.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTasks} from './daily-task-prompt.js';
-import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
+import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,restoreNativeClerkAccount,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 
 const $ = s => document.querySelector(s);
@@ -1990,6 +1990,9 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
  // is ever required to access existing IndexedDB fitness records.
  if(isClerkLoginAvailable()){
   try{
+   if(window.Capacitor?.isNativePlatform?.()){
+    await restoreNativeClerkAccount();
+   }else{
    const clerkClient=await loadClerk();
    // Keep the account display in sync and close the first-run welcome after
    // Clerk confirms authentication. This listener never modifies fitness data.
@@ -2001,6 +2004,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     }
     if((tab==='settings'||tab==='home') && !modal)render();
    },{skipInitialEmit:true});
+   }
   }catch(e){console.warn('Optional Clerk sign-in unavailable:',e.message);}
  }
  // Guest-first welcome is only for genuinely new installations. Never interrupt
@@ -2018,9 +2022,12 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
    developmentMode:isClerkDevelopmentMode(),
    onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});},
    onGoogle:async()=>{
-    if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in still needs testing in the native Android wrapper. Continue as a guest for now.';
     if(!isClerkLoginAvailable())return 'Clerk sign-in is not configured yet. Continue without signing in for now.';
     await openClerkSignIn();
+    // Native sign-in resumes from the Android callback after Chrome completes.
+    try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
+    queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});
+    render();
    }
   });
  }else{
