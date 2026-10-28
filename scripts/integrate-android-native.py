@@ -20,9 +20,10 @@ main=base/'java'/'com'/'t3chminer'/'recomp'
 main.mkdir(parents=True,exist_ok=True)
 shutil.copy2(root/'android-src'/'MainActivity.java',main/'MainActivity.java')
 shutil.copy2(root/'android-src'/'PermissionsRationaleActivity.java',main/'PermissionsRationaleActivity.java')
+shutil.copy2(root/'android-src'/'RecompClerkApplication.kt',main/'RecompClerkApplication.kt')
 native=base/'java'/'com'/'recomp'/'health'
 native.mkdir(parents=True,exist_ok=True)
-for f in ('RecompHealthPlugin.kt','RecompWellbeingPlugin.kt'):
+for f in ('RecompHealthPlugin.kt','RecompWellbeingPlugin.kt','RecompAuthPlugin.kt'):
     shutil.copy2(root/'android-health-connect'/f,native/f)
 
 # Kotlin 2.3 + Capacitor v8 Android Gradle 8.13/Gradle 8.14.3.
@@ -50,6 +51,7 @@ content=content.replace(needle,needle+"\napply plugin: 'org.jetbrains.kotlin.and
 content += """
 // Read-only Health Connect activity sync and Kotlin coroutine support.
 dependencies {
+    implementation 'com.clerk:clerk-android-api:1.1.6'
     implementation 'androidx.health.connect:connect-client:1.1.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 }
@@ -90,6 +92,24 @@ activities='''
 '''
 if '</application>' not in xml:
     raise SystemExit('Application closing tag missing')
+
+# Clerk's native OAuth callback belongs to the app Activity, not the WebView.
+if 'android:name=".RecompClerkApplication"' not in xml:
+    xml=xml.replace('<application', '<application android:name=".RecompClerkApplication"',1)
+import re
+match=re.search(r'<activity\s+[^>]*android:name="\.MainActivity"',xml)
+if not match: raise SystemExit('Unable to locate Capacitor MainActivity')
+activity_end=xml.find('</activity>',match.start())
+if activity_end<0: raise SystemExit('MainActivity closing tag missing')
+callback='''
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="clerk" android:host="com.t3chminer.recomp.callback"/>
+            </intent-filter>
+'''
+xml=xml[:activity_end]+callback+xml[activity_end:]
 xml=xml.replace('</application>',activities+'    </application>',1)
 manifest.write_text(xml)
 print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions.')
