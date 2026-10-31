@@ -5,6 +5,12 @@ const G=['calories','protein','carbs','fat','fibre','water','steps'];
 const max={calories:10000,protein:650,carbs:1400,fat:400,fibre:160,water:12000,steps:100000};
 const goodText=(s,n=120)=>typeof s==='string'&&s.trim()&&s.length<=n;
 function str(s,n=120){if(!goodText(s,n))throw Error('Invalid text in imported plan.');return s.trim();}
+function planTitle(value){
+ if(typeof value!=='string'||!value.trim())throw Error('Plan title is missing. Ask your AI for a short, descriptive title.');
+ const title=value.trim();
+ if(title.length>120)throw Error('Plan title is '+title.length+' characters long. The maximum is 120 characters. Shorten it and import again.');
+ return title;
+}
 function number(value,low,high,label){
  if(typeof value!=='number'||!Number.isFinite(value)||value<low||value>high)
   throw Error('Check '+label+' in the imported plan.');
@@ -49,13 +55,14 @@ export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  }
  return [
  'You are a fitness programming and meal planning assistant. Create a realistic, editable training and nutrition plan for an adult using only the information below.',
- 'Do not assert exact calorie needs from incomplete data. Explain assumptions and uncertainty in the plan title/subtitle or supporting notes. Avoid crash diets, extreme calorie deficits or unsafe exercise prescriptions.',
+ 'Do not assert exact calorie needs from incomplete data. Explain assumptions and uncertainty in the workout subtitles or supporting notes, never in the plan title. Avoid crash diets, extreme calorie deficits or unsafe exercise prescriptions.',
  'Review the proposed plan for sensible daily energy goals, progressive training and food portions before emitting the final JSON.',
  'If there are injuries, medical conditions, pregnancy, eating-disorder concerns or medications in notes, suggest qualified professional guidance rather than prescribing treatment.',
  'Profile (provided voluntarily): '+JSON.stringify(p),
  'Latest recorded body measurements, in inches (only if you voluntarily saved them in Recomp): '+JSON.stringify(body),
  'Respect dietary preferences, equipment, schedule and culturally familiar Indian/global meals. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
- 'Return ONLY a UTF-8 JSON object (no Markdown fences or commentary). The user will save it as recomp-plan.json and import it into their own Recomp app.',
+ 'If this AI supports file creation, generate and attach a downloadable UTF-8 file named recomp-plan.json containing ONLY the JSON object (no Markdown fences or commentary). If downloadable files are unavailable, return ONLY the raw UTF-8 JSON object (no Markdown fences or commentary) so the user can save it as recomp-plan.json and import it into Recomp.',
+ 'IMPORTANT: The top-level JSON "title" must be a short, clear plan name of 1–120 characters (preferably under 80). Do not put calorie disclaimers, assumptions, explanations or paragraphs in the title. Put relevant explanations in a workout "subtitle" or an exercise/meal "notes" field instead.',
  'Use EXACT schema:',
  JSON.stringify({
   format:PERSONAL_PLAN_FORMAT,
@@ -70,7 +77,8 @@ export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
    {name:'Dal rice bowl',meal:'Lunch',grams:350,calories:470,protein:19,carbs:71,fat:11,fibre:10,notes:'Approximate recipe estimate'}
   ]
  },null,2),
- 'Constraints: 1–7 workouts; 1–20 exercises each; 1–12 sets; 1–100 repetitions; 0–600 restSeconds; no prescribed starting load; 0–21 optional suggested meals.',
+ 'Before providing the file or JSON, check that title.length is at most 120 characters, the JSON is valid, all required fields match the schema exactly, and every field meets Recomp\'s length and numeric limits. If not, correct the data before returning it.',
+ 'Constraints: 1–7 workouts; workout name 1–80 characters, subtitle at most 160; 1–20 exercises each; exercise name 1–120 characters; 1–12 sets; 1–100 repetitions; 0–600 restSeconds; no prescribed starting load; 0–21 optional suggested meals. Meal name 1–110 characters, category must be Breakfast, Lunch, Dinner or Snack. Use concise exercise and meal notes.',
  'All goal values must be ordinary finite numbers. Nutrition goals are daily totals. Meals are suggestions, not automatically logged in the food diary.',
  'Use an age-appropriate approach for adults. If the information is insufficient, ask for missing essentials in a separate conversation before generating JSON.'
  ].join('\n\n');
@@ -83,6 +91,7 @@ export function parsePersonalPlan(value){
  }
  if(!p||typeof p!=='object'||Array.isArray(p)||p.format!==PERSONAL_PLAN_FORMAT)
   throw Error('Unsupported plan format. Ask the GPT for recomp-personal-plan-v1 JSON.');
+ const title=planTitle(p.title);
  if(!Array.isArray(p.workouts)||p.workouts.length<1||p.workouts.length>7)
   throw Error('The plan must include 1–7 workouts.');
  if(!p.goals||typeof p.goals!=='object')throw Error('Daily nutrition and activity targets are required.');
@@ -110,7 +119,7 @@ export function parsePersonalPlan(value){
   return {name:str(m.name,110),meal,grams:number(m.grams,1,2500,'serving grams'),...metrics,
    notes:String(m.notes||'').slice(0,300),source:'Estimated · imported plan'};
  });
- return {title:str(p.title,120),goals,workouts,meals:recommendedMeals};
+ return {title,goals,workouts,meals:recommendedMeals};
 }
 export function previewPersonalPlan(plan){
  return {title:plan.title,workoutCount:plan.workouts.length,exerciseCount:plan.workouts.reduce((sum,w)=>sum+w.items.length,0),
