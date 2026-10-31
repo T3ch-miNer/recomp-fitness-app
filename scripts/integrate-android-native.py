@@ -64,7 +64,7 @@ content += """
 android {
     buildTypes {
         debug {
-            applicationIdSuffix ".beta"
+            applicationIdSuffix ".journey"
         }
     }
 }
@@ -75,7 +75,7 @@ app_gradle.write_text(content)
 strings=base/'res'/'values'/'strings.xml'
 if strings.exists():
     strings_text=strings.read_text()
-    strings_text=strings_text.replace('>Recomp</string>', '>Recomp Beta</string>')
+    strings_text=strings_text.replace('>Recomp</string>', '>Recomp Journey</string>')
     strings.write_text(strings_text)
 
 
@@ -127,7 +127,7 @@ callback='''
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="clerk" android:host="com.t3chminer.recomp.callback"/>
+                <data android:scheme="clerk" android:host="com.t3chminer.recomp.journey.callback"/>
             </intent-filter>
 '''
 xml=xml[:activity_end]+callback+xml[activity_end:]
