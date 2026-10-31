@@ -22,6 +22,7 @@ import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './h
 import {renderYouPage,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
+import {showPersonalJourney,JOURNEY_MEASUREMENTS} from './personal-journey.js';
 import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
 import {SUPPLEMENTAL_RECIPE_ESTIMATES} from './popular-foods.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
@@ -308,31 +309,33 @@ async function setFitnessMode(mode,{firstChoice=false}={}){
  if(firstChoice)state.dailyTargetsOnboarded=true; // Default goals are placeholders until a user chooses personal targets.
  try{await persist();render();}
  catch(err){state.fitnessMode=oldMode;state.templates=oldTemplates;state.dailyTargetsOnboarded=oldOnboarded;throw err;}
- if(mode==='advanced'&&!state.fitnessProfile){modal={type:'fitness-profile'};render();}
+ if(mode==='advanced'&&!state.fitnessProfile){setTimeout(()=>launchPersonalJourney(),0);}
 }
 function maybeShowFitnessMode(){
  if(state?.fitnessMode||document.getElementById('recomp-first-run')||
     document.getElementById('recomp-mode-select')||modal)return;
  showFitnessModeSelection({onChoose:mode=>setFitnessMode(mode,{firstChoice:true})});
 }
-function personalProfileFields(){
- const p=state.fitnessProfile||{days:3,minutes:45},field=(id,label,type='number',rest='')=>
-  `<label>${label}<input name="${id}" type="${type}" ${rest} value="${escapeHtml(p[id]??'')}"/></label>`;
- const select=(id,label,values)=>`<label>${label}<select name="${id}">${values.map(([value,text])=>`<option value="${value}" ${(p[id]||'')===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
- return `<p class="hint personal-plan-hint">Measurements are optional. They stay in your Recomp records and may be included in a separate cloud backup only if you enable that feature. The GPT prompt includes them only if you explicitly copy it.</p>
- <div class="fitness-profile-grid">
- ${select('goal','Primary goal',[['body-recomposition','Build muscle & lose fat'],['build-muscle','Gain muscle'],['lose-fat','Reduce body fat'],['maintain','Maintain'],['improve-fitness','Improve fitness']])}
- ${select('diet','Dietary preference',[['omnivore','Mixed diet'],['vegetarian','Vegetarian'],['vegan','Vegan'],['pescatarian','Pescatarian'],['halal','Halal'],['other','Other / specify']])}
- ${select('equipment','Available equipment',[['gym','Gym'],['home','Home equipment'],['bodyweight','Bodyweight only']])}
- ${select('activity','Activity level',[['moderate','Moderately active'],['sedentary','Mostly sitting'],['light','Light activity'],['active','Very active']])}
- ${field('age','Age (18+, optional)','number','min="18" max="100"')}
- ${field('heightCm','Height (cm, optional)','number','min="100" max="230" step="0.1"')}
- ${field('weightKg','Weight (kg, optional)','number','min="30" max="350" step="0.1"')}
- ${field('waistCm','Waist (cm, optional)','number','min="30" max="250" step="0.1"')}
- ${field('days','Training days per week','number','required min="1" max="7"')}
- ${field('minutes','Minutes per workout','number','required min="10" max="180"')}
- <label class="wide">Food preferences, restrictions and exercise limitations (optional)<textarea name="notes" maxlength="650">${escapeHtml(p.notes||'')}</textarea></label>
- </div><p class="hint">For medical conditions, injuries or pregnancy, consult a qualified professional before acting on an AI-generated programme.</p>`;
+// The Advanced experience is now a private, resumable six-stage interview.
+function launchPersonalJourney(){
+ if(modal){modal=null;render();}
+ return showPersonalJourney({
+  profile:state.fitnessProfile,
+  measurements:state.measurements?.at(-1)||null,
+  onSave:async ({profile,measurements})=>{
+   const clean=validateFitnessProfile(profile);
+   const oldProfile=state.fitnessProfile,oldMeasurements=state.measurements;
+   state.fitnessProfile=clean;
+   if(Object.keys(measurements).length){
+    const last=state.measurements?.at(-1)||{};
+    state.measurements=[...state.measurements,{...last,...measurements,id:uid(),date:today()}];
+   }
+   try{await persist();}
+   catch(err){state.fitnessProfile=oldProfile;state.measurements=oldMeasurements;throw err;}
+   modal={type:'personal-prompt'};render();
+   notify('Your personalised profile is saved. Review the prompt before sharing it with an AI.');
+  }
+ });
 }
 function personalPromptControls(){
  const profile=state.fitnessProfile;
@@ -617,7 +620,7 @@ function updateCompare(){
  if(!u1||!u2){where.innerHTML='<p class="muted small">One of these photos is unavailable offline.</p>';return;}
  where.innerHTML=`<div class="compare-head"><span>${dateDisplay(a.date)}</span><span>${dateDisplay(b.date)}</span></div><div class="photo-compare-stage" aria-label="Before and after photo slider"><img class="compare-photo" src="${u2}" alt="After photograph"/><div id="compare-before-layer" class="compare-before-layer"><img class="compare-photo" src="${u1}" alt="Before photograph"/></div><div class="compare-handle" id="compare-handle"></div></div><label class="label" for="compare-range">Slide to reveal your progress</label><input id="compare-range" class="input-compare-range" type="range" min="0" max="100" value="50" aria-label="Reveal before or after photo"/>`;
 }
-function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Receipts.','The mirror lies. The tape measure does not.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart','',weightDeltaQuip(state.weights))}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep (relaxed)'],['leftBicep','Left bicep (relaxed)'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weightChart(weights)}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weigh-in goes here. The scale is nervous too.</p>'}</div>`:photosView()}`;}
+function bodyView(){const lastWeight=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).at(-1);const baseline=state.measurements.at(-1);let weights=[...state.weights].sort((a,b)=>a.date.localeCompare(b.date)).slice(-12);const minW=weights.length?Math.min(...weights.map(w=>w.kg))-1:0;const maxW=weights.length?Math.max(...weights.map(w=>w.kg))+1:1;return `${heading('Receipts.','The mirror lies. The tape measure does not.')}<div class="metric-grid">${metric('Latest weight',lastWeight?.kg ?? null,null,'kg','chart','',weightDeltaQuip(state.weights))}${metric('Belly-button waist',baseline?.belly ?? null,null,'in','chart')}</div><div class="tab-row" style="margin-top:21px"><button class="tab ${bodyPanel==='measurements'?'active':''}" data-action="body-panel" data-panel="measurements">Measurements</button><button class="tab ${bodyPanel==='photos'?'active':''}" data-action="body-panel" data-panel="photos">Photos</button><button class="tab ${bodyPanel==='weight'?'active':''}" data-action="body-panel" data-panel="weight">Weight history</button></div>${bodyPanel==='measurements'?`<div class="card"><div class="row space"><div><h2 class="section-title">Latest measurements</h2><div class="small muted">${baseline?dateDisplay(baseline.date):'No measurements yet'}</div></div><button class="btn" data-action="add-measurement">${svg('plus','tiny-icon')} Update</button></div><div class="divider"></div>${JOURNEY_MEASUREMENTS.map(([key,label])=>[key,label]).map(([k,label])=>`<div class="split-line" style="padding:8px 0"><span class="muted">${label}</span><b>${baseline?.[k]!=='' && baseline?.[k]!=null?baseline[k]+' in':'Not recorded'}</b></div>`).join('')}</div>`:bodyPanel==='weight'?`<div class="card"><div class="row space"><h2 class="section-title">Weekly weight</h2><button class="btn" data-action="add-weight">Add entry</button></div>${weightChart(weights)}${weights.map(w=>`<div class="list-entry"><span style="flex:1">${dateDisplay(w.date)}</span><b>${w.kg} kg</b><button class="btn ghost" data-action="delete-weight" data-id="${w.id}">${svg('trash','tiny-icon')}</button></div>`).join('')||'<p class="muted">Your first weigh-in goes here. The scale is nervous too.</p>'}</div>`:photosView()}`;}
 
 function safeRedrawForCatalogue(){
  // Never interrupt a workout, open editor, camera or confirmation dialog.
@@ -861,7 +864,7 @@ function toggleFoodMenu(open){
  for(const action of cluster.querySelectorAll('.food-fab-option'))action.tabIndex=foodMenuOpen?0:-1;
 }
 function modalView(){if(!modal)return '';
-if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
+if(modal.type==='fitness-profile')return modalShell('Your personal fitness journey','<p class="hint">Close this window and choose Edit fitness profile to open the six-stage experience.</p>');
 if(modal.type==='personal-prompt'){
  if(!state.fitnessProfile)return modalShell('Complete profile first','<p class="hint">Save a fitness profile to generate your personal GPT prompt.</p><button type="button" class="btn primary block" data-action="fitness-profile">Complete profile</button>');
  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
@@ -926,7 +929,7 @@ if(modal.type==='food-search')return foodSearchView();
 if(modal.type==='food-portion')return foodPortionView();
 if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food or meal name','','text','required maxlength="100"')}<div class="field"><label class="label">Meal</label><select class="input" name="meal">${['Breakfast','Lunch','Dinner','Snack'].map(m=>`<option ${m===(modal.meal||'Breakfast')?'selected':''}>${m}</option>`).join('')}</select></div><div class="field-row">${modalField('calories','Calories (kcal)',0,'number','min="0" required')}${modalField('protein','Protein (g)',0,'number','min="0" step="0.1"')}${modalField('carbs','Carbs (g)',0,'number','min="0" step="0.1"')}${modalField('fat','Fat (g)',0,'number','min="0" step="0.1"')}${modalField('fibre','Fibre (g)',0,'number','min="0" step="0.1"')}${modalField('date','Date',today(),'date','required')}</div><p class="hint">Enter values from the package or a reliable recipe estimate. For a mixed meal, add each food separately or use Photo meal.</p>`,'form-food','Add to diary');
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
-if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
+if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${JOURNEY_MEASUREMENTS.map(([key,label])=>[key,label]).map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
 if(modal.type==='photo-guide')return photoGuideView();
 if(modal.type==='photo')return modalShell('Add progress photo',`${modalField('date','Photo date',today(),'date','required')}<div class="field"><label class="label">View</label><select class="input" name="view"><option>Front</option><option>Left side</option><option>Right side</option><option>Back</option></select></div><div class="field"><label class="label">Choose photo</label><input class="input" type="file" name="photo" accept="image/*" required/></div><p class="hint">The photo is compressed locally and stored offline. It will only be uploaded if you connect and back up to your own cloud.</p>`,'form-photo','Save photo');
 if(modal.type==='activity'){let a=activityToday();return modalShell('Manual activity entry',`${modalField('steps','Steps today',a.steps,'number','min="0" required')}${modalField('activeCalories','Calories burnt during activity (kcal)',a.activeCalories,'number','min="0" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Samsung Health/Health Connect automatic import is planned for a native Android development phase.</p>`,'form-activity','Update activity');}
@@ -1191,7 +1194,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (Full Body A and B)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
   await setFitnessMode(next);break;
  }
- case 'fitness-profile':modal={type:'fitness-profile'};render();break;
+ case 'fitness-profile':launchPersonalJourney();break;
  case 'copy-personal-prompt':modal={type:'personal-prompt'};render();break;
  case 'personal-prompt-copy':{
   if(!state.fitnessProfile)throw Error('Complete your fitness profile first.');
@@ -1478,13 +1481,6 @@ case 'export-backup':await exportData();break;
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
  if(id==='you-add-habit-form'){addYouHabit(data.get('habit'));render();notify('Wellbeing habit added.');return;}
- if(id==='form-fitness-profile'){
-  const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
-  const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
-  state.fitnessProfile=profile;
-  try{await persist();}catch(err){state.fitnessProfile=previous;throw err;}
-  modal={type:'personal-prompt'};render();notify('Profile saved in your private Recomp records. Review the prompt before sharing it.');return;
- }
 
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
@@ -1536,7 +1532,7 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  }
  else if(id==='form-food'){let item={id:uid(),date:data.get('date'),name:String(data.get('name')).trim().slice(0,100),meal:data.get('meal')};for(let k of ['calories','protein','carbs','fat','fibre']){item[k]=n(data.get(k));if(item[k]<0||item[k]>100000)throw new Error('Check the nutrition amounts');}if(!item.name)throw new Error('Enter a food name');state.food.push(item);}
  else if(id==='form-weight'){let kg=n(data.get('weight'));if(kg<20||kg>400)throw new Error('Enter a valid body weight');state.weights.push({id:uid(),date:data.get('date'),kg});}
- else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const k of ['chest','belly','below','shoulders','neck','rightBicep','leftBicep','rightThigh','leftThigh','rightCalf','leftCalf','wrist']){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
+ else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const [k] of JOURNEY_MEASUREMENTS){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
  else if(id==='form-photo'){const file=data.get('photo');if(!(file instanceof File)||!file.size)throw new Error('Choose a photograph');if(file.size>40*1024*1024)throw new Error('Photo is too large (maximum 40 MB)');if(!file.type.startsWith('image/'))throw new Error('Choose an image file');const blob=await makePhotoJpeg(file);await savePhotoBlob(blob,data.get('date'),data.get('view'));return;}
  else if(id==='form-activity'){let entry={date:data.get('date'),steps:Math.max(0,n(data.get('steps'))),activeCalories:Math.max(0,n(data.get('activeCalories')))};state.activity=state.activity.filter(a=>a.date!==entry.date);state.activity.push(entry);}
  else if(id==='form-task'){let name=String(data.get('name')).trim();if(!name)throw new Error('Enter a task');state.tasks.push({id:uid(),label:name,auto:null});}
