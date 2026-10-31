@@ -178,7 +178,7 @@ function content(d){
  ];
  return '<div class="journey-review-list">'+tags.map(([label,value,index])=>
   '<div class="journey-review-card"><div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div><button type="button" data-journey-edit="'+index+'">Edit</button></div>').join('')+'</div>'+
-  '<div class="journey-privacy"><strong>🔒 Your data, your decision.</strong><p>The interview and unfinished answers stay on this device. Nothing is sent to an AI service automatically. Review the generated prompt before you copy it to ChatGPT, Claude or another tool.</p></div>';
+  '<div class="journey-privacy"><strong>🔒 Your data, your decision.</strong><p>Unfinished answers stay on this device. Once saved, your profile follows Recomp’s existing optional backup settings. Nothing is sent to an AI service automatically. Review the prompt before sharing it.</p></div>';
 }
 function saveDraft(storage,d){try{storage?.setItem(JOURNEY_DRAFT_KEY,JSON.stringify(d));}catch{/* Storage is optional; user can still finish. */}}
 export function showPersonalJourney({profile=null,measurements=null,onSave,onExit=()=>{},storage=globalThis.localStorage}={}){
