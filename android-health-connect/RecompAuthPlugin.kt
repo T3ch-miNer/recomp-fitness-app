@@ -101,7 +101,7 @@ object RecompAuthCallback {
     @JvmStatic
     fun handle(intent: Intent?) {
         intent?.data?.let { url ->
-            if (url.scheme == "clerk" && url.host == "com.t3chminer.recomp.callback") {
+            if (url.scheme == "clerk" && url.host == "com.t3chminer.recomp.journey.callback") {
                 CoroutineScope(Dispatchers.Main).launch {
                     Clerk.auth.handle(url)
                 }
