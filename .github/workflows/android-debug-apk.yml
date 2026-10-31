@@ -58,11 +58,14 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify side-by-side beta application ID
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep -F "package: name='com.t3chminer.recomp.beta'"
       - name: Upload installable test APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: recomp-v3-android-debug-apk
+          name: recomp-v3-android-beta-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
