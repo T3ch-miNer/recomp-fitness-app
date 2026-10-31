@@ -5,7 +5,8 @@
   "description": "Android test wrapper for the offline-first Recomp web application",
   "type": "module",
   "scripts": {
-    "build:android-web": "node scripts/prepare-android-web.mjs"
+    "build:android-web": "node scripts/prepare-android-web.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
