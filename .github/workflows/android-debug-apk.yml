@@ -9,6 +9,7 @@ on:
       - 'package.json'
       - 'capacitor.config.json'
       - 'scripts/**'
+      - 'tests/**'
       - 'android-src/**'
       - 'android-health-connect/**'
       - '*.js'
