@@ -1,9 +1,9 @@
-name: Recomp v3 Android debug APK
+name: Recomp v3.2 Journey preview APK
 
 on:
   push:
     branches:
-      - feature/v3-android-apk-build-20261027
+      - feature/v3-2-android-beta-20261031
     paths:
       - '.github/workflows/android-debug-apk.yml'
       - 'package.json'
@@ -60,12 +60,12 @@ jobs:
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
       - name: Verify side-by-side beta application ID
         run: |
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep -F "package: name='com.t3chminer.recomp.beta'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | grep -F "package: name='com.t3chminer.recomp.journey'"
       - name: Upload installable test APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: recomp-v3-android-beta-debug-apk
+          name: recomp-v3-2-journey-preview-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
