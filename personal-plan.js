@@ -39,13 +39,35 @@ export function validateFitnessProfile(p){
  const notes=String(p.notes||'').trim().slice(0,650);
  const activity=String(p.activity||'moderate');
  if(!['sedentary','light','moderate','active'].includes(activity))throw Error('Choose an activity level.');
- return {goal,diet,equipment,age,heightCm,weightKg,waistCm,days,minutes,activity,notes};
+ const enums={
+  secondaryGoal:['none','strength','endurance','mobility','consistency'],
+  experience:['beginner','intermediate','advanced'],
+  trainingTime:['flexible','morning','afternoon','evening'],
+  trainingStyle:['balanced','strength','hypertrophy','cardio','mobility'],
+  cuisine:['indian','mixed','global','mediterranean','east-asian'],
+  mealPrep:['quick','moderate','flexible'],
+  budget:['low','moderate','flexible'],
+  stress:['low','moderate','high','unsure'],
+  sexForEstimate:['not-specified','female','male']
+ };
+ const extra={};
+ for(const [key,allowed] of Object.entries(enums)){
+  const value=String(p[key]||allowed[0]);
+  if(!allowed.includes(value))throw Error('Choose a valid '+key+' option.');
+  extra[key]=value;
+ }
+ extra.targetWeeks=p.targetWeeks==null||p.targetWeeks===''?null:number(Number(p.targetWeeks),4,52,'target timeframe');
+ extra.sleepHours=p.sleepHours==null||p.sleepHours===''?null:number(Number(p.sleepHours),1,16,'sleep hours');
+ for(const key of ['allergies','avoidFoods','exerciseLimits','foodNotes']){
+  extra[key]=String(p[key]||'').trim().slice(0,300);
+ }
+ return {goal,diet,equipment,age,heightCm,weightKg,waistCm,days,minutes,activity,notes,...extra};
 }
 export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  const p=validateFitnessProfile(profile);
  // Explicit copy only: known saved measurements from the Body tab, in inches.
  const names=['chest','belly','below','shoulders','neck','rightBicep','leftBicep',
-  'rightThigh','leftThigh','rightCalf','leftCalf','wrist'];
+  'rightThigh','leftThigh','rightCalf','leftCalf','wrist','underChest','rightForearm','leftForearm','naturalWaist','hips','rightKnee','leftKnee','rightAnkle','leftAnkle'];
  const body={};
  if(measurements&&typeof measurements==='object'){
   for(const key of names){
@@ -60,7 +82,7 @@ export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  'If there are injuries, medical conditions, pregnancy, eating-disorder concerns or medications in notes, suggest qualified professional guidance rather than prescribing treatment.',
  'Profile (provided voluntarily): '+JSON.stringify(p),
  'Latest recorded body measurements, in inches (only if you voluntarily saved them in Recomp): '+JSON.stringify(body),
- 'Respect dietary preferences, equipment, schedule and culturally familiar Indian/global meals. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
+ 'Respect dietary preferences, allergies, exercise limitations, preferred training time, cooking time, recovery, budget, cuisine and culturally familiar Indian/global meals. Use any available age, height, weight, activity level and sex-for-estimate only when voluntarily provided. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
  'If this AI supports file creation, generate and attach a downloadable UTF-8 file named recomp-plan.json containing ONLY the JSON object (no Markdown fences or commentary). If downloadable files are unavailable, return ONLY the raw UTF-8 JSON object (no Markdown fences or commentary) so the user can save it as recomp-plan.json and import it into Recomp.',
  'IMPORTANT: The top-level JSON "title" must be a short, clear plan name of 1–120 characters (preferably under 80). Do not put calorie disclaimers, assumptions, explanations or paragraphs in the title. Put relevant explanations in a workout "subtitle" or an exercise/meal "notes" field instead.',
  'Use EXACT schema:',
