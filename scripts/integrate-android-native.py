@@ -56,7 +56,28 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 }
 """
+# Keep debug builds independent of the originally installed Recomp package.
+# GitHub-hosted debug builds use ephemeral signing keys, so Android will reject
+# an in-place update signed by another runner. A distinct beta application ID
+# protects the existing installation and all its local records.
+content += """
+android {
+    buildTypes {
+        debug {
+            applicationIdSuffix ".beta"
+        }
+    }
+}
+"""
 app_gradle.write_text(content)
+
+# Make the beta build recognisable alongside the existing production/test app.
+strings=base/'res'/'values'/'strings.xml'
+if strings.exists():
+    strings_text=strings.read_text()
+    strings_text=strings_text.replace('>Recomp</string>', '>Recomp Beta</string>')
+    strings.write_text(strings_text)
+
 
 manifest=base/'AndroidManifest.xml'
 xml=manifest.read_text()
