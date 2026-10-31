@@ -1064,8 +1064,8 @@ function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrom
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
- if(state.fitnessMode==='basic'&&!['A','B'].includes(id))return;
  const template=templateById(id);if(!template)return;
+ if(state.fitnessMode==='basic' && !(state.basicProfile?template.basicGenerated:['A','B'].includes(id)))return;
  if(state.session){pendingPlanSwitch(id);return;}
  if(!template.items.length){notify('Add an exercise to this plan first.');return;}
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,instructions:template.notes||'',groupSettings:structuredClone(template.groupSettings||{}),exercises:buildWorkoutExercises(template),activeIndex:0,rest:null,warmupStatus:'pending'};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
@@ -1343,7 +1343,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
  case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
- case 'create-template':if(state.fitnessMode==='basic'){notify('Basic mode includes only Full Body A and B. Switch to Advanced to create more plans.');break;}modal={type:'new-template'};render();break;
+ case 'create-template':if(state.fitnessMode==='basic'){notify('Basic mode provides ready-made routines. To create your own workout from scratch, switch to Advanced.');break;}modal={type:'new-template'};render();break;
  case 'toggle-history':historyPanel=(historyPanel===(tab==='nutrition'?'food':'workouts'))?null:(tab==='nutrition'?'food':'workouts');window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'history-close':historyPanel=null;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'view-workout-history':modal=null;historyPanel='workouts';window.scrollTo({top:0,behavior:'instant'});render();break;
