@@ -41,6 +41,12 @@ test('private profile produces copyable self-directed GPT request rather than se
  assert.match(prompt,/Indian\/global meals/);
  assert.match(prompt,/vegetarian/);
  assert.match(prompt,/Review/);
+ assert.match(prompt,/1–120 characters/);
+ assert.match(prompt,/under 80/);
+ assert.match(prompt,/title\.length is at most 120/);
+ assert.match(prompt,/downloadable UTF-8 file named recomp-plan\.json/);
+ assert.match(prompt,/workout subtitles or supporting notes, never in the plan title/);
+ assert.doesNotMatch(prompt,/in the plan title\/subtitle/);
  assert.throws(()=>validateFitnessProfile({...profile,age:'13'}),/age/);
  assert.doesNotMatch(app,/fetch\([^)]*fitnessProfile/);
 });
@@ -52,6 +58,9 @@ test('versioned plan JSON converts into safe Recomp workout tuples and optional 
  assert.equal(plan.meals.length,1);
  assert.deepEqual(previewPersonalPlan(plan),{title:sample.title,workoutCount:1,exerciseCount:2,suggestedMeals:1,calories:2200,protein:140});
  assert.throws(()=>parsePersonalPlan('{}'),/Unsupported plan format/);
+ assert.equal(parsePersonalPlan({...sample,title:'X'.repeat(120)}).title.length,120);
+ assert.throws(()=>parsePersonalPlan({...sample,title:'X'.repeat(121)}),/Plan title is 121 characters long\. The maximum is 120 characters/);
+ assert.throws(()=>parsePersonalPlan({...sample,title:'  '}),/Plan title is missing/);
  assert.throws(()=>parsePersonalPlan('{broken'),/JSON file/);
  assert.throws(()=>parsePersonalPlan({...sample,goals:{...sample.goals,calories:600}}),/calorie target/i);
  assert.throws(()=>parsePersonalPlan({...sample,workouts:[{name:'X',exercises:[{name:'X',sets:300,reps:100,restSeconds:0}]}]}),/sets/);
