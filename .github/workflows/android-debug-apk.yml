@@ -45,6 +45,11 @@ jobs:
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Install Capacitor dependencies
         run: npm install --no-audit --no-fund
+      - name: Validate Recomp JavaScript and questionnaire
+        run: |
+          node --input-type=module --check < app.js
+          node --input-type=module --check < personal-journey.js
+          node --test meal-planner.test.mjs tests/*.test.mjs
       - name: Bundle existing web application
         run: npm run build:android-web
       - name: Generate Android Gradle project
