@@ -114,23 +114,10 @@ activities='''
 if '</application>' not in xml:
     raise SystemExit('Application closing tag missing')
 
-# Clerk's native OAuth callback belongs to the app Activity, not the WebView.
-if 'android:name=".RecompClerkApplication"' not in xml:
-    xml=xml.replace('<application', '<application android:name=".RecompClerkApplication"',1)
-import re
-match=re.search(r'<activity\s+[^>]*android:name="\.MainActivity"',xml)
-if not match: raise SystemExit('Unable to locate Capacitor MainActivity')
-activity_end=xml.find('</activity>',match.start())
-if activity_end<0: raise SystemExit('MainActivity closing tag missing')
-callback='''
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="clerk" android:host="com.t3chminer.recomp.callback"/>
-            </intent-filter>
-'''
-xml=xml[:activity_end]+callback+xml[activity_end:]
+# Clerk Android registers the unique default callback for each installed package,
+# for example clerk://com.t3chminer.recomp.beta.callback for debug builds.
+# Do NOT add the old shared com.t3chminer.recomp.callback intent filter here.
+# A shared filter makes Android offer both Recomp and Recomp Beta in its chooser.
 xml=xml.replace('</application>',activities+'    </application>',1)
 manifest.write_text(xml)
 print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions.')
