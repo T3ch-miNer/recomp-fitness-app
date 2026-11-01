@@ -73,6 +73,6 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
 
 test('updated offline shell installs the Plan FAB code',()=>{
  assert.match(index,/app\.js\?v=3-android-you/);
- assert.match(worker,/recomp-shell-v3-1-basic-programmes/);
+ assert.match(worker,/recomp-shell-v3-2-motion/);
  assert.ok(worker.includes("'./app.js'"));
 });
