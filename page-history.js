@@ -13,6 +13,7 @@ export function createPageHistory({history,subscribe,initialPage='home',onNaviga
  }catch(e){enabled=false;console.warn('In-app history unavailable:',e?.message);}
  const back=event=>{
   const desired=clean(event?.state?.[KEY]);
+  if(desired===current)return; // A workout overlay history guard owns this Back event.
   // Settings behaves as a subpage: Android Back returns to Home.
   const page=current==='settings'?'home':desired;
   current=page;
