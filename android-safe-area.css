@@ -1,6 +1,5 @@
-/* Native Android edge-to-edge safe area.
-   Capacitor 8 injects --safe-area-inset-top for old WebViews and supplies
-   env(safe-area-inset-top) for current Chromium. Keep web/PWA spacing unchanged. */
-body.capacitor .main{
-  padding-top:calc(var(--safe-area-inset-top, env(safe-area-inset-top, 24px)) + 14px)!important;
+/* Capacitor 8 injects native insets as CSS variables. Keep all page content, including the sticky workout header, below Android's status icons. */
+html.recomp-native #app .main{
+ padding-top:max(30px,calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 28px))!important;
 }
+@media(max-width:700px){html.recomp-native #app .main{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));}}
