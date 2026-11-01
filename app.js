@@ -1992,6 +1992,20 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
+ // Register each Recomp page in WebView history so Android Back navigates
+ // to Home from Settings instead of closing the app. Workout Back keeps its
+ // own independent history sentinel for minimising active sessions.
+ pageHistory=createPageHistory({
+  history:window.history,
+  subscribe:(name,callback)=>window.addEventListener(name,callback),
+  initialPage:tab,
+  onNavigate:next=>{
+   if(!state||next===tab)return;
+   historyPanel=null;planActionsId=null;mealGuideActionsId=null;
+   motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=next;state.lastTab=next;render();},'tab');
+   persist().catch(console.error);
+  }
+ });
  // A same-page history entry allows Android / Chrome Back to minimise rather than exit.
  // It also closes in-app overlays before minimising. The current session is persisted.
  workoutBackGuard=createWorkoutBackGuard({
