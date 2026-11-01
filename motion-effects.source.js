@@ -155,18 +155,25 @@ export function playNavigationFeedback(root){
 // Home uses its motivational card. Other tabs use their descriptive subtitle.
 export function playPageBody(root){
  if(prefersLessMotion() || !root?.isConnected)return;
- const body=root.querySelector('.dashboard-intro [data-motion-motivation]')||
-            root.querySelector('.top .subhead');
- if(!body || body.dataset.recompBodyAnimated==='yes')return;
- const original=body.textContent?.trim();
- if(!original)return;
- body.dataset.recompBodyAnimated='yes';
- body.setAttribute('aria-label',original);
- animate(body,{
+ const targets=[];
+ // Scramble the supporting sentence beneath the title on every screen.
+ const subtitle=root.querySelector('.top .subhead');
+ if(subtitle)targets.push(subtitle);
+ // Home also has a separate motivational message, which remains animated.
+ const motivation=root.querySelector('.dashboard-intro [data-motion-motivation]');
+ if(motivation)targets.push(motivation);
+ for(const body of targets){
+  if(body.dataset.recompBodyAnimated==='yes')continue;
+  const original=body.textContent?.trim();
+  if(!original)continue;
+  body.dataset.recompBodyAnimated='yes';
+  body.setAttribute('aria-label',original);
+  animate(body,{
    innerHTML:scrambleText({chars:'lowercase',revealRate:82,settleRate:66,settleDuration:360}),
    duration:1250,
    loop:false
- });
+  });
+ }
 }
 
 // Keep the title readable and stable, with a restrained spring lift on entry.
