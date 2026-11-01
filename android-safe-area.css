@@ -1,0 +1,6 @@
+/* Native Android edge-to-edge safe area.
+   Capacitor 8 injects --safe-area-inset-top for old WebViews and supplies
+   env(safe-area-inset-top) for current Chromium. Keep web/PWA spacing unchanged. */
+body.capacitor .main{
+  padding-top:calc(var(--safe-area-inset-top, env(safe-area-inset-top, 24px)) + 14px)!important;
+}
