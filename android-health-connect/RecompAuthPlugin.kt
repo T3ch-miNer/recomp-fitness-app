@@ -69,10 +69,13 @@ class RecompAuthPlugin : Plugin() {
                 // validated native callback; never use an embedded WebView for OAuth.
                 when (val result = Clerk.auth.startHostedAuth()) {
                     is ClerkResult.Success -> {
-                        // Clerk documents that Success means the session is
-                        // already activated. Read it immediately.
-                        if (Clerk.activeUser == null) {
-                            call.reject("Clerk completed the browser flow but no active user is available. Reopen Recomp and retry.")
+                        // Wait for Clerk to publish its active user before
+                        // resolving the native bridge back to JavaScript.
+                        val user = withTimeoutOrNull(10000L) {
+                            Clerk.userFlow.filterNotNull().first()
+                        }
+                        if (user == null || Clerk.activeUser == null) {
+                            call.reject("Google authentication returned, but Clerk did not publish an active user. Check the Native application package in Clerk.")
                         } else {
                             call.resolve(account())
                         }
@@ -113,7 +116,7 @@ object RecompAuthCallback {
         intent?.data?.let { url ->
             // Clerk's default callback is clerk://<actual applicationId>.callback.
             // CI adds ".beta" to debug applicationId, so derive it at runtime.
-            val expectedHost = "$"+"packageName.callback"
+            val expectedHost = "${packageName}.callback"
             if (url.scheme == "clerk" && url.host == expectedHost) {
                 CoroutineScope(Dispatchers.Main).launch {
                     Clerk.auth.handle(url)
