@@ -2139,7 +2139,21 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
  }
  // First-time users complete Daily Targets before seeing this planner.
  setTimeout(()=>maybeShowDailyTaskPrompt(),0);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden){timerTick();setTimeout(()=>maybeShowDailyTaskPrompt(),250);}});
+ async function refreshNativeAccountAfterReturn(){
+  if(!window.Capacitor?.isNativePlatform?.()||nativeAuthRefreshing||clerkSignInBusy)return;
+  nativeAuthRefreshing=true;
+  const before=getClerkAccount()?.id||null;
+  try{
+   await restoreNativeClerkAccount();
+   if((getClerkAccount()?.id||null)!==before&&(tab==='settings'||tab==='home'))render();
+  }catch(error){console.warn('Native account refresh unavailable:',error?.message);}
+  finally{nativeAuthRefreshing=false;}
+ }
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){
+  timerTick();void refreshNativeAccountAfterReturn();
+  setTimeout(()=>maybeShowDailyTaskPrompt(),250);
+ }});
+ window.addEventListener('focus',()=>{void refreshNativeAccountAfterReturn();});
 // Anime.js createTimer drives the 30fps UI countdown on native builds.
 // If the optional animation bundle is absent on a static PWA, retain the
 // previous half-second timer so workouts never depend on animations.
