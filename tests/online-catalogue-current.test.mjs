@@ -62,6 +62,6 @@ test('new catalogue remains optional and workout updates require confirmation',(
  assert.match(app,/onlineWorkoutLibraryView\(\)/);
  assert.match(html,/online-catalogue\.css/);
  assert.match(sw,/online-catalogue\.js/);
- assert.match(sw,/recomp-shell-v3-1-basic-programmes/);
+ assert.match(sw,/recomp-shell-v3-2-motion/);
  assert.doesNotMatch(app,/state\.food\s*=\s*onlineCatalog/);
 });
