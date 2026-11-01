@@ -38,7 +38,8 @@ test('main headings scramble on all pages but old workout celebration is unchang
  assert.match(motion,/innerHTML:scrambleText/);
  assert.match(motion,/title\.setAttribute\('aria-label',original\)/);
  assert.match(motion,/prefersLessMotion\(\)/);
- assert.match(app,/runMotion\('playPageHeading',page\)/);
+ assert.match(app,/runMotion\('playPageBody',page\)/);
+ assert.match(app,/runMotion\('playPageTitle',page\)/);
  assert.doesNotMatch(app,/runMotion\('playDashboardMotivation',page\)/);
  assert.match(app,/runMotion\('playWorkoutSuccess',document\.getElementById\('recomp-workout-win'\)\)/);
 });
@@ -49,7 +50,7 @@ test('Settings Google login reports failures and Android identity is checked on 
  assert.match(app,/clerkSignInBusy/);
  assert.match(app,/refreshNativeAccountAfterReturn/);
  assert.match(app,/await restoreNativeClerkAccount\(\)/);
- assert.match(native,/Clerk\.userFlow\.filterNotNull\(\)\.first\(\)/);
+ assert.match(native,/Clerk\.activeUser == null/);
  assert.match(native,/Google sign-in couldn't complete/);
  assert.match(app,/pageHistory=createPageHistory/);
  assert.match(app,/pageHistory\?\.visit\(dest\)/);
