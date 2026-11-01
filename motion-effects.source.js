@@ -150,3 +150,20 @@ export function playNavigationFeedback(root){
       duration:470,ease:spring({bounce:.2})});
   }
 }
+
+// Deliberately scramble the *main page title*, not the Home dashboard hint.
+// Called once when entering Home, Workouts, Nutrition, Body, You or Settings.
+export function playPageHeading(root){
+ if(prefersLessMotion() || !root?.isConnected)return;
+ const title=root.querySelector('.top .page-title, .you-header .page-title, .workout-title-block .page-title');
+ if(!title || title.dataset.recompTitleAnimated==='yes')return;
+ const original=title.textContent?.trim();
+ if(!original)return;
+ title.dataset.recompTitleAnimated='yes';
+ title.setAttribute('aria-label',original); // The title remains readable to screen readers.
+ animate(title,{
+   innerHTML:scrambleText({chars:'uppercase',revealRate:88,settleRate:62,settleDuration:320}),
+   duration:1050,
+   loop:false
+ });
+}
