@@ -86,7 +86,7 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
  assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<5/);
  assert.match(app,/await put\('state',state\)/);
- assert.match(sw,/recomp-shell-v3-1-basic-programmes/);
+ assert.match(sw,/recomp-shell-v3-2-motion/);
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
  assert.ok(page.includes('app.js?v=3-android-you'));
 });
