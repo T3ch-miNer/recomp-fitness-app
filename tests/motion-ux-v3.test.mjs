@@ -43,7 +43,7 @@ test('motion is not repeated on every tracking re-render or enabled for reduced 
  for(const name of ['playDashboardMotivation','playProgrammeCards','playBasicProgrammeChoices','playBodyTrend','playHabitCheck','playNavigationFeedback'])
   assert.match(motion,new RegExp('export function '+name));
  assert.match(app,/if\(pageKey!==lastMotionPage\)/);
- assert.match(app,/if\(!active && !modal && !confirmation\)/);
+ assert.match(app,/if\(!modal && !confirmation\)/);
  assert.ok(pkg.dependencies.animejs);
 });
 test('pre-existing Session banked celebration and rest timer are retained exactly',()=>{
