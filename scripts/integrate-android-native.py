@@ -81,6 +81,18 @@ if strings.exists():
 
 manifest=base/'AndroidManifest.xml'
 xml=manifest.read_text()
+# Clerk must be initialised before any native plugin call. Copying the Kotlin
+# class alone does not cause Android to execute its Application.onCreate().
+import re
+application=re.search(r'<application\b[^>]*>', xml)
+if not application:
+    raise SystemExit('Android application element not found')
+application_tag=application.group(0)
+if re.search(r'\bandroid:name=', application_tag):
+    application_tag=re.sub(r'android:name="[^"]+"', 'android:name=".RecompClerkApplication"', application_tag, count=1)
+else:
+    application_tag=application_tag[:-1]+' android:name=".RecompClerkApplication">'
+xml=xml[:application.start()]+application_tag+xml[application.end():]
 if '<manifest ' not in xml and '<manifest>' not in xml:
     raise SystemExit('Unexpected Android manifest')
 if 'xmlns:tools' not in xml:
