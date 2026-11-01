@@ -4,6 +4,7 @@ import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15
 import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts,mergeFtsReviewedWorkouts} from './fts-workouts-16-41.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
+import {createPageHistory} from './page-history.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus} from './muscle-focus.js';
@@ -132,9 +133,10 @@ const INITIAL = () => ({
  photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
-let confirmation=null,workoutBackGuard=null;
+let confirmation=null,workoutBackGuard=null,pageHistory=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let lastMotionPage=null;
+let clerkSignInBusy=false,clerkSignInError='',nativeAuthRefreshing=false;
 let settingsCloudOpen=false;
 let personalImportReview=null;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
@@ -729,7 +731,7 @@ function settingsSectionHeading(icon,title,description){
 }
 function settingsView(){
  const cfg=cloud.getConfig(),ses=cloud.getSession(),clerkUser=getClerkAccount(),clerkReady=isClerkLoginAvailable(),clerkDev=isClerkDevelopmentMode();
- return `${heading('Make it yours.','Your goals, account and preferences in one place.')}
+ return `${heading('Make it yours.','Your goals, account and preferences in one place.',`<button type="button" class="btn" data-action="settings-home" aria-label="Back to Home">${svg('arrow','tiny-icon')} Home</button>`)}
  <div class="settings-hub">
  <nav class="settings-shortcuts" aria-label="Jump to settings section">
  <a href="#settings-account">Account</a><a href="#settings-targets">Daily targets</a><a href="#settings-routine">Activity &amp; routine</a><a href="#settings-appearance">Look &amp; feel</a><a href="#settings-data">Data &amp; privacy</a>
@@ -1059,13 +1061,13 @@ workoutBackGuard?.arm();
 refreshMotionClock(Boolean(state.session),timerTick);
 // Animate only when the screen or body tab changes, not after every set tick,
 // food entry, goal update, or asynchronous catalogue refresh.
-if(!active && !modal && !confirmation){
- const pageKey=tab+(tab==='body'?':'+bodyPanel:'')+(tab==='workouts'?':'+(historyPanel||'plans'):'');
+if(!modal && !confirmation){
+ const pageKey=tab+(tab==='body'?':'+bodyPanel:'')+(tab==='workouts'?':'+(historyPanel||'plans'):'')+(active?':active:'+state.session.id:'');
  if(pageKey!==lastMotionPage){
   lastMotionPage=pageKey;
   const page=document.querySelector('.main');
-  if(tab==='home')runMotion('playDashboardMotivation',page);
-  else if(tab==='workouts'&&!historyPanel)runMotion('playProgrammeCards',page);
+  runMotion('playPageHeading',page);
+  if(tab==='workouts'&&!historyPanel&&!active)runMotion('playProgrammeCards',page);
   else if(tab==='body'&&bodyPanel==='weight')runMotion('playBodyTrend',page);
  }
 }
@@ -1076,6 +1078,7 @@ function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrom
  const order=['home','workouts','nutrition','body','you'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
+ pageHistory?.visit(dest);
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
  runMotion('playNavigationFeedback',document.body);
  haptic('tap');put('state',state).catch(console.error);
@@ -1226,6 +1229,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'settings-home':setTab('home');break;
  case 'you-sync-steps':await syncNativeActivity();break;
  case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
  case 'you-refresh-device':{const day=await readAndroidWellbeingDay(today());rememberDeviceDay(day);render();notify('Device wellbeing refreshed, stored only on this phone.');break;}
