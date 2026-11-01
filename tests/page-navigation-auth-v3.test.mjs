@@ -33,10 +33,12 @@ test('reopened Settings has a Home history root, and workouts Back guard keeps c
 });
 test('main headings scramble on all pages but old workout celebration is unchanged',()=>{
  const app=read('app.js'),motion=read('motion-effects.source.js');
- assert.match(motion,/export function playPageHeading\(root\)/);
- assert.match(motion,/\.top \.page-title, \.you-header \.page-title, \.workout-title-block \.page-title/);
+ assert.match(motion,/export function playPageBody\(root\)/);
+ assert.match(motion,/export function playPageTitle\(root\)/);
+ assert.match(motion,/\.dashboard-intro \[data-motion-motivation\]/);
+ assert.match(motion,/\.top \.subhead/);
  assert.match(motion,/innerHTML:scrambleText/);
- assert.match(motion,/title\.setAttribute\('aria-label',original\)/);
+ assert.match(motion,/body\.setAttribute\('aria-label',original\)/);
  assert.match(motion,/prefersLessMotion\(\)/);
  assert.match(app,/runMotion\('playPageBody',page\)/);
  assert.match(app,/runMotion\('playPageTitle',page\)/);
