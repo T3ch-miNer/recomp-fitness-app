@@ -1,0 +1,16 @@
+/* Recomp Anime.js celebrations: subtle, accessible and entirely optional. */
+#first-run-title{overflow:visible}
+#first-run-title span{display:inline-block;white-space:pre;will-change:transform}
+.recomp-workout-win{position:relative;min-height:100px;display:grid;place-items:center;margin:12px auto 6px;isolation:isolate}
+.recomp-win-mark{width:88px;height:88px;display:grid;place-items:center;border-radius:50%;border:2px solid #7de4b7;background:linear-gradient(155deg,rgba(102,248,186,.22),rgba(100,230,184,.06));box-shadow:0 0 0 9px rgba(81,228,173,.06),0 0 35px rgba(104,238,184,.16)}
+.recomp-win-mark svg{width:56px;height:56px;fill:none;stroke:#a6f6c9;stroke-linecap:round;stroke-linejoin:round;stroke-width:5}
+.recomp-win-spark{position:absolute;top:50%;left:50%;width:7px;height:11px;border-radius:2px;background:#99efc5;pointer-events:none;opacity:0}
+.recomp-win-spark:nth-child(3n){background:#d1f67b}.recomp-win-spark:nth-child(4n){background:#c9e0fc}
+.you-hero{overflow:hidden}
+.you-hero .you-big,.you-hero .you-flame{transform-origin:center center}
+.you-hero .you-bar>span{transform-origin:left center}
+@media(prefers-reduced-motion:reduce){
+ #first-run-title span{will-change:auto}
+ .recomp-win-mark{box-shadow:none}
+ .recomp-win-spark{display:none}
+}
