@@ -339,7 +339,7 @@ function maybeShowBasicOnboarding(force=false){
   // Only previously generated Basic templates are replaced.
   state.templates=state.templates.filter(t=>!t.basicGenerated).concat(programme.workouts.map(t=>structuredClone(t)));
   if(!state.weights?.length)state.weights=[{id:uid(),date:today(),kg:profile.weightKg}];
-  try{await persist();tab='workouts';render();runMotion('playProgrammeCards',document.querySelector('.main'));notify('Your '+programme.days+'-day starter programme is ready.');}
+  try{await persist();tab='workouts';lastMotionPage=null;render();notify('Your '+programme.days+'-day starter programme is ready.');}
   catch(error){Object.assign(state,{basicProfile:old.profile,basicProgramme:old.programme,basicOnboardingPending:old.pending,templates:old.templates,weights:old.weights});throw error;}
  }});
 }
@@ -1077,7 +1077,7 @@ function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrom
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
- runMotion('playNavigationFeedback',document);
+ runMotion('playNavigationFeedback',document.body);
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
