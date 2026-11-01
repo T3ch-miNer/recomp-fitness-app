@@ -740,7 +740,7 @@ function settingsView(){
  ${settingsSectionHeading('home','Your account','Manage your Google sign-in and profile.')}
 
 <div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?(state.basicProgramme?'Basic: '+state.basicProgramme.title+' · '+state.basicProgramme.days+' days/week':'Basic: Full Body A & B · set up your programme'):'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':'<button type="button" class="btn" data-action="basic-profile">'+(state.basicProfile?'Edit Basic profile &amp; plan':'Set up Basic programme')+'</button>'}</div></div>
-<div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" data-action="clerk-login">Continue with Google</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}</div>
+<div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" type="button" data-action="clerk-login" '+(clerkSignInBusy?'disabled aria-busy="true"':'')+'>'+(clerkSignInBusy?'Signing in…':'Continue with Google')+'</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}${clerkSignInError?'<p class="hint" role="alert" data-clerk-login-error>'+escapeHtml(clerkSignInError)+'</p>':''}</div>
 </section>
  <section id="settings-targets" class="settings-section" aria-label="Daily targets">
  ${settingsSectionHeading('chart','Daily targets','Your personal nutrition and activity goals.')}
@@ -1486,12 +1486,29 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'finish-workout':await finishWorkout();break;
  case 'configure-cloud':modal={type:'cloud'};render();break;
  case 'clerk-login':{
-  if(!isClerkLoginAvailable()){notify('Clerk sign-in is not configured yet. Continue as a guest.');break;}
-  await openClerkSignIn();
-  render();break;
+  if(clerkSignInBusy)break;
+  if(!isClerkLoginAvailable()){
+   clerkSignInError='Google sign-in is not configured. You can continue using Recomp without an account.';
+   render();break;
+  }
+  clerkSignInError='';clerkSignInBusy=true;render();
+  try{
+   const account=await openClerkSignIn();
+   if(window.Capacitor?.isNativePlatform?.()&&!account)await restoreNativeClerkAccount();
+   if(window.Capacitor?.isNativePlatform?.()&&!getClerkAccount())
+    throw Error('Google returned without an active Recomp account. Check Clerk Native API and the Android app package configuration.');
+   if(getClerkAccount()){
+    try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
+    notify('Signed in with Google. Your fitness records remain on this device.');
+   }
+  }catch(error){
+   clerkSignInError=String(error?.message||'Google sign-in could not complete. Please try again.').slice(0,380);
+   console.warn('Clerk sign-in was not completed:',clerkSignInError);
+  }finally{clerkSignInBusy=false;if(tab==='settings')render();}
+  break;
  }
  case 'clerk-signout':{
-  await clerkSignOut();render();notify('Signed out. Your locally saved fitness records remain on this device.');break;
+  await clerkSignOut();clerkSignInError='';render();notify('Signed out. Your locally saved fitness records remain on this device.');break;
  }
  case 'clerk-setup':modal={type:'clerk'};render();break;
  case 'google-login':{if(window.Capacitor?.isNativePlatform?.()){notify('Native Google OAuth deep links need Android testing. Sign in through the hosted website for now.');break;}if(!cloud.getConfig()){modal={type:'cloud'};render();notify('Configure your private Supabase project before Google sign-in.');break;}await cloud.startGoogleLogin();break;}
