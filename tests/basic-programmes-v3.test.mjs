@@ -52,6 +52,7 @@ test('Android beta login relies on Clerk unique package callback, not the origin
  const integration=read('scripts/integrate-android-native.py');
  const main=read('android-src/MainActivity.java');
  assert.doesNotMatch(integration,/<data android:scheme="clerk"/);
- assert.doesNotMatch(main,/RecompAuthCallback\.handle/);
+ assert.match(main,/RecompAuthCallback\.handle\(getIntent\(\), getPackageName\(\)\)/);
+ assert.match(main,/onNewIntent\(android\.content\.Intent intent\)/);
  assert.match(integration,/applicationIdSuffix "\.beta"/);
 });
