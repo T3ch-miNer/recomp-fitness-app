@@ -1,3 +1,4 @@
+import {runMotion} from './motion-bridge.js';
 // Two short, accessible first-run steps. Profiles never leave the device merely
 // because they are entered here. Returning users can edit them in Settings.
 import {validateBasicProfile,BASIC_GOALS} from './basic-programmes.js';
@@ -75,6 +76,7 @@ export function showBasicOnboarding({onSave,initial={}}){
    }finally{saving=false;}
   });
   root.querySelector('input,select')?.focus();
+  if(step===2)runMotion('playBasicProgrammeChoices',root);
  }
  function record(){
   const form=root.querySelector('form');
