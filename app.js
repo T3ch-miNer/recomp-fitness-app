@@ -1066,7 +1066,8 @@ if(!modal && !confirmation){
  if(pageKey!==lastMotionPage){
   lastMotionPage=pageKey;
   const page=document.querySelector('.main');
-  runMotion('playPageHeading',page);
+  runMotion('playPageBody',page);
+  runMotion('playPageTitle',page);
   if(tab==='workouts'&&!historyPanel&&!active)runMotion('playProgrammeCards',page);
   else if(tab==='body'&&bodyPanel==='weight')runMotion('playBodyTrend',page);
  }
