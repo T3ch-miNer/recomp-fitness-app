@@ -82,7 +82,7 @@ class RecompAuthPlugin : Plugin() {
                     }
                     is ClerkResult.Failure -> call.reject(
                         "Google sign-in couldn't complete: " +
-                        (result.throwable.message ?: "Check your Google provider and Clerk native settings.")
+                        (result.throwable?.message ?: "Check your Google provider and Clerk native settings.")
                     )
                 }
             } catch (error: Exception) {
