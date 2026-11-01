@@ -134,6 +134,7 @@ const INITIAL = () => ({
 });
 let confirmation=null,workoutBackGuard=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
+let lastMotionPage=null;
 let settingsCloudOpen=false;
 let personalImportReview=null;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
@@ -338,7 +339,7 @@ function maybeShowBasicOnboarding(force=false){
   // Only previously generated Basic templates are replaced.
   state.templates=state.templates.filter(t=>!t.basicGenerated).concat(programme.workouts.map(t=>structuredClone(t)));
   if(!state.weights?.length)state.weights=[{id:uid(),date:today(),kg:profile.weightKg}];
-  try{await persist();tab='workouts';render();notify('Your '+programme.days+'-day starter programme is ready.');}
+  try{await persist();tab='workouts';render();runMotion('playProgrammeCards',document.querySelector('.main'));notify('Your '+programme.days+'-day starter programme is ready.');}
   catch(error){Object.assign(state,{basicProfile:old.profile,basicProgramme:old.programme,basicOnboardingPending:old.pending,templates:old.templates,weights:old.weights});throw error;}
  }});
 }
@@ -533,7 +534,7 @@ function homeTasksSection(checked){return `<section class="dashboard-tasks" aria
  </section>`;}
 function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=todaysTasks().filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;const account=getClerkAccount(),viewerName=account?.firstName||account?.name?.split(/\s+/)[0]||'';return `
 ${heading(greeting(new Date().getHours(),viewerName),new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))}
-<div class="dashboard-intro"><span class="orbit-dot"></span><span>${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
+<div class="dashboard-intro" role="text" aria-label="${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}"><span class="orbit-dot" aria-hidden="true"></span><span data-motion-motivation aria-hidden="true">${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
 <section class="summary-hero hero-rings" aria-label="Today's rings"><div class="rings-wrap">${ringSvg([{pct:n(nutr.calories)/n(state.goals.calories,1),cls:'fuel',r:90},{pct:n(nutr.protein)/n(state.goals.protein,1),cls:'protein',r:75},{pct:w/n(state.goals.water,1),cls:'water',r:60}])}<div class="rings-center"><span class="rings-num">${num(Math.max(0,state.goals.calories-nutr.calories))}</span><span class="rings-label">kcal left</span></div></div><div class="rings-legend"><div class="legend-row" style="--c:var(--c-fuel)"><i></i><span>Fuel</span><b>${num(nutr.calories)}<small>/ ${num(state.goals.calories)}</small></b></div><div class="legend-row" style="--c:var(--c-protein)"><i></i><span>Protein</span><b>${num(nutr.protein)}<small>/ ${num(state.goals.protein)} g</small></b></div><div class="legend-row" style="--c:var(--c-water)"><i></i><span>Water</span><b>${num(w)}<small>/ ${num(state.goals.water)} ml</small></b></div></div></section>
 <div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','',nutr.protein>=state.goals.protein?'Gains secured':'Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','flame','metric-active',act.activeCalories?'Tap to update':'Go on, break a sweat ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Health Connect is not available in this browser.</b> You can still enter steps and calories manually.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
@@ -1056,6 +1057,19 @@ if(focusedGoal)document.getElementById('goal-'+focusedGoal)?.focus({preventScrol
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 workoutBackGuard?.arm();
 refreshMotionClock(Boolean(state.session),timerTick);
+// Animate only when the screen or body tab changes, not after every set tick,
+// food entry, goal update, or asynchronous catalogue refresh.
+if(!active && !modal && !confirmation){
+ const pageKey=tab+(tab==='body'?':'+bodyPanel:'')+(tab==='workouts'?':'+(historyPanel||'plans'):'');
+ if(pageKey!==lastMotionPage){
+  lastMotionPage=pageKey;
+  const page=document.querySelector('.main');
+  if(tab==='home')runMotion('playDashboardMotivation',page);
+  else if(tab==='workouts'&&!historyPanel)runMotion('playProgrammeCards',page);
+  else if(tab==='body'&&bodyPanel==='weight')runMotion('playBodyTrend',page);
+ }
+}
+refreshMotionClock(Boolean(state.session),timerTick);
 }
 function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
@@ -1063,6 +1077,7 @@ function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrom
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
+ runMotion('playNavigationFeedback',document);
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
@@ -1673,6 +1688,10 @@ document.addEventListener('change',async event=>{
   setYouHabit(el.dataset.youHabit,date,el.checked);
   const currentStreak=habitStreak(getYouData(),date);
   haptic('check');render();
+  if(el.checked&&tab==='you'){
+   const updatedHabit=[...document.querySelectorAll('[data-you-habit]')].find(item=>item.dataset.youHabit===el.dataset.youHabit);
+   if(updatedHabit)runMotion('playHabitCheck',updatedHabit.closest('label'));
+  }
   // Play only for a genuinely completed new milestone, at most once per day.
   if(el.checked&&currentStreak>previousStreak&&[7,14,30,60,100,365].includes(currentStreak)){
    const key='recomp-streak-motion-v1',value=date+':'+currentStreak;
