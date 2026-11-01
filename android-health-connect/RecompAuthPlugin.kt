@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 
 // OAuth sessions and tokens stay inside the official native Clerk SDK.
 // JavaScript receives *only* non-sensitive account identity for the UI.
@@ -67,9 +68,21 @@ class RecompAuthPlugin : Plugin() {
                 // The Clerk SDK starts Chrome Custom Tabs and resumes via a
                 // validated native callback; never use an embedded WebView for OAuth.
                 when (val result = Clerk.auth.startHostedAuth()) {
-                    is ClerkResult.Success -> call.resolve(account())
+                    is ClerkResult.Success -> {
+                        // The native SDK may publish the active user just after
+                        // the browser callback resolves. Wait briefly for it.
+                        val signedInUser = withTimeoutOrNull(8000L) {
+                            Clerk.userFlow.filterNotNull().first()
+                        }
+                        if (signedInUser == null) {
+                            call.reject("Google returned to Recomp, but Clerk did not activate your account. Check the Native API and Android package in Clerk.")
+                        } else {
+                            call.resolve(account())
+                        }
+                    }
                     is ClerkResult.Failure -> call.reject(
-                        "Sign-in was cancelled or couldn't complete. Check Clerk Native API / Google setup, then retry."
+                        "Google sign-in couldn't complete: " +
+                        (result.throwable.message ?: "Check your Google provider and Clerk native settings.")
                     )
                 }
             } catch (error: Exception) {
