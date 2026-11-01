@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../first-run.js',import.meta.url),'utf8');
-const {FIRST_RUN_KEY,shouldOfferFirstRun}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome}=await import('../first-run.js');
 const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const serviceWorker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
@@ -45,7 +45,7 @@ test('offline cache includes onboarding module and stylesheet',()=>{
 });
 
 test('successful Clerk modal launch removes the guest welcome, blocked setup does not',async()=>{
- const {showFirstRunWelcome}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ 
  const previous=globalThis.document;
  async function attempt(status){
   let removed=false,handler=null,guestFocused=false;
