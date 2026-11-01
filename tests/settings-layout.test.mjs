@@ -9,7 +9,7 @@ assert.ok(begin>=0&&end>begin,'Settings component exists');
 const getView=new Function(
  'state','heading','svg','cloud','getClerkAccount','isClerkLoginAvailable',
  'isClerkDevelopmentMode','getClerkKey','escapeHtml','themeChoice',
- 'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen','onlineStatus','onlineCatalog','onlineError','onlineBusy',
+ 'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen','onlineStatus','onlineCatalog','onlineError','onlineBusy','clerkSignInError','clerkSignInBusy',
  app.slice(begin,end)+'\nreturn settingsView;'
 );
 function view({signedIn=true,draft=null,advanced=false}={}){
@@ -21,7 +21,7 @@ function view({signedIn=true,draft=null,advanced=false}={}){
  ()=>signedIn?{name:'Alex Taylor',email:'alex@example.com'}:null,
  ()=>true,()=>false,()=>true,
  s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
- ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,'Connected',{foods:[],workouts:[],exercises:[]},'',false
+ ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,'Connected',{foods:[],workouts:[],exercises:[]},'',false,'',false
  );
  return client();
 }
