@@ -151,19 +151,30 @@ export function playNavigationFeedback(root){
   }
 }
 
-// Deliberately scramble the *main page title*, not the Home dashboard hint.
-// Called once when entering Home, Workouts, Nutrition, Body, You or Settings.
-export function playPageHeading(root){
+// Scramble the supporting body copy, not the main page title.
+// Home uses its motivational card. Other tabs use their descriptive subtitle.
+export function playPageBody(root){
+ if(prefersLessMotion() || !root?.isConnected)return;
+ const body=root.querySelector('.dashboard-intro [data-motion-motivation]')||
+            root.querySelector('.top .subhead');
+ if(!body || body.dataset.recompBodyAnimated==='yes')return;
+ const original=body.textContent?.trim();
+ if(!original)return;
+ body.dataset.recompBodyAnimated='yes';
+ body.setAttribute('aria-label',original);
+ animate(body,{
+   innerHTML:scrambleText({chars:'lowercase',revealRate:82,settleRate:66,settleDuration:360}),
+   duration:1250,
+   loop:false
+ });
+}
+
+// Keep the title readable and stable, with a restrained spring lift on entry.
+export function playPageTitle(root){
  if(prefersLessMotion() || !root?.isConnected)return;
  const title=root.querySelector('.top .page-title, .you-header .page-title, .workout-title-block .page-title');
  if(!title || title.dataset.recompTitleAnimated==='yes')return;
- const original=title.textContent?.trim();
- if(!original)return;
  title.dataset.recompTitleAnimated='yes';
- title.setAttribute('aria-label',original); // The title remains readable to screen readers.
- animate(title,{
-   innerHTML:scrambleText({chars:'uppercase',revealRate:88,settleRate:62,settleDuration:320}),
-   duration:1050,
-   loop:false
- });
+ waapi.animate(title,{y:['7px','0px'],opacity:[.72,1],scale:[.985,1],
+   duration:560,ease:spring({bounce:.12})});
 }
