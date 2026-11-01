@@ -69,13 +69,10 @@ class RecompAuthPlugin : Plugin() {
                 // validated native callback; never use an embedded WebView for OAuth.
                 when (val result = Clerk.auth.startHostedAuth()) {
                     is ClerkResult.Success -> {
-                        // The native SDK may publish the active user just after
-                        // the browser callback resolves. Wait briefly for it.
-                        val signedInUser = withTimeoutOrNull(8000L) {
-                            Clerk.userFlow.filterNotNull().first()
-                        }
-                        if (signedInUser == null) {
-                            call.reject("Google returned to Recomp, but Clerk did not activate your account. Check the Native API and Android package in Clerk.")
+                        // Clerk documents that Success means the session is
+                        // already activated. Read it immediately.
+                        if (Clerk.activeUser == null) {
+                            call.reject("Clerk completed the browser flow but no active user is available. Reopen Recomp and retry.")
                         } else {
                             call.resolve(account())
                         }
@@ -112,9 +109,12 @@ class RecompAuthPlugin : Plugin() {
 // no OAuth code, ticket, access token, or other credential is forwarded to JS.
 object RecompAuthCallback {
     @JvmStatic
-    fun handle(intent: Intent?) {
+    fun handle(intent: Intent?, packageName: String) {
         intent?.data?.let { url ->
-            if (url.scheme == "clerk" && url.host == "com.t3chminer.recomp.callback") {
+            // Clerk's default callback is clerk://<actual applicationId>.callback.
+            // CI adds ".beta" to debug applicationId, so derive it at runtime.
+            val expectedHost = "$"+"packageName.callback"
+            if (url.scheme == "clerk" && url.host == expectedHost) {
                 CoroutineScope(Dispatchers.Main).launch {
                     Clerk.auth.handle(url)
                 }
