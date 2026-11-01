@@ -2,12 +2,14 @@
 // worker code, archived source or secrets. Run from repository root.
 import {mkdir,readdir,copyFile,rm,stat} from 'node:fs/promises';
 import {join,extname} from 'node:path';
+import {build} from 'esbuild';
 const root=process.cwd(),output=join(root,'www');
 await rm(output,{recursive:true,force:true});
 await mkdir(output,{recursive:true});
 const allowed=new Set(['.html','.js','.css','.webmanifest','.svg','.png','.jpg','.jpeg','.webp','.ico']);
 let files=0;
 for(const file of await readdir(root)){
+ if(file==='motion-effects.source.js')continue;
  if(!allowed.has(extname(file).toLowerCase()))continue;
  if(!(await stat(join(root,file))).isFile())continue;
  await copyFile(join(root,file),join(output,file));
@@ -15,3 +17,11 @@ for(const file of await readdir(root)){
 }
 if(files<25)throw Error('The Android asset bundle is unexpectedly small: '+files+' files');
 console.log('Prepared '+files+' Recomp web assets for offline Android app.');
+
+await build({
+ entryPoints:[join(root,'motion-effects.source.js')],
+ bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,
+ legalComments:'inline',
+ outfile:join(output,'recomp-motion.js')
+});
+console.log('Bundled Anime.js locally into recomp-motion.js (offline, no CDN).');
