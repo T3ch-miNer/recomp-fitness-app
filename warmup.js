@@ -24,6 +24,7 @@ export const WARMUP_STEPS=Object.freeze([
 export function warmupState(session){return session?.warmupStatus==='done'?'done':session?.warmupStatus==='skipped'?'skipped':'pending';}
 export function warmupView(session){
  const status=warmupState(session);
+ if(status!=='pending')return `<section class="recomp-warmup compact ${status}" aria-label="Warm-up ${status==='done'?'completed':'skipped'}"><span class="recomp-warmup-compact-mark" aria-hidden="true">${status==='done'?'✓':'↷'}</span><span class="recomp-warmup-compact-text">${status==='done'?'Warm-up done':'Warm-up skipped'}</span><button type="button" class="btn ghost" data-action="warmup-reset">View routine</button></section>`;
  const complete=status==='done',skipped=status==='skipped';
  const badge=complete?'Completed':skipped?'Skipped':'Before your working sets';
  const summary=complete?'Warm-up completed for this session.':skipped?'Warm-up skipped for this session.':'Follow the routine, or open the movement list if the video is unavailable.';

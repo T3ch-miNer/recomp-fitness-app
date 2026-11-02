@@ -7,7 +7,8 @@ import {createWorkoutBackGuard} from './workout-back.js';
 import {createPageHistory} from './page-history.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
-import {renderMuscleFocus} from './muscle-focus.js';
+import {renderMuscleFocus,renderMuscleFocusLink} from './muscle-focus.js';
+import {nextBackStep,createPageTrail} from './back-navigation.js';
 import {reopenCompletedWorkout,saveSessionDetails} from './workout-recovery.js';
 import {nextScrollChromeState} from './scroll-chrome.js';
 import {warmupView,WARMUP_VIDEO_ID} from './warmup.js';
@@ -134,6 +135,7 @@ const INITIAL = () => ({
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null,pageHistory=null;
+let musclePage=false,nativeBack=false;const pageTrail=createPageTrail();
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let lastMotionPage=null;
 let clerkSignInBusy=false,clerkSignInError='',nativeAuthRefreshing=false;
@@ -728,7 +730,8 @@ function workoutView(){
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
 function restLeft(){let r=state.session?.rest;return r?(r.paused?Math.ceil(r.remainingMs/1000):Math.max(0,Math.ceil((r.endsAt-Date.now())/1000))):0;}
 function clock(seconds){return `${String(Math.floor(Math.max(0,seconds)/60)).padStart(2,'0')}:${String(Math.max(0,seconds)%60).padStart(2,'0')}`;}
-function activeWorkoutView(){const s=state.session;if(!s) return workoutView();const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?(roundMode?`<details class="giant-coach-notes"><summary>Coach notes from FTS · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:`<div class="card" style="margin-bottom:14px"><b>Coach notes from FTS</b><p class="small muted" style="white-space:pre-line;margin:8px 0 0">${escapeHtml(s.instructions)}</p></div>`):''}${!roundMode?renderMuscleFocus(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
+function musclePageView(s){return `<div class="muscle-page"><button type="button" class="btn history-back" data-action="close-muscle-focus">← Back to workout</button><div class="top"><div class="workout-title-block"><div class="eyebrow">TODAY'S WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1></div></div>${renderMuscleFocus(s.exercises)}</div>`;}
+function activeWorkoutView(){const s=state.session;if(!s) return workoutView();if(musclePage)return musclePageView(s);const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?`<details class="giant-coach-notes"><summary>${String(s.templateId||'').startsWith('fts-')?'Coach notes from FTS':'Coach notes'} · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:''}${!roundMode?renderMuscleFocusLink(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
 function settingsSectionHeading(icon,title,description){
  return `<header class="settings-section-head"><span class="settings-section-icon" aria-hidden="true">${svg(icon,'tiny-icon')}</span><span class="settings-section-text"><h2>${title}</h2><p>${description}</p></span></header>`;
 }
@@ -789,10 +792,10 @@ const REST_CIRC=2*Math.PI*88;
 function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(r.totalSeconds??state.session.exercises?.[r.exerciseIndex]?.restSeconds,60))*1000;const remaining=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());return Math.min(1,Math.max(0,remaining/total));}
 function restOverlay(){if(!restSheet||!state.session?.rest)return '';const r=state.session.rest;return `<div class="sheet-backdrop" data-action="close-rest"></div><section class="timer-sheet" role="dialog" aria-label="Rest timer"><div class="sheet-handle"></div><div class="row space"><h2 class="section-title">Catch your breath</h2><button class="btn ghost" data-action="close-rest">${svg('x')}</button></div><div class="timer-ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-track" cx="100" cy="100" r="88"/><circle class="ring-bar" id="rest-ring-bar" cx="100" cy="100" r="88" stroke-dasharray="${REST_CIRC.toFixed(1)}" stroke-dashoffset="${(REST_CIRC*(1-restFraction())).toFixed(1)}"/></svg><div class="timer-number" id="main-timer">${clock(restLeft())}</div></div><p class="muted small" style="text-align:center;margin-top:-8px">${r.paused?'Timer paused':'Breathe. The weights are not going anywhere.'}</p><div class="timer-actions"><button class="btn" data-action="timer-minus">−15 sec</button><button class="btn" data-action="timer-pause">${svg(r.paused?'play':'pause','tiny-icon')} ${r.paused?'Resume':'Pause'}</button><button class="btn" data-action="timer-plus">+15 sec</button></div><button class="btn block" style="margin-top:15px" data-action="timer-skip">Skip rest</button><p class="hint" style="text-align:center">Countdown is saved if you minimise or reopen the app.</p></section>`;}
 function modalField(key,label,value='',type='text',other=''){return `<div class="field"><label for="modal-${key}" class="label">${label}</label><input class="input" id="modal-${key}" name="${key}" type="${type}" ${other} value="${escapeHtml(value)}"/></div>`;}
-function confirmInApp(message,{title='Please confirm',approveLabel='Confirm',danger=true}={}){
+function confirmInApp(message,{title='Please confirm',approveLabel='Confirm',cancelLabel='Cancel',danger=true}={}){
  return new Promise(resolve=>{
   if(confirmation){resolve(false);return;}
-  confirmation={message,title,approveLabel,danger,resolve};
+  confirmation={message,title,approveLabel,cancelLabel,danger,resolve};
   render();
   document.querySelector('[data-action="confirm-cancel"]')?.focus();
  });
@@ -1077,8 +1080,36 @@ if(!modal && !confirmation){
 }
 refreshMotionClock(Boolean(state.session),timerTick);
 }
-function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrome();
+async function handleAndroidBack(){
+ if(!state)return;
+ const workoutFocused=Boolean(state.session&&!state.session.minimized&&tab==='workouts');
+ const step=nextBackStep({confirmation:Boolean(confirmation),modal:Boolean(modal),restSheet,foodMenuOpen,musclePage,workoutFocused,historyPanel,previousPage:pageTrail.previous(),tab});
+ switch(step){
+  case 'close-confirmation':settleConfirmation(false);return;
+  case 'close-modal':
+   if(modal?.type==='photo-guide')stopGuideCamera().catch(console.warn);
+   leaveFoodModal().catch(console.warn);
+   modal=null;render();return;
+  case 'close-rest':restSheet=false;render();return;
+  case 'close-food-menu':toggleFoodMenu(false);return;
+  case 'close-muscle-page':musclePage=false;window.scrollTo({top:0,behavior:'instant'});render();return;
+  case 'minimise-workout':
+   musclePage=false;pageTrail.clear();
+   motionChange(()=>{state.session.minimized=true;restSheet=false;tab='home';state.lastTab='home';render();},'minimize');
+   haptic('tap');await persist();return;
+  case 'close-history':historyPanel=null;window.scrollTo({top:0,behavior:'instant'});render();return;
+  case 'previous-page':setTab(pageTrail.pop(),null,{fromBack:true});return;
+  case 'home':pageTrail.clear();setTab('home',null,{fromBack:true});return;
+  case 'ask-exit':{
+   const leave=await confirmInApp('Your workouts and logs are saved on this phone.',{title:'Exit Recomp?',approveLabel:'Yes, exit',cancelLabel:'No',danger:false});
+   if(leave){await persist().catch(console.error);window.Capacitor?.Plugins?.App?.exitApp?.();}
+   return;
+  }
+ }
+}
+function setTab(dest,swipeDirection=null,{fromBack=false}={}){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
+ if(!fromBack)pageTrail.leave(tab);
  const order=['home','workouts','nutrition','body','you'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
@@ -1407,7 +1438,9 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'switch-discard':if(await confirmInApp(`Discard the unfinished ${state.session?.name} workout? Completed sets will be lost.`))await switchWorkoutTo(el.dataset.id,false);break;
  case 'start-workout':setTab('workouts');break;
  case 'resume-workout':if(state.session){resumeWorkout();}break;
- case 'minimise-workout':if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
+ case 'open-muscle-focus':musclePage=true;window.scrollTo({top:0,behavior:'instant'});render();break;
+ case 'close-muscle-focus':musclePage=false;window.scrollTo({top:0,behavior:'instant'});render();break;
+ case 'minimise-workout':musclePage=false;pageTrail.clear();if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
  case 'discard-workout':if(await confirmInApp('Discard this unfinished workout? Completed sets will not be added to history.',{title:'Discard workout?',approveLabel:'Discard workout'})){state.session=null;restSheet=false;await commit();}break;
  case 'warmup-show-video':{
   const player=document.getElementById('recomp-warmup-player');
@@ -2014,9 +2047,18 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
- // Register each Recomp page in WebView history so Android Back navigates
+ // APK: Android's Back button goes through one handler (back-navigation.js
+ // sets the order). The website keeps the browser-history approach below.
+ const nativeApp=window.Capacitor?.isNativePlatform?.()?window.Capacitor?.Plugins?.App:null;
+ if(typeof nativeApp?.addListener==='function'){
+  nativeBack=true;
+  try{nativeApp.addListener('backButton',()=>{handleAndroidBack().catch(console.error);});}
+  catch(error){nativeBack=false;console.warn('Android Back handler unavailable:',error?.message);}
+ }
+ // Register each Recomp page in WebView history so browser Back navigates
  // to Home from Settings instead of closing the app. Workout Back keeps its
  // own independent history sentinel for minimising active sessions.
+ if(!nativeBack){
  pageHistory=createPageHistory({
   history:window.history,
   subscribe:(name,callback)=>window.addEventListener(name,callback),
@@ -2050,6 +2092,7 @@ async function init(){try{
    return false;
   }
  });
+ }
  // Seed completion state before first paint: opening the app never replays the celebration.
  wasAllTasksComplete=allTasksComplete();
  applyOnlineFoodCatalogue(SUPPLEMENTAL_RECIPE_ESTIMATES);

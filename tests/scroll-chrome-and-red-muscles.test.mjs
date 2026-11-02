@@ -42,7 +42,7 @@ test('runtime locks focused sessions, and routes all main pages through same doc
  assert.match(app,/scroll-chrome-hidden/);
  assert.match(app,/window\.addEventListener\('scroll',scheduleScrollChrome/);
  assert.match(app,/if\(active\)resetScrollChrome\(\)/);
- assert.match(app,/function setTab\(dest,swipeDirection=null\)\{toggleFoodMenu\(false\);resetScrollChrome\(\)/);
+ assert.match(app,/function setTab\(dest,swipeDirection=null,\{fromBack=false\}=\{\}\)\{toggleFoodMenu\(false\);resetScrollChrome\(\)/);
  for(const name of ['home','workouts','nutrition','body','settings'])assert.ok(app.includes(name));
 });
 test('muscle diagram uses red emphasis for focused muscles and distinct secondary tone',()=>{
