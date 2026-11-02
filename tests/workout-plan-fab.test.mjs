@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {orderedWorkoutPlans,workoutHistoryHtml} from '../history-view.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const app=read('app.js');
@@ -14,17 +15,18 @@ const start=app.indexOf('function workoutView(){');
 const end=app.indexOf('function elapsed(',start);
 assert.ok(start>=0&&end>start,'workout plan view present');
 const viewBuilder=new Function('state','heading','svg','escapeHtml','planActionsId',
- 'elapsed','dateDisplay','activeWorkoutView','historyPanel','workoutHistoryHtml','orderedWorkoutPlans','onlineWorkoutLibraryView',
+ 'elapsed','dateDisplay','activeWorkoutView','historyPanel','workoutHistoryHtml','orderedWorkoutPlans','onlineWorkoutLibraryView','historyHeaderButton','planSubtitle',
  app.slice(start,end)+'\nreturn workoutView;');
+const planSubtitle=new Function(app.match(/function planSubtitle[^\n]*/)[0]+'\nreturn planSubtitle;')();
 const htmlEscape=x=>String(x??'').replace(/[&<>"']/g,c=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 const workoutView=viewBuilder(
  {session:null,workoutHistory:[],templates:[
-  {id:'fts-workout-1',name:'Workout 1 · Leg Day',subtitle:'FTS',items:[['a','Leg Press',3,10,100,90,[]]]}
+  {id:'fts-workout-1',name:'Workout 1 · Leg Day',subtitle:'FTS · 1 exercise',items:[['a','Leg Press',3,10,100,90,[]]]}
  ]},
  ()=>'<header>Workouts</header>',()=>'<svg></svg>',
- htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans,()=>'')();
+ htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans,()=>'',kind=>`<button data-action="toggle-history" data-kind="${kind}"></button>`,planSubtitle)();
 
 const beginFab=app.indexOf("${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?");
 const endFab=app.indexOf('${state.session&&!active?',beginFab);
@@ -45,14 +47,14 @@ test('New plan is removed from Workouts heading but plan cards stay intact',()=>
 test('Workouts gets the same compact floating plus action as Food and Weight',()=>{
  const plan=fab('workouts');
  assert.match(plan,/class="quick-fab"/);
- assert.match(plan,/data-action="toggle-history"/);
+ assert.doesNotMatch(plan,/data-action="toggle-history"/,'History lives in the page header, not over content');
  assert.match(plan,/data-action="create-template"/);
  assert.match(plan,/aria-label="Create workout plan"/);
  assert.match(plan,/<span class="quick-fab-label">Plan<\/span>/);
  assert.match(plan,/<svg>/);
  assert.ok(!plan.includes('New plan'));
  assert.match(fab('nutrition'),/data-action="toggle-food-menu"/);
- assert.match(fab('nutrition'),/data-action="toggle-history"/);
+ assert.doesNotMatch(fab('nutrition'),/data-action="toggle-history"/);
  assert.match(fab('nutrition'),/quick-fab-label">Food/);
  assert.match(fab('body'),/data-action="add-weight"/);
  assert.match(fab('body'),/quick-fab-label">Weight/);
@@ -72,7 +74,17 @@ test('floating Plan button avoids overlapping a minimised session and hides in f
 });
 
 test('updated offline shell installs the Plan FAB code',()=>{
- assert.match(index,/app\.js\?v=3-android-you/);
- assert.match(worker,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(index.includes(APP_SCRIPT));
+ assert.ok(worker.includes(CACHE));
  assert.ok(worker.includes("'./app.js'"));
+});
+
+test('Phase 1: History sits in the page header and plan cards show the exercise count once',()=>{
+ assert.match(app,/heading\('Lift something\.','Heavy things, repeated, on purpose\.',historyHeaderButton\('workouts'\)\)/);
+ assert.match(app,/heading\('Fuel up\.','Logging beats guessing\. Every single time\.',historyHeaderButton\('food'\)\)/);
+ assert.match(workoutView,/1 exercise · FTS</);
+ assert.doesNotMatch(workoutView,/exercise · FTS · 1 exercise/);
+ assert.equal(planSubtitle('Foundation · 6 exercises'),'Foundation');
+ assert.equal(planSubtitle('Custom plan'),'Custom plan');
+ assert.equal(planSubtitle(''),'');
 });

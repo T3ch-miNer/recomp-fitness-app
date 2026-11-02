@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {GOAL_FIELDS,validateGoalDraft} from '../goal-draft.js';
 import {dailyTargetsSetupHtml,shouldShowDailyTargetsSetup,DAILY_TARGETS_SETUP_NOTE} from '../daily-targets-onboarding.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const sample={calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000};
 const file=relative=>readFileSync(new URL(relative,import.meta.url),'utf8');
@@ -53,8 +54,8 @@ test('goals are validated with existing settings input limits',()=>{
 test('new offline assets and cache version are wired into the HTML',()=>{
  const page=file('../index.html'),sw=file('../sw.js');
  assert.ok(page.includes('daily-targets-onboarding.css?v=2.9.7-initial-targets'));
- assert.ok(page.includes('app.js?v=3-android-you'));
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(page.includes(APP_SCRIPT));
+ assert.ok(sw.includes(CACHE));
  assert.ok(sw.includes("'./daily-targets-onboarding.js'"));
  assert.ok(sw.includes("'./daily-targets-onboarding.css'"));
 });

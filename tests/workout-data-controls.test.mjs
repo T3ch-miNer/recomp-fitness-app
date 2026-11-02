@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {reopenCompletedWorkout,saveSessionDetails} from '../workout-recovery.js';
 import {workoutHistoryHtml,orderedWorkoutPlans} from '../history-view.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 test('Undo Finish restores exact exercises and completed sets without modifying history',()=>{
  const stored={id:'session-one',templateId:'leg-day',name:'Leg Day',startedAt:1000,endedAt:65000,
@@ -78,9 +79,9 @@ test('IndexedDB reset clears records and photos, leaving optional cloud backup i
 test('release and offline shell include recovery and reset assets',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
- assert.match(html,/app\.js\?v=3-android-you/);
+ assert.ok(html.includes(APP_SCRIPT));
  assert.match(html,/data-controls\.css\?v=2\.9\.6-data-control/);
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
  assert.ok(sw.includes("'./workout-recovery.js'"));
  assert.ok(sw.includes("'./data-controls.css'"));
 });
