@@ -25,3 +25,18 @@ html.recomp-native .btn.round{
  background-color:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
 }
 html.recomp-native #toast{background:color-mix(in srgb,var(--panel2) 96%,var(--bg))!important}
+
+/* Paint the band behind Android's status bar, so page titles scroll under a
+   solid strip instead of colliding with the clock and icons. */
+html.recomp-native body::before{
+ content:"";position:fixed;inset:0 0 auto;z-index:60;pointer-events:none;
+ height:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+ background:var(--bg);
+}
+/* The workout's sticky controls stop just below that band. */
+html.recomp-native .workout-focus-shell .workout-scroll-header{top:var(--safe-area-inset-top,env(safe-area-inset-top,0px))}
+/* The phone-width dock forces its own blur; override it with matching weight. */
+html.recomp-native #recomp-bottom-dock.bottom-nav.premium-dock{
+ -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+ background:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
+}

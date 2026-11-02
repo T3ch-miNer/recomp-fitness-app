@@ -29,7 +29,7 @@ const workoutView=viewBuilder(
  htmlEscape,null,()=>'',()=>'',()=>'',null,workoutHistoryHtml,orderedWorkoutPlans,()=>'',kind=>`<button data-action="toggle-history" data-kind="${kind}"></button>`,planSubtitle)();
 
 const beginFab=app.indexOf("${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?");
-const endFab=app.indexOf('${state.session&&!active?',beginFab);
+const endFab=app.indexOf('${state.session&&!active&&',beginFab);
 assert.ok(beginFab>=0&&endFab>beginFab,'the floating quick-add markup is in render');
 const fabExpr=app.slice(beginFab+2,endFab-1);
 const renderQuickFab=new Function('active','tab','state','svg','historyPanel','return ('+fabExpr+');');

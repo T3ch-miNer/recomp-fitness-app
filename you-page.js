@@ -77,12 +77,44 @@ export function rememberDeviceDay(data){
  store(d);
 }
 export function clearDeviceDays(){const d=getYouData();d.device={};store(d);}
+// Friendly feedback on screen-on time. Totals include work and messaging, so
+// the bands are generous and the tone suggests rather than scolds.
+const hm=min=>Math.floor(min/60)+'h '+String(min%60).padStart(2,'0')+'m';
+export function screenTimeFeedback({minutes,unlocks=null,recent=[],partial=false}={}){
+ if(!Number.isFinite(minutes))return null;
+ const so=partial?' so far':'';
+ let level,title,message,tip;
+ if(minutes<=120){level='good';title='Nicely balanced';message=`${hm(minutes)} of screen time${so}. That leaves plenty of room for training, rest and people.`;}
+ else if(minutes<=240){level='okay';title='A reasonable day';message=`${hm(minutes)} of screen time${so}.`;tip='Build in one screen-free break, like a walk after lunch.';}
+ else if(minutes<=360){level='high';title='On the high side';message=`${hm(minutes)} of screen time${so}.`;tip='Pick a wind-down time and put the phone away 30 minutes before bed, or swap 20 minutes of scrolling for a walk.';}
+ else{level='heavy';title='A heavy screen day';message=`${hm(minutes)} of screen time${so}.`;tip='Try an app timer in Android\'s Digital Wellbeing settings, and charge your phone outside the bedroom tonight.';}
+ const history=recent.filter(Number.isFinite);
+ let trend='';
+ if(history.length>=3&&!partial){
+  const avg=Math.round(history.reduce((a,b)=>a+b,0)/history.length),diff=minutes-avg;
+  if(diff>=30)trend=`That's ${hm(diff)} more than your recent average of ${hm(avg)}.`;
+  else if(diff<=-30)trend=`That's ${hm(-diff)} less than your recent average of ${hm(avg)}. Nice work.`;
+  else trend=`Close to your recent average of ${hm(avg)}.`;
+ }
+ const checks=Number.isFinite(unlocks)&&unlocks>100?`You unlocked your phone ${unlocks} times. Turning off non-essential notifications cuts the urge to check.`:'';
+ return {level,title,message,tip:tip||'',trend,checks};
+}
+export function recentScreenMinutes(device,date,days=7){
+ const out=[];const d=new Date(date+'T12:00:00');
+ for(let i=1;i<=days;i++){
+  d.setDate(d.getDate()-1);
+  const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(device?.[key])out.push(Number(device[key].screenMinutes));
+ }
+ return out;
+}
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const prettyMinutes=value=>value==null?'Not connected':Math.floor(value/60)+'h '+String(value%60).padStart(2,'0')+'m';
-export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTasksTotal=0}){
+export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTasksTotal=0,calendarHtml='',hour=new Date().getHours()}){
  const data=getYouData(),habit=todayHabitStats(data,date),streak=habitStreak(data,date);
  const device=data.device[date],native=isNativeWellbeingAvailable();
  const steps=Math.max(0,Number(activity?.steps)||0),goal=Math.max(1,Number(stepGoal)||8000);
+ const fb=device?screenTimeFeedback({minutes:Number(device.screenMinutes),unlocks:Number(device.unlocks),recent:recentScreenMinutes(data.device,date),partial:hour<21}):null;
  return `<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>
  <section class="you-card you-hero" aria-label="Daily consistency">
   <div class="you-card-top"><span class="eyebrow">Habit streak</span><span class="you-flame" aria-hidden="true">✦</span></div>
@@ -91,6 +123,7 @@ export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTask
   <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${habit.total}" aria-valuenow="${habit.completed}" aria-label="Habits completed"><span style="width:${habit.total?Math.round(100*habit.completed/habit.total):0}%"></span></div>
   <p class="you-caption">${habit.completed} of ${habit.total} wellbeing habits · ${dailyTasksDone} of ${dailyTasksTotal} Recomp tasks today</p>
  </section>
+ ${calendarHtml?`<div class="you-section-title"><h2>Your calendar</h2><span>Tap a day for its overview</span></div>${calendarHtml}`:''}
  <div class="you-section-title"><h2>Daily movement</h2><span>${esc(activity?.source||'Manual or not recorded')}</span></div>
  <section class="you-card">
   <div class="you-card-top"><strong>Steps</strong><span class="you-muted">Goal ${goal.toLocaleString('en-GB')}</span></div>
@@ -104,6 +137,7 @@ export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTask
   <section class="you-card"><span class="you-muted">Screen-on time</span><strong class="you-metric-value">${device?prettyMinutes(device.screenMinutes):'—'}</strong><small class="you-caption">Approximate, today</small></section>
   <section class="you-card"><span class="you-muted">Phone unlocks</span><strong class="you-metric-value">${device?device.unlocks:'—'}</strong><small class="you-caption">Estimated keyguard unlocks</small></section>
  </div>
+ ${fb?`<section class="you-card you-screen-feedback ${fb.level}" aria-live="polite"><span class="you-feedback-mark" aria-hidden="true"></span><div><strong>${esc(fb.title)}</strong><p>${esc(fb.message)}${fb.trend?' '+esc(fb.trend):''}</p>${fb.tip?`<p class="you-feedback-tip">${esc(fb.tip)}</p>`:''}${fb.checks?`<p class="you-feedback-tip">${esc(fb.checks)}</p>`:''}</div></section>`:''}
  <section class="you-card">
   <p class="you-caption">${native?'Usage Access is optional. Android only supplies local statistics after you enable it in system settings.':'Automatic screen time and phone unlocks require the Android APK. iPhone and other browsers can still use habits and fitness tracking.'}</p>
   ${native?'<div class="you-actions"><button class="btn" data-action="you-usage-settings">Usage Access settings</button><button class="btn primary" data-action="you-refresh-device">Refresh usage</button></div>':''}

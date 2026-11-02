@@ -800,3 +800,8 @@ html,body{max-width:100%;overflow-x:clip}
 .muscle-page{padding-bottom:40px}
 .muscle-page .top{margin-bottom:14px}
 .giant-coach-notes{margin:0 0 14px}
+.basic-programme-card{gap:6px}
+.basic-programme-card p{margin:0;line-height:1.5}
+.basic-programme-card details{margin:4px 0 6px}
+.basic-programme-card .btn{margin-top:4px}
+.active-session-notice b{display:block;margin-bottom:4px}

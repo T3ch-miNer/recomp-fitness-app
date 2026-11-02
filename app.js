@@ -9,6 +9,7 @@ import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './g
 import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus,renderMuscleFocusLink} from './muscle-focus.js';
 import {nextBackStep,createPageTrail} from './back-navigation.js';
+import {renderCalendar,renderDayDetail,dayOverview,dayMarks,cleanNote,shiftMonth,monthKey} from './you-calendar.js';
 import {reopenCompletedWorkout,saveSessionDetails} from './workout-recovery.js';
 import {nextScrollChromeState} from './scroll-chrome.js';
 import {warmupView,WARMUP_VIDEO_ID} from './warmup.js';
@@ -21,7 +22,7 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnline
 import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue} from './online-catalogue.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
-import {renderYouPage,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
+import {renderYouPage,isNativeWellbeingAvailable,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
 import {runMotion,refreshMotionClock,motionBundleReady} from './motion-bridge.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
@@ -131,11 +132,12 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{},dailyTasks:[],dailyTaskPlanning:null, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
+ photos:[],workoutHistory:[],dayNotes:{},session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null,pageHistory=null;
 let musclePage=false,nativeBack=false;const pageTrail=createPageTrail();
+let youMonth=null,youSelected=null,youPhotoLoad=null,lastWellbeingRefresh=0; // View-only calendar position.
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let lastMotionPage=null;
 let clerkSignInBusy=false,clerkSignInError='',nativeAuthRefreshing=false;
@@ -719,10 +721,10 @@ function workoutView(){
  if(activeSession&&!activeSession.minimized)return activeWorkoutView();
  const recent=[...state.workoutHistory].reverse().slice(0,5);
  return `${heading('Lift something.','Heavy things, repeated, on purpose.',historyHeaderButton('workouts'))}
- ${state.fitnessMode==='basic'&&state.basicProgramme?`<div class="card stack"><b>Your four-week programme · ${escapeHtml(state.basicProgramme.title)}</b><p class="small muted">${state.basicProgramme.days} sessions each week · Suggested: ${state.basicProgramme.daysOfWeek.map(d=>escapeHtml(d)).join(', ')}. Move days to suit your schedule.</p><p class="small muted">${escapeHtml(state.basicProgramme.description)}</p><details><summary>Four-week progression</summary>${state.basicProgramme.progression.map(p=>`<p class="small muted">${escapeHtml(p)}</p>`).join('')}</details><button type="button" class="btn" data-action="basic-profile">Edit my Basic plan</button></div>`:''}
- ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
+ ${state.fitnessMode==='basic'&&state.basicProgramme?`<div class="card stack basic-programme-card"><b>Your four-week programme · ${escapeHtml(state.basicProgramme.title)}</b><p class="small muted">${state.basicProgramme.days} sessions each week · Suggested: ${state.basicProgramme.daysOfWeek.map(d=>escapeHtml(d)).join(', ')}. Move days to suit your schedule.</p><p class="small muted">${escapeHtml(state.basicProgramme.description)}</p><details><summary>Four-week progression</summary>${state.basicProgramme.progression.map(p=>`<p class="small muted">${escapeHtml(p)}</p>`).join('')}</details><button type="button" class="btn" data-action="basic-profile">Edit my Basic plan</button></div>`:''}
+ ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted"><span class="elapsed">${elapsed(activeSession.startedAt)}</span> elapsed · your sets are saved</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div></div>
- ${orderedWorkoutPlans((state.fitnessMode==='basic'?state.templates.filter(t=>state.basicProfile?Boolean(t.basicGenerated):(t.id==='A'||t.id==='B')):state.personalPlanActive?state.templates.filter(t=>t.personalImported):state.templates),state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(planSubtitle(t.subtitle)||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
+ ${orderedWorkoutPlans((state.fitnessMode==='basic'?state.templates.filter(t=>state.basicProfile?Boolean(t.basicGenerated):(t.id==='A'||t.id==='B')):state.personalPlanActive?state.templates.filter(t=>t.personalImported):state.templates),state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(planSubtitle(t.subtitle)||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue workout':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
  ${state.fitnessMode==='basic'?'':onlineWorkoutLibraryView()}
   <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
@@ -1052,11 +1054,44 @@ function scheduleScrollChrome(){
 window.addEventListener('scroll',scheduleScrollChrome,{passive:true});
 window.addEventListener('resize',scheduleScrollChrome,{passive:true});
 document.addEventListener('focusin',scheduleScrollChrome);
-function youView(){const tasks=todaysTasks();return renderYouPage({date:today(),activity:activityToday(),stepGoal:state.goals.steps,dailyTasksTotal:tasks.length,dailyTasksDone:tasks.filter(checkboxDone).length});}
+function youView(){const tasks=todaysTasks();return renderYouPage({date:today(),activity:activityToday(),stepGoal:state.goals.steps,dailyTasksTotal:tasks.length,dailyTasksDone:tasks.filter(checkboxDone).length,calendarHtml:youCalendarHtml()});}
+function youRecords(){const you=getYouData();return {workoutHistory:state.workoutHistory,food:state.food,activity:state.activity,weights:state.weights,photos:state.photos,dayNotes:state.dayNotes,device:you.device,habits:you.habits,checks:you.checks};}
+function youCalendarHtml(){
+ const now=today();
+ youSelected=youSelected&&youSelected<=now?youSelected:now;
+ youMonth=youMonth||monthKey(youSelected);
+ const records=youRecords();
+ const overview=dayOverview(youSelected,records);
+ // Progress photos load from this phone's storage the first time a day needs them.
+ if(overview.photos.some(p=>!photoUrls.has(p.id))&&!youPhotoLoad)youPhotoLoad=loadPhotoUrls().catch(console.warn).finally(()=>{youPhotoLoad=null;if(tab==='you')render();});
+ return renderCalendar({month:youMonth,selected:youSelected,today:now,marksFor:date=>dayMarks(dayOverview(date,records))})+
+  renderDayDetail(overview,{today:now,photoUrlFor:id=>photoUrls.get(id)||null});
+}
+async function saveDayNote(date,{text,mood}){
+ if(!date||date>today())return;
+ const note=cleanNote({text,mood});
+ if(!note.text&&!note.mood)delete state.dayNotes[date];
+ else state.dayNotes[date]={...note,updatedAt:new Date().toISOString()};
+ state.dirty=true;await persist();
+}
+// Android only: read screen time quietly when You opens, plus the past week for averages.
+async function refreshWellbeingQuietly(){
+ if(Date.now()-lastWellbeingRefresh<5*60000)return;
+ lastWellbeingRefresh=Date.now();
+ const known=getYouData().device;let changed=false;
+ const d=new Date(today()+'T12:00:00');
+ for(let i=0;i<7;i++){
+  const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  d.setDate(d.getDate()-1);
+  if(i>0&&known[key])continue;
+  try{rememberDeviceDay(await readAndroidWellbeingDay(key));changed=true;}catch{if(i===0)return;}
+ }
+ if(changed&&tab==='you')render();
+}
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,you:youView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active&&!(tab==='workouts'&&!historyPanel)?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
 if(state.fitnessMode==='basic')document.querySelector('[data-action="create-template"]')?.remove();
@@ -1117,6 +1152,7 @@ function setTab(dest,swipeDirection=null,{fromBack=false}={}){toggleFoodMenu(fal
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
  runMotion('playNavigationFeedback',document.body);
  haptic('tap');put('state',state).catch(console.error);
+ if(dest==='you'&&isNativeWellbeingAvailable())refreshWellbeingQuietly().catch(console.warn);
 }
 function beginWorkout(id){
  const template=templateById(id);if(!template)return;
@@ -1267,6 +1303,9 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'settings-home':setTab('home');break;
  case 'you-sync-steps':await syncNativeActivity();break;
  case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
+ case 'you-cal-prev':youMonth=shiftMonth(youMonth||monthKey(today()),-1);render();break;
+ case 'you-cal-next':{const next=shiftMonth(youMonth||monthKey(today()),1);if(next<=monthKey(today())){youMonth=next;render();}break;}
+ case 'you-cal-day':{const d=el.dataset.date;if(d&&d<=today()){youSelected=d;render();document.getElementById('you-day-title')?.scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'nearest'});}break;}
  case 'you-refresh-device':{const day=await readAndroidWellbeingDay(today());rememberDeviceDay(day);render();notify('Device wellbeing refreshed, stored only on this phone.');break;}
  case 'you-clear-device':if(await confirmInApp('Erase Recomp\'s saved device-usage totals on this phone?')){clearDeviceDays();render();notify('Local usage history cleared.');}break;
  case 'you-remove-habit':if(await confirmInApp('Remove this habit from your You dashboard?')){removeYouHabit(el.dataset.id);render();}break;
@@ -1581,6 +1620,7 @@ case 'export-backup':await exportData();break;
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='you-day-note-form'){await saveDayNote(form.dataset.date,{text:data.get('note'),mood:data.get('mood')});render();notify('Note saved for this day.');return;}
  if(id==='you-add-habit-form'){addYouHabit(data.get('habit'));render();notify('Wellbeing habit added.');return;}
  if(id==='form-fitness-profile'){
   const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
@@ -1741,6 +1781,10 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.matches('#you-day-note-form input[name="mood"]')){
+  const form=el.form;await saveDayNote(form.dataset.date,{text:form.querySelector('#you-day-note')?.value||'',mood:el.value});
+  const keep=form.querySelector('#you-day-note')?.value;render();const area=document.getElementById('you-day-note');if(area&&keep!=null)area.value=keep;return;
+ }
  if(el.matches('[data-you-habit]')){
   const date=today(),previousStreak=habitStreak(getYouData(),date);
   setYouHabit(el.dataset.youHabit,date,el.checked);
@@ -2012,6 +2056,7 @@ async function init(){try{
  // Safely repair an old or partial schema in memory, preserving all existing logs.
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
  else state.goals={...defaults.goals,...state.goals};
+ if(!state.dayNotes||typeof state.dayNotes!=='object'||Array.isArray(state.dayNotes))state.dayNotes={};
  for(const key of ['food','water','activity','weights','measurements','photos','workoutHistory','templates']){
   if(!Array.isArray(state[key]))state[key]=defaults[key];
  }
@@ -2099,6 +2144,7 @@ async function init(){try{
  // Render immediately; failed IndexedDB writes and slow photo loads cannot block startup.
  render();
  void startOnlineCatalogue();
+ if(tab==='you'&&isNativeWellbeingAvailable())refreshWellbeingQuietly().catch(console.warn);
  // The approved Pulse intro overlays the first app paint, then gracefully disappears.
  // Keep the approved intro for at least 2.5 seconds; slow boots add no further delay.
  // Reduced-motion users enter immediately. No training data is accessed here.
