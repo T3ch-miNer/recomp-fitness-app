@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {FOOD_ITEMS,FOOD_COUNT,applyOnlineFoodCatalogue,findFood,searchFoods,nutrientsForGrams} from '../food-db.js';
 import {ONLINE_CATALOGUE_URL,validateOnlineCatalogue,loadCachedOnlineCatalogue,refreshOnlineCatalogue} from '../online-catalogue.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 const read=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
 const app=read('app.js'),sw=read('sw.js'),html=read('index.html');
 const food={id:'online-test-food',name:'Online sample bowl',category:'Bowl',aliases:'sample bowl',
@@ -62,6 +63,6 @@ test('new catalogue remains optional and workout updates require confirmation',(
  assert.match(app,/onlineWorkoutLibraryView\(\)/);
  assert.match(html,/online-catalogue\.css/);
  assert.match(sw,/online-catalogue\.js/);
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
  assert.doesNotMatch(app,/state\.food\s*=\s*onlineCatalog/);
 });

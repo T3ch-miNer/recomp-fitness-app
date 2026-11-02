@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const get=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const backSrc=get('workout-back.js');
@@ -72,7 +73,7 @@ test('16px editable kg/reps, themed dialog and updated offline shell',()=>{
  assert.match(css,/recomp-confirm-dialog/);
  assert.match(css,/var\(--panel\)/);
  assert.match(index,/workout-polish\.css\?v=2\.5\.5/);
- assert.match(index,/app\.js\?v=3-android-you/);
+ assert.ok(index.includes(APP_SCRIPT));
  for(const name of ['workout-back.js','confirmation-dialog.js','workout-polish.css']){
   assert.ok(sw.includes("'./"+name+"'"),name+' must be included offline');
  }

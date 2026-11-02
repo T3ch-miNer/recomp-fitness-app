@@ -15,15 +15,15 @@ export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true,develop
   <div class="first-run-icon" aria-hidden="true">✦</div>
   <div class="first-run-eyebrow">YOUR FITNESS. YOUR RULES.</div>
   <h1 id="first-run-title">Start strong.</h1>
-  <p id="first-run-description">Track workouts, nutrition and progress without an account. Optional Google sign-in uses Clerk when configured. Cloud backup is a separate feature.</p>
-  ${developmentMode?'<p class="first-run-dev-note" role="note"><b>Development mode · Google sign-in testing</b><span>This is a test account, not production login. Signing in will not back up your fitness data. You may continue as a guest.</span></p>':''}
+  <p id="first-run-description">Track workouts, food and progress. No account needed, and everything stays on your phone.</p>
   <div class="first-run-actions">
-    <button class="first-run-google" type="button" data-first-run="google" ${googleEnabled?'':'disabled aria-disabled="true" title="Google sign-in is coming later"'}><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
     <button class="first-run-guest" type="button" data-first-run="guest">Continue without signing in <span aria-hidden="true">→</span></button>
+    <button class="first-run-google" type="button" data-first-run="google" ${googleEnabled?'':'disabled aria-disabled="true" title="Google sign-in is coming later"'}><span class="first-run-google-letter" aria-hidden="true">G</span> Continue with Google</button>
   </div>
-  ${googleEnabled?'':'<p class="first-run-google-note">Google sign-in is coming later. You can track everything privately as a guest.</p>'}
+  ${developmentMode&&googleEnabled?'<p class="first-run-dev-note" role="note">Google sign-in is still in testing and doesn\'t back up your data yet.</p>':''}
+  ${googleEnabled?'':'<p class="first-run-google-note">Google sign-in is coming later.</p>'}
   <p class="first-run-error" id="first-run-error" role="status" aria-live="polite" hidden></p>
-  <p class="first-run-privacy">Your fitness records stay on this device. You can connect Google later from Settings.</p>
+  ${googleEnabled?'<p class="first-run-privacy">You can connect Google later in Settings.</p>':''}
  </section>`;
  document.body.appendChild(overlay);
  const guest=overlay.querySelector('[data-first-run="guest"]');
@@ -38,7 +38,7 @@ export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true,develop
  overlay.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();finishGuest();return;}
   if(event.key==='Tab'){
-   const first=google,last=guest;
+   const first=guest,last=google.disabled?guest:google;
    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   }

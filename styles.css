@@ -776,3 +776,11 @@ html,body{max-width:100%;overflow-x:clip}
 .photo-meal-line>span:nth-child(3){color:var(--muted);font-size:10px}
 #form-photo-meal .field{margin-top:13px}
 @media (max-width:370px){.photo-meal-line{grid-template-columns:minmax(0,1fr) 61px 10px 28px;gap:4px}}
+
+/* Phase 1 review fixes (v3.2) */
+.history-trigger .icon{color:var(--accent)}
+.body-empty-state{display:grid;justify-items:center;text-align:center;gap:8px;padding:30px 22px}
+.body-empty-state .section-title{margin:6px 0 0}
+.body-empty-state p{max-width:30ch;margin:0 0 10px;line-height:1.5}
+.body-empty-icon{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:var(--accent2);color:var(--accent)}
+.body-empty-icon .icon{width:24px;height:24px}

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const app=read('app.js'),css=read('settings-layout.css'),htmlPage=read('index.html'),sw=read('sw.js');
@@ -63,5 +64,5 @@ test('responsive stylesheet is loaded and cached with the same release',()=>{
  assert.match(css,/\.settings-advanced-summary:focus-visible/);
  assert.match(htmlPage,/settings-layout\.css\?v=2\.7-settings-hub/);
  assert.match(sw,/settings-layout\.css/);
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
 });
