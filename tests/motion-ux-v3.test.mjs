@@ -2,26 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
-const motion=read('motion-effects.source.js');
+const motion=read('recomp-motion.js');
 const app=read('app.js');
 const basic=read('basic-onboarding.js');
 const css=read('motion-effects.css');
-const pkg=JSON.parse(read('package.json'));
 
-test('Home motivational message uses Anime.js scramble without touching health numbers',()=>{
- assert.match(motion,/\bscrambleText\b/);
- assert.match(motion,/innerHTML:scrambleText\(/);
- assert.match(motion,/loop:false/);
+test('Home motivational message fades in, stays readable, and never touches health numbers',()=>{
+ assert.doesNotMatch(motion,/scrambleText/,'scrambled letters looked broken on Android');
+ assert.doesNotMatch(motion,/innerHTML:/);
+ assert.match(motion,/export function playDashboardMotivation[\s\S]{0,400}opacity:\[\.35,1\]/);
  assert.match(app,/data-motion-motivation aria-hidden="true"/);
  assert.match(app,/class="dashboard-intro" role="text" aria-label=/);
  assert.doesNotMatch(app,/class="rings-num"[^>]*data-motion-motivation/);
 });
-test('Basic plan cards animate out, cubic Bézier, and WAAPI spring',()=>{
+test('plan cards and Basic questions rise in with one consistent, light stagger',()=>{
  assert.match(motion,/playProgrammeCards/);
- assert.match(motion,/ease:'out\(3\)'/);
- assert.match(motion,/cubicBezier\(\.7,\.1,\.5,\.9\)/);
- assert.match(motion,/waapi\.animate\(card/);
- assert.match(motion,/spring\(\{bounce:\.24\}\)/);
+ assert.match(motion,/waapi\.animate\(cards,\{y:\['14px','0px'\],opacity:\[\.6,1\]/);
+ assert.match(motion,/waapi\.animate\(fields,/);
+ assert.match(motion,/delay:stagger\(70\)/);
  assert.match(basic,/runMotion\('playBasicProgrammeChoices',root\)/);
  assert.match(app,/runMotion\('playProgrammeCards',page\)/);
 });
@@ -44,7 +42,7 @@ test('motion is not repeated on every tracking re-render or enabled for reduced 
   assert.match(motion,new RegExp('export function '+name));
  assert.match(app,/if\(pageKey!==lastMotionPage\)/);
  assert.match(app,/if\(!modal && !confirmation\)/);
- assert.ok(pkg.dependencies.animejs);
+ assert.match(motion,/from '\.\/anime\.esm\.min\.js'/);
 });
 test('pre-existing Session banked celebration and rest timer are retained exactly',()=>{
  assert.match(motion,/export function playWorkoutSuccess/);

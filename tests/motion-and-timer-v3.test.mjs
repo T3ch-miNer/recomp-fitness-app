@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const source=read('motion-effects.source.js');
+const source=read('recomp-motion.js');
 const bridge=read('motion-bridge.js');
 const app=read('app.js');
 const worker=read('sw.js');
@@ -10,16 +10,15 @@ const welcome=read('first-run.js');
 const prep=read('scripts/prepare-android-web.mjs');
 const html=read('index.html');
 
-test('animejs is bundled as a local offline asset with no CDN dependency',()=>{
- const packageJSON=JSON.parse(read('package.json'));
- assert.ok(packageJSON.dependencies.animejs);
- assert.ok(packageJSON.devDependencies.esbuild);
- assert.match(prep,/motion-effects\.source\.js/);
- assert.match(prep,/recomp-motion\.js/);
- assert.match(prep,/bundle:true/);
+test('Anime.js ships as a local file shared by the website and the APK, with no CDN or build step',()=>{
+ const anime=read('anime.esm.min.js');
+ assert.match(anime,/@version v4\.2\.2/);
+ assert.match(anime,/@license MIT/);
+ assert.match(source,/from '\.\/anime\.esm\.min\.js'/);
+ assert.doesNotMatch(prep,/esbuild|bundle:true/,'Android copies the same files the website serves');
  assert.match(bridge,/import\('\.\/recomp-motion\.js'\)/);
  assert.match(html,/motion-effects\.css/);
- for(const filename of ['motion-bridge.js','motion-effects.css'])assert.ok(worker.includes("'./"+filename+"'"));
+ for(const filename of ['motion-bridge.js','motion-effects.css','recomp-motion.js','anime.esm.min.js'])assert.ok(worker.includes("'./"+filename+"'"));
  assert.doesNotMatch(source,/https:\/\/(cdn|unpkg|esm\.sh|jsdelivr)/);
 });
 test('welcome animation runs once, does not block account or guest flow, respects reduced motion',()=>{
@@ -42,9 +41,10 @@ test('workout timer keeps existing absolute time and pause/resume controls',()=>
  assert.match(source,/createTimer\(\{/);
  assert.match(source,/duration:1000/);
  assert.match(source,/loop:true/);
- assert.match(source,/frameRate:30/);
+ assert.match(source,/frameRate:2/,'twice a second, like the website');
+ assert.doesNotMatch(source,/frameRate:(?:[3-9]|\d\d)/);
  assert.match(source,/onUpdate:\(\)=>onTick\(\)/);
- assert.match(source,/onLoop:\(\)=>onTick\(\)/);
+ assert.doesNotMatch(source,/onLoop:\(\)=>onTick\(\)/,'no double tick per loop');
  assert.match(app,/const leftMs=r\.paused\?r\.remainingMs:Math\.max\(0,r\.endsAt-Date\.now\(\)\)/);
  assert.match(app,/if\(action==='timer-pause'\)/);
  assert.match(app,/refreshMotionClock\(Boolean\(state\.session\),timerTick\)/);

@@ -1,5 +1,5 @@
-// Optional Anime.js runtime loaded only after the Android/local bundle exists.
-// The static PWA remains functional if motion assets have not been built.
+// Optional Anime.js motion, shared by the website and the Android app.
+// If it fails to load, the app stays fully usable without animation.
 let modulePromise=null;
 function loadMotion(){
  if(!modulePromise)modulePromise=import('./recomp-motion.js').catch(error=>{
@@ -19,6 +19,5 @@ export function refreshMotionClock(active,onTick){
   mod?.syncWorkoutTimer(wantedClockActive,wantedClockTick);
  }).catch(()=>{});
 }
-// A half-second fallback is intentional for the hosted website until its
-// deployment has locally bundled Anime.js, never when the native clock runs.
+// If motion can't load, app.js falls back to a plain half-second timer.
 export function motionBundleReady(){return loadMotion().then(Boolean);}

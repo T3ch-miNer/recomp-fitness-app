@@ -1,6 +1,7 @@
-// Recomp motion engine: Anime.js v4, bundled locally for offline Android builds.
+// Recomp motion engine: Anime.js 4.2.2, shipped as a local file so the website
+// and the Android app load the same code, online or offline, with no build step.
 // Animations are brief and non-essential. All fitness records remain independent.
-import { animate, stagger, splitText, createTimer, scrambleText, waapi, cubicBezier, spring } from 'animejs';
+import { animate, stagger, splitText, createTimer, waapi, spring } from './anime.esm.min.js';
 
 export const prefersLessMotion=()=>globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
 
@@ -63,12 +64,13 @@ export function syncWorkoutTimer(isActive,onTick){
     return;
   }
   if(workoutTicker)return;
+  // Twice a second, matching the website. A faster refresh redraws every
+  // timer on screen for no visible gain and makes Android feel sluggish.
   workoutTicker=createTimer({
     duration:1000,
     loop:true,
-    frameRate:30,
-    onUpdate:()=>onTick(),
-    onLoop:()=>onTick()
+    frameRate:2,
+    onUpdate:()=>onTick()
   });
 }
 export function stopWorkoutTimer(){syncWorkoutTimer(false,()=>{});}
@@ -79,51 +81,25 @@ export function playDashboardMotivation(root){
   if(prefersLessMotion() || !root?.isConnected)return;
   const text=root.querySelector('.dashboard-intro [data-motion-motivation]');
   if(!text || !text.textContent?.trim())return;
-  // Only text composed by Recomp is animated. Numeric metrics remain untouched.
-  animate(text,{
-    innerHTML:scrambleText({
-      chars:'uppercase',
-      revealRate:85,
-      settleRate:55,
-      settleDuration:360,
-    }),
-    duration:950,
-    loop:false
-  });
+  // A soft fade keeps the words readable the whole time. Numbers never move.
+  waapi.animate(text,{opacity:[.35,1],y:['4px','0px'],duration:520,ease:'cubic-bezier(.2,.7,.3,1)'});
 }
 
 export function playProgrammeCards(root){
   if(prefersLessMotion() || !root?.isConnected)return;
   const cards=[...root.querySelectorAll('.workout-template-card')].slice(0,4);
-  cards.forEach((card,index)=>{
-    if(index===0){
-      animate(card,{y:[{from:18,to:0}],opacity:[0,1],
-        duration:580,delay:40,ease:'out(3)'});
-    }else if(index===1){
-      animate(card,{y:[{from:22,to:0}],opacity:[0,1],
-        duration:620,delay:130,ease:cubicBezier(.7,.1,.5,.9)});
-    }else{
-      waapi.animate(card,{y:['16px','0px'],scale:[.97,1],opacity:[.45,1],
-        duration:720,delay:180+(index-2)*110,ease:spring({bounce:.24})});
-    }
-  });
+  if(!cards.length)return;
+  // Cards start visible (opacity .6), so nothing is hidden if motion is cut short.
+  waapi.animate(cards,{y:['14px','0px'],opacity:[.6,1],
+    duration:480,delay:stagger(70),ease:'cubic-bezier(.2,.7,.3,1)'});
 }
 
 export function playBasicProgrammeChoices(root){
   if(prefersLessMotion() || !root?.isConnected)return;
   const fields=[...root.querySelectorAll('.basic-grid label')].slice(0,6);
-  fields.forEach((field,index)=>{
-    if(index%3===0){
-      animate(field,{y:[{from:12,to:0}],opacity:[0,1],
-        delay:index*45,duration:430,ease:'out(3)'});
-    }else if(index%3===1){
-      animate(field,{y:[{from:12,to:0}],opacity:[0,1],
-        delay:index*45,duration:480,ease:cubicBezier(.7,.1,.5,.9)});
-    }else{
-      waapi.animate(field,{y:['10px','0px'],scale:[.98,1],opacity:[.6,1],
-        delay:index*45,duration:600,ease:spring({bounce:.18})});
-    }
-  });
+  if(!fields.length)return;
+  waapi.animate(fields,{y:['10px','0px'],opacity:[.6,1],
+    duration:420,delay:stagger(45),ease:'cubic-bezier(.2,.7,.3,1)'});
 }
 
 export function playBodyTrend(root){
@@ -151,28 +127,15 @@ export function playNavigationFeedback(root){
   }
 }
 
-// Scramble the supporting body copy, not the main page title.
-// Home uses its motivational card. Other tabs use their descriptive subtitle.
+// Fade in the supporting line under the title. The text stays readable
+// throughout: scrambling it looked broken and replayed on every tab switch.
 export function playPageBody(root){
  if(prefersLessMotion() || !root?.isConnected)return;
- const targets=[];
- // Scramble the supporting sentence beneath the title on every screen.
- const subtitle=root.querySelector('.top .subhead');
- if(subtitle)targets.push(subtitle);
- // Home also has a separate motivational message, which remains animated.
- const motivation=root.querySelector('.dashboard-intro [data-motion-motivation]');
- if(motivation)targets.push(motivation);
+ const targets=[root.querySelector('.top .subhead'),root.querySelector('.dashboard-intro [data-motion-motivation]')].filter(Boolean);
  for(const body of targets){
   if(body.dataset.recompBodyAnimated==='yes')continue;
-  const original=body.textContent?.trim();
-  if(!original)continue;
   body.dataset.recompBodyAnimated='yes';
-  body.setAttribute('aria-label',original);
-  animate(body,{
-   innerHTML:scrambleText({chars:'lowercase',revealRate:82,settleRate:66,settleDuration:360}),
-   duration:1250,
-   loop:false
-  });
+  waapi.animate(body,{opacity:[.35,1],y:['4px','0px'],duration:520,delay:60,ease:'cubic-bezier(.2,.7,.3,1)'});
  }
 }
 

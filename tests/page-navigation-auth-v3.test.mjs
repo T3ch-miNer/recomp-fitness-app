@@ -31,14 +31,14 @@ test('reopened Settings has a Home history root, and workouts Back guard keeps c
  browser.history.back(); // Same page: the workout sentinel, not this router, handles it.
  assert.deepEqual(visited,['home']);
 });
-test('main headings scramble on all pages but old workout celebration is unchanged',()=>{
- const app=read('app.js'),motion=read('motion-effects.source.js');
+test('supporting lines fade in on page change, stay readable, and old workout celebration is unchanged',()=>{
+ const app=read('app.js'),motion=read('recomp-motion.js');
  assert.match(motion,/export function playPageBody\(root\)/);
  assert.match(motion,/export function playPageTitle\(root\)/);
  assert.match(motion,/\.dashboard-intro \[data-motion-motivation\]/);
  assert.match(motion,/\.top \.subhead/);
- assert.match(motion,/innerHTML:scrambleText/);
- assert.match(motion,/body\.setAttribute\('aria-label',original\)/);
+ assert.doesNotMatch(motion,/scrambleText/);
+ assert.match(motion,/waapi\.animate\(body,\{opacity:\[\.35,1\]/);
  assert.match(motion,/prefersLessMotion\(\)/);
  assert.match(app,/runMotion\('playPageBody',page\)/);
  assert.match(app,/runMotion\('playPageTitle',page\)/);
