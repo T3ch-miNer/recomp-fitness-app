@@ -1,0 +1,20 @@
+{
+  "name": "recomp-fitness-android",
+  "private": true,
+  "version": "3.0.0-debug",
+  "description": "Android test wrapper for the offline-first Recomp web application",
+  "type": "module",
+  "scripts": {
+    "build:android-web": "node scripts/prepare-android-web.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "animejs": "^4.2.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "esbuild": "^0.25.12"
+  }
+}

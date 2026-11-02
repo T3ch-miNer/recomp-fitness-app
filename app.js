@@ -4,6 +4,7 @@ import {FTS_WORKOUTS_5_TO_15,mergeFtsWorkoutExpansion} from './fts-workouts-5-15
 import {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts,mergeFtsReviewedWorkouts} from './fts-workouts-16-41.js';
 import {renderExerciseDemonstration} from './exercise-demonstration.js';
 import {createWorkoutBackGuard} from './workout-back.js';
+import {createPageHistory} from './page-history.js';
 import {getGiantGroups,isRoundDone,pickGiantCursor,nextIncompleteStep} from './giant-sets.js';
 import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus} from './muscle-focus.js';
@@ -19,14 +20,17 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnline
 import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue} from './online-catalogue.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
-import {renderYouPage,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
+import {renderYouPage,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
+import {runMotion,refreshMotionClock,motionBundleReady} from './motion-bridge.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
+import {showBasicOnboarding} from './basic-onboarding.js';
+import {generateBasicProgramme} from './basic-programmes.js';
 import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
 import {SUPPLEMENTAL_RECIPE_ESTIMATES} from './popular-foods.js';
 import {showDailyTargetsSetup,shouldShowDailyTargetsSetup} from './daily-targets-onboarding.js';
 import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTasks} from './daily-task-prompt.js';
-import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
+import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,restoreNativeClerkAccount,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 
 const $ = s => document.querySelector(s);
@@ -121,7 +125,7 @@ function mealGuideItems(){
  return state.mealGuideItems;
 }
 const INITIAL = () => ({
- version:1, fitnessMode:null,fitnessProfile:null,personalMeals:[],personalPlanActive:false, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
+ version:1, fitnessMode:null,fitnessProfile:null,basicProfile:null,basicProgramme:null,basicOnboardingPending:false,personalMeals:[],personalPlanActive:false, dailyTargetsOnboarded:false, goals:{calories:2200,protein:150,carbs:250,fat:65,fibre:30,water:2500,steps:8000},
  waterPresets:[150,250,500],waterDefault:250,preferences:{haptics:true,waterSound:true,appSounds:true},
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{},dailyTasks:[],dailyTaskPlanning:null, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
@@ -129,8 +133,10 @@ const INITIAL = () => ({
  photos:[],workoutHistory:[],session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
-let confirmation=null,workoutBackGuard=null;
+let confirmation=null,workoutBackGuard=null,pageHistory=null;
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
+let lastMotionPage=null;
+let clerkSignInBusy=false,clerkSignInError='',nativeAuthRefreshing=false;
 let settingsCloudOpen=false;
 let personalImportReview=null;
 let goalDraft=null; // In-progress targets, never committed until Save goals.
@@ -301,19 +307,43 @@ function ensureStarterWorkouts(){
 async function setFitnessMode(mode,{firstChoice=false}={}){
  if(!FITNESS_MODES.includes(mode))throw Error('Choose Basic or Advanced.');
  if(state.session&&!state.session.minimized)throw Error('Minimise or complete the current workout before changing modes.');
- const oldMode=state.fitnessMode,oldTemplates=state.templates,oldOnboarded=state.dailyTargetsOnboarded;
+ const previous={mode:state.fitnessMode,templates:state.templates,onboarded:state.dailyTargetsOnboarded,pending:state.basicOnboardingPending};
  state.fitnessMode=mode;
  if(mode==='basic'&&firstChoice)state.templates=basicWorkoutTemplates();
- else if(mode==='basic')ensureStarterWorkouts();
- if(firstChoice)state.dailyTargetsOnboarded=true; // Default goals are placeholders until a user chooses personal targets.
+ else if(mode==='basic'&&!state.basicProfile)ensureStarterWorkouts();
+ if(mode==='basic')state.basicOnboardingPending=!state.basicProfile;
+ else state.basicOnboardingPending=false;
+ if(firstChoice)state.dailyTargetsOnboarded=true;
  try{await persist();render();}
- catch(err){state.fitnessMode=oldMode;state.templates=oldTemplates;state.dailyTargetsOnboarded=oldOnboarded;throw err;}
+ catch(error){
+  state.fitnessMode=previous.mode;state.templates=previous.templates;state.dailyTargetsOnboarded=previous.onboarded;state.basicOnboardingPending=previous.pending;
+  throw error;
+ }
+ if(mode==='basic'&&state.basicOnboardingPending)setTimeout(()=>maybeShowBasicOnboarding(),0);
  if(mode==='advanced'&&!state.fitnessProfile){modal={type:'fitness-profile'};render();}
 }
 function maybeShowFitnessMode(){
  if(state?.fitnessMode||document.getElementById('recomp-first-run')||
     document.getElementById('recomp-mode-select')||modal)return;
  showFitnessModeSelection({onChoose:mode=>setFitnessMode(mode,{firstChoice:true})});
+}
+function maybeShowBasicOnboarding(force=false){
+ if(state?.fitnessMode!=='basic'||(!force&&!state.basicOnboardingPending)||
+    document.getElementById('recomp-first-run')||
+    document.getElementById('recomp-mode-select')||
+    document.getElementById('recomp-basic-onboarding')||modal)return false;
+ return showBasicOnboarding({initial:state.basicProfile||{},onSave:async profile=>{
+  if(state.session&&!state.session.minimized)throw Error('Finish or minimise your active workout first.');
+  const programme=generateBasicProgramme(profile);
+  const old={profile:state.basicProfile,programme:state.basicProgramme,pending:state.basicOnboardingPending,templates:state.templates,weights:state.weights};
+  state.basicProfile=profile;state.basicProgramme=programme;state.basicOnboardingPending=false;
+  // Retain all completed sessions, other templates and previously recorded body data.
+  // Only previously generated Basic templates are replaced.
+  state.templates=state.templates.filter(t=>!t.basicGenerated).concat(programme.workouts.map(t=>structuredClone(t)));
+  if(!state.weights?.length)state.weights=[{id:uid(),date:today(),kg:profile.weightKg}];
+  try{await persist();tab='workouts';lastMotionPage=null;render();notify('Your '+programme.days+'-day starter programme is ready.');}
+  catch(error){Object.assign(state,{basicProfile:old.profile,basicProgramme:old.programme,basicOnboardingPending:old.pending,templates:old.templates,weights:old.weights});throw error;}
+ }});
 }
 function personalProfileFields(){
  const p=state.fitnessProfile||{days:3,minutes:45},field=(id,label,type='number',rest='')=>
@@ -367,6 +397,7 @@ function maybeShowDailyTaskPrompt(force=false){
  if(state?.dailyTargetsOnboarded!==true||!state.fitnessMode||document.hidden||
   document.getElementById('recomp-first-run')||
   document.getElementById('recomp-targets-setup')||
+  document.getElementById('recomp-basic-onboarding')||
   document.getElementById('recomp-daily-tasks-prompt')||
   modal||confirmation||restSheet||(state.session&&!state.session.minimized&&tab==='workouts'))return false;
  if(!force&&!shouldAskForDailyTasks(state.dailyTaskPlanning,date,Date.now()))return false;
@@ -508,7 +539,7 @@ function homeTasksSection(checked){return `<section class="dashboard-tasks" aria
  </section>`;}
 function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=todaysTasks().filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;const account=getClerkAccount(),viewerName=account?.firstName||account?.name?.split(/\s+/)[0]||'';return `
 ${heading(greeting(new Date().getHours(),viewerName),new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))}
-<div class="dashboard-intro"><span class="orbit-dot"></span><span>${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
+<div class="dashboard-intro" role="text" aria-label="${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}"><span class="orbit-dot" aria-hidden="true"></span><span data-motion-motivation aria-hidden="true">${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
 <section class="summary-hero hero-rings" aria-label="Today's rings"><div class="rings-wrap">${ringSvg([{pct:n(nutr.calories)/n(state.goals.calories,1),cls:'fuel',r:90},{pct:n(nutr.protein)/n(state.goals.protein,1),cls:'protein',r:75},{pct:w/n(state.goals.water,1),cls:'water',r:60}])}<div class="rings-center"><span class="rings-num">${num(Math.max(0,state.goals.calories-nutr.calories))}</span><span class="rings-label">kcal left</span></div></div><div class="rings-legend"><div class="legend-row" style="--c:var(--c-fuel)"><i></i><span>Fuel</span><b>${num(nutr.calories)}<small>/ ${num(state.goals.calories)}</small></b></div><div class="legend-row" style="--c:var(--c-protein)"><i></i><span>Protein</span><b>${num(nutr.protein)}<small>/ ${num(state.goals.protein)} g</small></b></div><div class="legend-row" style="--c:var(--c-water)"><i></i><span>Water</span><b>${num(w)}<small>/ ${num(state.goals.water)} ml</small></b></div></div></section>
 <div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','',nutr.protein>=state.goals.protein?'Gains secured':'Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','flame','metric-active',act.activeCalories?'Tap to update':'Go on, break a sweat ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Health Connect is not available in this browser.</b> You can still enter steps and calories manually.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
@@ -686,9 +717,10 @@ function workoutView(){
  if(activeSession&&!activeSession.minimized)return activeWorkoutView();
  const recent=[...state.workoutHistory].reverse().slice(0,5);
  return `${heading('Lift something.','Heavy things, repeated, on purpose.',historyHeaderButton('workouts'))}
+ ${state.fitnessMode==='basic'&&state.basicProgramme?`<div class="card stack"><b>Your four-week programme · ${escapeHtml(state.basicProgramme.title)}</b><p class="small muted">${state.basicProgramme.days} sessions each week · Suggested: ${state.basicProgramme.daysOfWeek.map(d=>escapeHtml(d)).join(', ')}. Move days to suit your schedule.</p><p class="small muted">${escapeHtml(state.basicProgramme.description)}</p><details><summary>Four-week progression</summary>${state.basicProgramme.progression.map(p=>`<p class="small muted">${escapeHtml(p)}</p>`).join('')}</details><button type="button" class="btn" data-action="basic-profile">Edit my Basic plan</button></div>`:''}
  ${activeSession?`<div class="card row space active-session-notice"><div><b>${escapeHtml(activeSession.name)} is in progress</b><div class="small muted">${elapsed(activeSession.startedAt)} elapsed · Another plan requires your choice.</div></div><button class="btn primary" data-action="resume-workout">Continue</button></div>`:''}
  <div class="section-head"><div><h2 class="section-title">Your workout plans</h2><span class="muted small">Build, personalise and repeat. Hold a plan to edit.</span></div></div>
- ${orderedWorkoutPlans((state.fitnessMode==='basic'?state.templates.filter(t=>t.id==='A'||t.id==='B'):state.personalPlanActive?state.templates.filter(t=>t.personalImported):state.templates),state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(planSubtitle(t.subtitle)||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
+ ${orderedWorkoutPlans((state.fitnessMode==='basic'?state.templates.filter(t=>state.basicProfile?Boolean(t.basicGenerated):(t.id==='A'||t.id==='B')):state.personalPlanActive?state.templates.filter(t=>t.personalImported):state.templates),state.workoutHistory).map((t,i)=>`<div class="card workout-template-card ${planActionsId===t.id?'plan-actions-open':''}" data-plan-card="${escapeHtml(t.id)}" tabindex="0" role="group" aria-label="${escapeHtml(t.name)}. Long press to reveal edit plan button, or use your keyboard context menu."><div class="row space"><div><div class="eyebrow">PLAN ${i+1}</div><h2 class="section-title" style="margin-top:4px">${escapeHtml(t.name)}</h2><div class="small muted">${t.items.length} exercise${t.items.length===1?'':'s'} · ${escapeHtml(planSubtitle(t.subtitle)||'Customisable')}</div></div><div class="plan-card-tools">${planActionsId===t.id?`<button type="button" class="plan-edit-icon" data-action="edit-template" data-id="${escapeHtml(t.id)}" title="Edit ${escapeHtml(t.name)}" aria-label="Edit ${escapeHtml(t.name)}">${svg('edit','tiny-icon')}</button>`:''}<span class="list-icon">${svg('dumbbell')}</span></div></div><div class="template-exercise-summary">${t.items.slice(0,4).map(e=>escapeHtml(e[1])).join(' · ')||'Start with your first exercise'}${t.items.length>4?' …':''}</div><div class="template-actions"><button class="btn primary" data-action="begin-template" data-id="${escapeHtml(t.id)}" ${!t.items.length?'disabled title="Add an exercise first"':''}>${svg('play','tiny-icon')} ${activeSession?.templateId===t.id?'Continue / manage':'Start workout'}</button><button class="btn" data-action="edit-template" data-id="${escapeHtml(t.id)}">${svg('edit','tiny-icon')} Edit plan</button></div></div>`).join('')}
  ${state.fitnessMode==='basic'?'':onlineWorkoutLibraryView()}
   <div class="section-head"><h2 class="section-title">Recent sessions</h2></div><div class="card">${recent.length?recent.map(w=>`<div class="list-entry"><div class="list-icon">${svg('check')}</div><div style="flex:1"><b>${escapeHtml(w.name)}</b><div class="small muted">${dateDisplay(w.date)} · ${w.sets} working sets</div></div><span class="strong">${w.durationMin} min</span></div>`).join(''):'<p class="muted small">No sessions yet. The barbell is patient, but not that patient.</p>'}</div>`;
 }
@@ -702,7 +734,7 @@ function settingsSectionHeading(icon,title,description){
 }
 function settingsView(){
  const cfg=cloud.getConfig(),ses=cloud.getSession(),clerkUser=getClerkAccount(),clerkReady=isClerkLoginAvailable(),clerkDev=isClerkDevelopmentMode();
- return `${heading('Make it yours.','Your goals, account and preferences in one place.')}
+ return `${heading('Make it yours.','Your goals, account and preferences in one place.',`<button type="button" class="btn" data-action="settings-home" aria-label="Back to Home">${svg('arrow','tiny-icon')} Home</button>`)}
  <div class="settings-hub">
  <nav class="settings-shortcuts" aria-label="Jump to settings section">
  <a href="#settings-account">Account</a><a href="#settings-targets">Daily targets</a><a href="#settings-routine">Activity &amp; routine</a><a href="#settings-appearance">Look &amp; feel</a><a href="#settings-data">Data &amp; privacy</a>
@@ -710,8 +742,8 @@ function settingsView(){
  <section id="settings-account" class="settings-section" aria-label="Account">
  ${settingsSectionHeading('home','Your account','Manage your Google sign-in and profile.')}
 
-<div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?'Basic: Full Body A & B':'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':''}</div></div>
-<div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" data-action="clerk-login">Continue with Google</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}</div>
+<div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?(state.basicProgramme?'Basic: '+state.basicProgramme.title+' · '+state.basicProgramme.days+' days/week':'Basic: Full Body A & B · set up your programme'):'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':'<button type="button" class="btn" data-action="basic-profile">'+(state.basicProfile?'Edit Basic profile &amp; plan':'Set up Basic programme')+'</button>'}</div></div>
+<div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" type="button" data-action="clerk-login" '+(clerkSignInBusy?'disabled aria-busy="true"':'')+'>'+(clerkSignInBusy?'Signing in…':'Continue with Google')+'</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}${clerkSignInError?'<p class="hint" role="alert" data-clerk-login-error>'+escapeHtml(clerkSignInError)+'</p>':''}</div>
 </section>
  <section id="settings-targets" class="settings-section" aria-label="Daily targets">
  ${settingsSectionHeading('chart','Daily targets','Your personal nutrition and activity goals.')}
@@ -754,7 +786,7 @@ ${state.fitnessMode==='advanced'?personalPromptControls():''}
 </div></details></section></div>`;
 }
 const REST_CIRC=2*Math.PI*88;
-function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(r.totalSeconds??state.session.exercises?.[r.exerciseIndex]?.restSeconds,60));return Math.min(1,restLeft()/total);}
+function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(r.totalSeconds??state.session.exercises?.[r.exerciseIndex]?.restSeconds,60))*1000;const remaining=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());return Math.min(1,Math.max(0,remaining/total));}
 function restOverlay(){if(!restSheet||!state.session?.rest)return '';const r=state.session.rest;return `<div class="sheet-backdrop" data-action="close-rest"></div><section class="timer-sheet" role="dialog" aria-label="Rest timer"><div class="sheet-handle"></div><div class="row space"><h2 class="section-title">Catch your breath</h2><button class="btn ghost" data-action="close-rest">${svg('x')}</button></div><div class="timer-ring"><svg viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-track" cx="100" cy="100" r="88"/><circle class="ring-bar" id="rest-ring-bar" cx="100" cy="100" r="88" stroke-dasharray="${REST_CIRC.toFixed(1)}" stroke-dashoffset="${(REST_CIRC*(1-restFraction())).toFixed(1)}"/></svg><div class="timer-number" id="main-timer">${clock(restLeft())}</div></div><p class="muted small" style="text-align:center;margin-top:-8px">${r.paused?'Timer paused':'Breathe. The weights are not going anywhere.'}</p><div class="timer-actions"><button class="btn" data-action="timer-minus">−15 sec</button><button class="btn" data-action="timer-pause">${svg(r.paused?'play':'pause','tiny-icon')} ${r.paused?'Resume':'Pause'}</button><button class="btn" data-action="timer-plus">+15 sec</button></div><button class="btn block" style="margin-top:15px" data-action="timer-skip">Skip rest</button><p class="hint" style="text-align:center">Countdown is saved if you minimise or reopen the app.</p></section>`;}
 function modalField(key,label,value='',type='text',other=''){return `<div class="field"><label for="modal-${key}" class="label">${label}</label><input class="input" id="modal-${key}" name="${key}" type="${type}" ${other} value="${escapeHtml(value)}"/></div>`;}
 function confirmInApp(message,{title='Please confirm',approveLabel='Confirm',danger=true}={}){
@@ -944,7 +976,7 @@ if(modal.type==='video'){
 }
 if(modal.type==='clerk')return modalShell('Set up Clerk sign-in',`${modalField('key','Clerk publishable key (pk_test_ or pk_live_)','','text','required autocomplete="off" spellcheck="false"')}<p class="hint">Paste only the public publishable key from your Clerk Dashboard. This enables your own phone to test the sign-in flow. For all users, set the key in clerk-auth.js before releasing. Do not use a secret key here.</p>`,'form-clerk','Save publishable key');
 if(modal.type==='cloud'){const cfg=cloud.getConfig();return modalShell('Configure private cloud',`${modalField('url','Supabase project URL',cfg?.url||'','url','placeholder="https://your-project.supabase.co" required')}${modalField('key','Supabase public publishable/anon key',cfg?.key||'','text','required')}<p class="hint">Use only a Supabase public publishable/anon key, never a service-role or secret key. Google OAuth must first be enabled in your Google Cloud and Supabase projects. Sign-in is optional and does not erase local records.</p>`,'form-cloud','Save cloud configuration');}
-if(modal.type==='workout-summary')return modalShell('Session banked',`<div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><div class="history-summary-actions"><button class="btn block" data-action="undo-finish-workout" data-id="${escapeHtml(modal.historyId||'')}" ${modal.historyId?'':'disabled'}>↶ Undo finish · Reopen workout</button><button class="btn primary block" data-action="view-workout-history">View workout history</button><button class="btn block" data-action="close-modal">Back to workout plans</button></div>`);
+if(modal.type==='workout-summary')return modalShell('Session banked',`<div id="recomp-workout-win" class="recomp-workout-win" aria-hidden="true"><span class="recomp-win-mark"><svg viewBox="0 0 60 60"><path class="recomp-win-tick" d="M11 30L24 43L49 17"/></svg></span>${Array.from({length:14},(_,i)=>{const angle=i*2*Math.PI/14,dist=68+(i%3)*16;return '<i class="recomp-win-spark" data-dx="'+Math.round(Math.cos(angle)*dist)+'" data-dy="'+Math.round(Math.sin(angle)*dist)+'" data-rot="'+i*70+'"></i>';}).join('')}</div><div class="hero-number" style="text-align:center;margin-top:6px">${modal.duration} min</div><p style="text-align:center" class="muted">${modal.sets} sets · ${num(modal.volume)} kg moved</p><p class="small muted" style="text-align:center">Legend behaviour. Eat, hydrate, sleep. Repeat.</p><div class="history-summary-actions"><button class="btn block" data-action="undo-finish-workout" data-id="${escapeHtml(modal.historyId||'')}" ${modal.historyId?'':'disabled'}>↶ Undo finish · Reopen workout</button><button class="btn primary block" data-action="view-workout-history">View workout history</button><button class="btn block" data-action="close-modal">Back to workout plans</button></div>`);
 return '';
 }
 function navHtml(){return `<nav class="nav" aria-label="Main navigation">${[['home','home','Dashboard'],['workouts','dumbbell','Workouts'],['nutrition','food','Nutrition'],['body','chart','Body tracker'],['you','user','You']].map(([id,iconName,label])=>`<button class="nav-btn ${tab===id?'active':''}" data-action="tab" data-tab="${id}">${svg(iconName)} ${label}</button>`).join('')}<button class="nav-btn ${tab==='settings'?'active':''}" data-action="tab" data-tab="settings">${svg('settings')} Settings</button></nav>`;}
@@ -1021,7 +1053,7 @@ function youView(){const tasks=todaysTasks();return renderYouPage({date:today(),
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,you:youView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
 if(state.fitnessMode==='basic')document.querySelector('[data-action="create-template"]')?.remove();
@@ -1029,18 +1061,35 @@ if(active)updateWorkoutScrollHeader();
 if(focusedGoal)document.getElementById('goal-'+focusedGoal)?.focus({preventScroll:true});
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 workoutBackGuard?.arm();
+refreshMotionClock(Boolean(state.session),timerTick);
+// Animate only when the screen or body tab changes, not after every set tick,
+// food entry, goal update, or asynchronous catalogue refresh.
+if(!modal && !confirmation){
+ const pageKey=tab+(tab==='body'?':'+bodyPanel:'')+(tab==='workouts'?':'+(historyPanel||'plans'):'')+(active?':active:'+state.session.id:'');
+ if(pageKey!==lastMotionPage){
+  lastMotionPage=pageKey;
+  const page=document.querySelector('.main');
+  runMotion('playPageBody',page);
+  runMotion('playPageTitle',page);
+  if(tab==='workouts'&&!historyPanel&&!active)runMotion('playProgrammeCards',page);
+  else if(tab==='body'&&bodyPanel==='weight')runMotion('playBodyTrend',page);
+ }
+}
+refreshMotionClock(Boolean(state.session),timerTick);
 }
 function setTab(dest,swipeDirection=null){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
  const order=['home','workouts','nutrition','body','you'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
+ pageHistory?.visit(dest);
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=dest;planActionsId=null;mealGuideActionsId=null;state.lastTab=dest;render();},'tab',direction);
+ runMotion('playNavigationFeedback',document.body);
  haptic('tap');put('state',state).catch(console.error);
 }
 function beginWorkout(id){
- if(state.fitnessMode==='basic'&&!['A','B'].includes(id))return;
  const template=templateById(id);if(!template)return;
+ if(state.fitnessMode==='basic' && !(state.basicProfile?template.basicGenerated:['A','B'].includes(id)))return;
  if(state.session){pendingPlanSwitch(id);return;}
  if(!template.items.length){notify('Add an exercise to this plan first.');return;}
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,instructions:template.notes||'',groupSettings:structuredClone(template.groupSettings||{}),exercises:buildWorkoutExercises(template),activeIndex:0,rest:null,warmupStatus:'pending'};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
@@ -1116,7 +1165,7 @@ async function eraseLocalFitnessData(){
  window.scrollTo({top:0,behavior:'instant'});render();
  notify('Local fitness data cleared. Built-in workout plans remain available.');
 }
-async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);const historyId=uid();state.workoutHistory.push({id:historyId,templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises,sessionDetails:saveSessionDetails(s)});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',historyId,duration:minutes,volume,sets:done.length};await commit();}
+async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);const historyId=uid();state.workoutHistory.push({id:historyId,templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises,sessionDetails:saveSessionDetails(s)});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',historyId,duration:minutes,volume,sets:done.length};await commit();runMotion('playWorkoutSuccess',document.getElementById('recomp-workout-win'));}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -1184,6 +1233,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'confirm-cancel':settleConfirmation(false);break;
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
+ case 'settings-home':setTab('home');break;
  case 'you-sync-steps':await syncNativeActivity();break;
  case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
  case 'you-refresh-device':{const day=await readAndroidWellbeingDay(today());rememberDeviceDay(day);render();notify('Device wellbeing refreshed, stored only on this phone.');break;}
@@ -1191,10 +1241,11 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'you-remove-habit':if(await confirmInApp('Remove this habit from your You dashboard?')){removeYouHabit(el.dataset.id);render();}break;
  case 'switch-fitness-mode':{
   const next=state.fitnessMode==='basic'?'advanced':'basic';
-  if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (Full Body A and B)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
+  if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (ready-made workout programmes)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
   await setFitnessMode(next);break;
  }
  case 'fitness-profile':modal={type:'fitness-profile'};render();break;
+ case 'basic-profile':maybeShowBasicOnboarding(true);break;
  case 'copy-personal-prompt':modal={type:'personal-prompt'};render();break;
  case 'personal-prompt-copy':{
   if(!state.fitnessProfile)throw Error('Complete your fitness profile first.');
@@ -1317,7 +1368,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'delete-photo':if(await confirmInApp('Delete this progress photograph from the device? A cloud copy, if already backed up, may remain until you delete it from cloud storage.')){let id=el.dataset.id;state.photos=state.photos.filter(f=>f.id!==id);await deletePhoto(id);const url=photoUrls.get(id);if(url)URL.revokeObjectURL(url);photoUrls.delete(id);await commit();}break;
  case 'repeat-food':{let x=state.food.find(x=>x.id===el.dataset.id);if(x){state.food.push({...x,id:uid(),date:today()});await commit();notify('Added to today’s food diary');}break;}
  case 'begin-template':beginWorkout(el.dataset.id);break;
- case 'create-template':if(state.fitnessMode==='basic'){notify('Basic mode includes only Full Body A and B. Switch to Advanced to create more plans.');break;}modal={type:'new-template'};render();break;
+ case 'create-template':if(state.fitnessMode==='basic'){notify('Basic mode provides ready-made routines. To create your own workout from scratch, switch to Advanced.');break;}modal={type:'new-template'};render();break;
  case 'toggle-history':historyPanel=(historyPanel===(tab==='nutrition'?'food':'workouts'))?null:(tab==='nutrition'?'food':'workouts');window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'history-close':historyPanel=null;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'view-workout-history':modal=null;historyPanel='workouts';window.scrollTo({top:0,behavior:'instant'});render();break;
@@ -1439,12 +1490,29 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'finish-workout':await finishWorkout();break;
  case 'configure-cloud':modal={type:'cloud'};render();break;
  case 'clerk-login':{
-  if(!isClerkLoginAvailable()){notify('Clerk sign-in is not configured yet. Continue as a guest.');break;}
-  await openClerkSignIn();
-  render();break;
+  if(clerkSignInBusy)break;
+  if(!isClerkLoginAvailable()){
+   clerkSignInError='Google sign-in is not configured. You can continue using Recomp without an account.';
+   render();break;
+  }
+  clerkSignInError='';clerkSignInBusy=true;render();
+  try{
+   const account=await openClerkSignIn();
+   if(window.Capacitor?.isNativePlatform?.()&&!account)await restoreNativeClerkAccount();
+   if(window.Capacitor?.isNativePlatform?.()&&!getClerkAccount())
+    throw Error('Google returned without an active Recomp account. Check Clerk Native API and the Android app package configuration.');
+   if(getClerkAccount()){
+    try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
+    notify('Signed in with Google. Your fitness records remain on this device.');
+   }
+  }catch(error){
+   clerkSignInError=String(error?.message||'Google sign-in could not complete. Please try again.').slice(0,380);
+   console.warn('Clerk sign-in was not completed:',clerkSignInError);
+  }finally{clerkSignInBusy=false;if(tab==='settings')render();}
+  break;
  }
  case 'clerk-signout':{
-  await clerkSignOut();render();notify('Signed out. Your locally saved fitness records remain on this device.');break;
+  await clerkSignOut();clerkSignInError='';render();notify('Signed out. Your locally saved fitness records remain on this device.');break;
  }
  case 'clerk-setup':modal={type:'clerk'};render();break;
  case 'google-login':{if(window.Capacitor?.isNativePlatform?.()){notify('Native Google OAuth deep links need Android testing. Sign in through the hosted website for now.');break;}if(!cloud.getConfig()){modal={type:'cloud'};render();notify('Configure your private Supabase project before Google sign-in.');break;}await cloud.startGoogleLogin();break;}
@@ -1640,7 +1708,27 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
- if(el.matches('[data-you-habit]')){setYouHabit(el.dataset.youHabit,today(),el.checked);haptic('check');render();return;}
+ if(el.matches('[data-you-habit]')){
+  const date=today(),previousStreak=habitStreak(getYouData(),date);
+  setYouHabit(el.dataset.youHabit,date,el.checked);
+  const currentStreak=habitStreak(getYouData(),date);
+  haptic('check');render();
+  if(el.checked&&tab==='you'){
+   const updatedHabit=[...document.querySelectorAll('[data-you-habit]')].find(item=>item.dataset.youHabit===el.dataset.youHabit);
+   if(updatedHabit)runMotion('playHabitCheck',updatedHabit.closest('label'));
+  }
+  // Play only for a genuinely completed new milestone, at most once per day.
+  if(el.checked&&currentStreak>previousStreak&&[7,14,30,60,100,365].includes(currentStreak)){
+   const key='recomp-streak-motion-v1',value=date+':'+currentStreak;
+   try{
+    if(localStorage.getItem(key)!==value){
+     localStorage.setItem(key,value);
+     if(tab==='you')runMotion('playStreakMilestone',document.getElementById('app'));
+    }
+   }catch{if(tab==='you')runMotion('playStreakMilestone',document.getElementById('app'));}
+  }
+  return;
+ }
  if(el.id==='personal-plan-file'&&modal?.type==='personal-plan-import'){
   const file=el.files?.[0];if(!file)return;
   personalImportReview=null;
@@ -1880,6 +1968,7 @@ function showUpdateNotice(){
  document.body.appendChild(banner);
 }
 async function init(){try{
+ if(window.Capacitor?.isNativePlatform?.())document.documentElement.classList.add('recomp-native');
  const saved=await get('state');
  const hadSavedState=Boolean(saved&&typeof saved==='object'&&!Array.isArray(saved));
  state=hadSavedState?saved:INITIAL();
@@ -1925,6 +2014,20 @@ async function init(){try{
   // A focused workout should restore as focused. A minimised session must NOT hijack the last tab.
   if(!state.session.minimized && tab!=='workouts')state.session.minimized=true;
  }
+ // Register each Recomp page in WebView history so Android Back navigates
+ // to Home from Settings instead of closing the app. Workout Back keeps its
+ // own independent history sentinel for minimising active sessions.
+ pageHistory=createPageHistory({
+  history:window.history,
+  subscribe:(name,callback)=>window.addEventListener(name,callback),
+  initialPage:tab,
+  onNavigate:next=>{
+   if(!state||next===tab)return;
+   historyPanel=null;planActionsId=null;mealGuideActionsId=null;
+   motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});tab=next;state.lastTab=next;render();},'tab');
+   persist().catch(console.error);
+  }
+ });
  // A same-page history entry allows Android / Chrome Back to minimise rather than exit.
  // It also closes in-app overlays before minimising. The current session is persisted.
  workoutBackGuard=createWorkoutBackGuard({
@@ -1993,6 +2096,9 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
  // is ever required to access existing IndexedDB fitness records.
  if(isClerkLoginAvailable()){
   try{
+   if(window.Capacitor?.isNativePlatform?.()){
+    await restoreNativeClerkAccount();
+   }else{
    const clerkClient=await loadClerk();
    // Keep the account display in sync and close the first-run welcome after
    // Clerk confirms authentication. This listener never modifies fitness data.
@@ -2004,6 +2110,7 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
     }
     if((tab==='settings'||tab==='home') && !modal)render();
    },{skipInitialEmit:true});
+   }
   }catch(e){console.warn('Optional Clerk sign-in unavailable:',e.message);}
  }
  // Guest-first welcome is only for genuinely new installations. Never interrupt
@@ -2021,19 +2128,44 @@ try{if(new URLSearchParams(location.search).has('code')){await cloud.finishGoogl
    developmentMode:isClerkDevelopmentMode(),
    onGuest:()=>{try{localStorage.setItem(FIRST_RUN_KEY,'guest');}catch{}queueMicrotask(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();});},
    onGoogle:async()=>{
-    if(window.Capacitor?.isNativePlatform?.())return 'Google sign-in still needs testing in the native Android wrapper. Continue as a guest for now.';
     if(!isClerkLoginAvailable())return 'Clerk sign-in is not configured yet. Continue without signing in for now.';
     await openClerkSignIn();
+    // Native sign-in resumes from the Android callback after Chrome completes.
+    try{localStorage.setItem(FIRST_RUN_KEY,'google');}catch{}
+    // First-run overlay closes after onGoogle resolves, so schedule onboarding
+    // on the next task (not a microtask that could run before overlay removal).
+    setTimeout(()=>{maybeShowFitnessMode();maybeShowInitialDailyTargets();},0);
+    render();
    }
   });
  }else{
   // Restore new-user choice after reloads; legacy users are already advanced.
-  maybeShowFitnessMode();maybeShowInitialDailyTargets();
+  maybeShowFitnessMode();maybeShowBasicOnboarding();maybeShowInitialDailyTargets();
  }
  // First-time users complete Daily Targets before seeing this planner.
  setTimeout(()=>maybeShowDailyTaskPrompt(),0);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>maybeShowDailyTaskPrompt(),250);});
-setInterval(timerTick,500);
+ async function refreshNativeAccountAfterReturn(){
+  if(!window.Capacitor?.isNativePlatform?.()||nativeAuthRefreshing||clerkSignInBusy)return;
+  nativeAuthRefreshing=true;
+  const before=getClerkAccount()?.id||null;
+  try{
+   await restoreNativeClerkAccount();
+   if((getClerkAccount()?.id||null)!==before&&(tab==='settings'||tab==='home'))render();
+  }catch(error){console.warn('Native account refresh unavailable:',error?.message);}
+  finally{nativeAuthRefreshing=false;}
+ }
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){
+  timerTick();void refreshNativeAccountAfterReturn();
+  setTimeout(()=>maybeShowDailyTaskPrompt(),250);
+ }});
+ window.addEventListener('focus',()=>{void refreshNativeAccountAfterReturn();});
+// Anime.js createTimer drives the 30fps UI countdown on native builds.
+// If the optional animation bundle is absent on a static PWA, retain the
+// previous half-second timer so workouts never depend on animations.
+motionBundleReady().then(ready=>{
+ if(ready)refreshMotionClock(Boolean(state.session),timerTick);
+ else setInterval(timerTick,500);
+});
 setInterval(async()=>{if(!state.dirty||localStorage.getItem('recomp-auto-sync')!=='yes'||!navigator.onLine||!cloud.getSession())return;try{await pushCloud();}catch(e){console.warn('Auto-sync waiting:',e.message);}},60000);
 }catch(err){console.error(err);document.body.innerHTML=`<div style="max-width:500px;margin:10vh auto;padding:25px"><h1>Unable to open Recomp</h1><p>${escapeHtml(err.message)}</p><p>Your locally stored data has not been cleared. Try reloading. If the problem continues, do not clear site data, as it may contain your only copy of your records.</p><button id="recomp-retry" type="button" style="padding:12px 24px;border-radius:12px;background:#75eac4;color:#09241c;font:inherit">Reload Recomp</button></div>`;document.getElementById('recomp-retry')?.addEventListener('click',()=>location.reload());}}
 init();
