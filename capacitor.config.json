@@ -14,6 +14,10 @@
       "initialViewportFitValueHint": "cover",
       "style": "DARK",
       "hidden": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_recomp",
+      "iconColor": "#6EF5C8"
     }
   }
 }

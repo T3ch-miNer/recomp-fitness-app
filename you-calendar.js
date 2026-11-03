@@ -70,6 +70,7 @@ export function dayMarks(overview){
 
 const MARK_LABELS={workout:'Workout',weight:'Weight',photo:'Photo',note:'Note'};
 const longDate=date=>new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+const shortDate=date=>new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
 const monthTitle=key=>new Date(key+'-01T12:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
 const hm=min=>`${Math.floor(min/60)}h ${pad(min%60)}m`;
 
@@ -101,24 +102,26 @@ export function renderCalendar({month,selected,today,marksFor}){
 
 export function renderDayDetail(o,{today,photoUrlFor=()=>null}={}){
  const isToday=o.date===today;
- const rows=[];
- rows.push(['Workout',o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} sets`).join('<br/>'):'Rest day']);
- rows.push(['Food',o.meals?`${o.kcal.toLocaleString('en-GB')} kcal · ${o.protein} g protein`:'Nothing logged']);
- rows.push(['Steps',o.steps?o.steps.toLocaleString('en-GB'):'Not recorded']);
- rows.push(['Screen time',o.screenMinutes!=null?`${hm(o.screenMinutes)}${o.unlocks!=null?` · ${o.unlocks} unlocks`:''}`:'Not recorded']);
- rows.push(['Weight',o.weight!=null?`${o.weight} kg`:'Not recorded']);
- if(o.habitsTotal)rows.push(['Habits',`${o.habitsDone} of ${o.habitsTotal}`]);
+ const workout=o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} sets`).join('<br/>'):'Rest day';
+ const stats=[
+  ['Food',o.meals?`${o.kcal.toLocaleString('en-GB')} kcal`:'—',o.meals?`${o.protein} g protein`:'Not logged'],
+  ['Steps',o.steps?o.steps.toLocaleString('en-GB'):'—',''],
+  ['Weight',o.weight!=null?`${o.weight} kg`:'—',''],
+  ['Screen',o.screenMinutes!=null?hm(o.screenMinutes):'—',o.unlocks!=null?`${o.unlocks} unlocks`:'']
+ ];
+ if(o.habitsTotal)stats.push(['Habits',`${o.habitsDone}/${o.habitsTotal}`,'']);
  const photos=o.photos.map(p=>{const url=photoUrlFor(p.id);return url?`<img src="${esc(url)}" alt="Progress photo, ${esc(p.view||'')} view" loading="lazy"/>`:'<span class="you-day-photo-missing">Photo saved</span>';}).join('');
  const quick=isToday&&(o.weight==null||!o.photos.length)?`<div class="you-actions">${o.weight==null?'<button type="button" class="btn" data-action="add-weight">Log weight</button>':''}${!o.photos.length?'<button type="button" class="btn" data-action="add-photo">Add photo</button>':''}</div>`:'';
  return `<section class="you-card you-day" aria-labelledby="you-day-title">
- <div class="you-card-top"><h2 id="you-day-title">${esc(longDate(o.date))}</h2>${isToday?'<span class="you-muted">Today</span>':''}</div>
- <dl class="you-day-rows">${rows.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+ <div class="you-card-top"><h2 id="you-day-title" aria-label="${esc(longDate(o.date))}">${esc(shortDate(o.date))}</h2>${isToday?'<span class="you-muted">Today</span>':''}</div>
+ <p class="you-day-workout"><span>Workout</span><b>${workout}</b></p>
+ <dl class="you-day-stats">${stats.map(([k,v,sub])=>`<div><dt>${k}</dt><dd>${v}${sub?`<small>${sub}</small>`:''}</dd></div>`).join('')}</dl>
  ${photos?`<div class="you-day-photos">${photos}</div>`:''}
  ${quick}
  <form id="you-day-note-form" class="you-day-note" data-date="${o.date}">
   <span class="you-day-label" id="you-mood-label">How did the day go?</span>
   <div class="you-moods" role="radiogroup" aria-labelledby="you-mood-label">${MOODS.map(m=>`<label class="you-mood ${m.id}"><input type="radio" name="mood" value="${m.id}" ${o.note.mood===m.id?'checked':''}/><span>${m.label}</span></label>`).join('')}</div>
-  <textarea id="you-day-note" class="input" name="note" rows="3" maxlength="${NOTE_LIMIT}" placeholder="A few words about your day: energy, sleep, wins, what got in the way." aria-label="Note for ${esc(longDate(o.date))}">${esc(o.note.text)}</textarea>
+  <textarea id="you-day-note" class="input" name="note" rows="2" maxlength="${NOTE_LIMIT}" placeholder="A few words about your day: energy, sleep, wins, what got in the way." aria-label="Note for ${esc(longDate(o.date))}">${esc(o.note.text)}</textarea>
   <button type="submit" class="btn primary">${o.note.text||o.note.mood?'Update note':'Save note'}</button>
  </form>
  </section>`;

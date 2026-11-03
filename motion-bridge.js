@@ -8,8 +8,8 @@ function loadMotion(){
  });
  return modulePromise;
 }
-export function runMotion(name,element){
- return loadMotion().then(mod=>{if(mod?.[name])return mod[name](element);}).catch(error=>console.warn('Optional motion skipped:',error?.message));
+export function runMotion(name,element,...args){
+ return loadMotion().then(mod=>{if(mod?.[name])return mod[name](element,...args);}).catch(error=>console.warn('Optional motion skipped:',error?.message));
 }
 let wantedClockActive=false,wantedClockTick=null;
 export function refreshMotionClock(active,onTick){

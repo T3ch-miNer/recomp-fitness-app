@@ -148,3 +148,32 @@ export function playPageTitle(root){
  waapi.animate(title,{y:['7px','0px'],opacity:[.72,1],scale:[.985,1],
    duration:560,ease:spring({bounce:.12})});
 }
+
+// v3.4 workout motion. Short, transform and opacity only, so it stays smooth on Android.
+export function playSetTick(button){
+  if(prefersLessMotion() || !button?.isConnected)return;
+  waapi.animate(button,{scale:[.7,1.12,1],duration:420,ease:spring({bounce:.45})});
+  const row=button.closest('.set-grid');
+  if(row)waapi.animate(row,{backgroundColor:['rgba(110,245,200,.22)','rgba(110,245,200,0)'],duration:700,ease:'out(2)'});
+}
+
+export function playExerciseAdvance(nextCard,doneCard){
+  if(prefersLessMotion())return;
+  if(doneCard?.isConnected){
+    const mark=doneCard.querySelector('.workout-num');
+    if(mark)waapi.animate(mark,{scale:[.6,1.15,1],duration:460,ease:spring({bounce:.4})});
+  }
+  const inner=nextCard?.querySelector('.workout-inner');
+  if(inner)waapi.animate(inner,{opacity:[0,1],y:['-8px','0px'],duration:360,ease:'cubic-bezier(.2,.7,.3,1)'});
+}
+
+export function playProgressFill(bar,fromPct,toPct){
+  if(prefersLessMotion() || !bar?.isConnected)return;
+  waapi.animate(bar,{width:[fromPct+'%',toPct+'%'],duration:520,ease:'cubic-bezier(.2,.7,.3,1)'});
+}
+
+export function playExerciseOpen(card){
+  if(prefersLessMotion() || !card?.isConnected)return;
+  const inner=card.querySelector('.workout-inner');
+  if(inner)waapi.animate(inner,{opacity:[0,1],y:['-6px','0px'],duration:300,ease:'cubic-bezier(.2,.7,.3,1)'});
+}

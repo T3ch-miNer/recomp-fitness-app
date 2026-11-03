@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {CACHE,APP_SCRIPT} from './release.mjs';
+import {reminderSummary,renderReminderSettings} from '../reminders.js';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const app=read('app.js'),css=read('settings-layout.css'),htmlPage=read('index.html'),sw=read('sw.js');
@@ -11,6 +12,7 @@ const getView=new Function(
  'state','heading','svg','cloud','getClerkAccount','isClerkLoginAvailable',
  'isClerkDevelopmentMode','getClerkKey','escapeHtml','themeChoice',
  'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen','onlineStatus','onlineCatalog','onlineError','onlineBusy','clerkSignInError','clerkSignInBusy',
+ 'reminderSummary','renderReminderSettings','nativeRemindersAvailable','exactAlarm',
  app.slice(begin,end)+'\nreturn settingsView;'
 );
 function view({signedIn=true,draft=null,advanced=false}={}){
@@ -22,13 +24,14 @@ function view({signedIn=true,draft=null,advanced=false}={}){
  ()=>signedIn?{name:'Alex Taylor',email:'alex@example.com'}:null,
  ()=>true,()=>false,()=>true,
  s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
- ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,'Connected',{foods:[],workouts:[],exercises:[]},'',false,'',false
+ ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,'Connected',{foods:[],workouts:[],exercises:[]},'',false,'',false,
+ reminderSummary,renderReminderSettings,()=>false,'granted'
  );
  return client();
 }
 test('settings groups have clear hierarchy and matching jump navigation',()=>{
  const body=view();
- const ids=['account','targets','routine','appearance','data'];
+ const ids=['account','targets','routine','reminders','appearance','data'];
  let last=-1;
  for(const id of ids){
   const needle='id="settings-'+id+'"';
@@ -62,7 +65,7 @@ test('responsive stylesheet is loaded and cached with the same release',()=>{
  assert.match(css,/\.settings-targets-card \.field-row/);
  assert.match(css,/@media\(max-width:760px\)/);
  assert.match(css,/\.settings-advanced-summary:focus-visible/);
- assert.match(htmlPage,/settings-layout\.css\?v=2\.7-settings-hub/);
+ assert.match(htmlPage,/settings-layout\.css\?v=3\.4/);
  assert.match(sw,/settings-layout\.css/);
  assert.ok(sw.includes(CACHE));
 });

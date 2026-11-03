@@ -61,8 +61,8 @@ test('day overview shows the note form, moods, photo and quick actions for today
  const o=dayOverview('2026-11-02',records);
  const html=renderDayDetail(o,{today:'2026-11-02',photoUrlFor:()=>'blob:photo'});
  assert.match(html,/Foundation A · 44 min · 12 sets/);
- assert.match(html,/1,500 kcal · 96 g protein/);
- assert.match(html,/3h 25m · 64 unlocks/);
+ assert.match(html,/1,500 kcal<small>96 g protein<\/small>/);
+ assert.match(html,/3h 25m<small>64 unlocks<\/small>/);
  assert.match(html,/72\.4 kg/);
  assert.match(html,/<img src="blob:photo"/);
  assert.match(html,/id="you-day-note-form" class="you-day-note" data-date="2026-11-02"/);
@@ -89,7 +89,7 @@ test('screen-time feedback moves from balanced to heavy and compares with the re
 
 test('app saves notes in fitness records and keeps old saves working',()=>{
  const app=read('app.js');
- assert.match(app,/dayNotes:\{\},session:null/);
+ assert.match(app,/dayNotes:\{\},reminders:cleanReminders\(\),session:null/);
  assert.match(app,/if\(!state\.dayNotes\|\|typeof state\.dayNotes!=='object'\|\|Array\.isArray\(state\.dayNotes\)\)state\.dayNotes=\{\}/);
  assert.match(app,/if\(id==='you-day-note-form'\)/);
  assert.match(app,/case 'you-cal-day'/);
@@ -97,9 +97,11 @@ test('app saves notes in fitness records and keeps old saves working',()=>{
  assert.ok(read('sw.js').includes("'./you-calendar.js'"));
 });
 
-test('Workouts shows a minimised session once, and Android paints the status bar band',()=>{
+test('the floating workout bar returns on Workouts and steps aside near the in-progress card; Android paints the status bar band',()=>{
  const app=read('app.js'),native=read('android-safe-area.css');
- assert.match(app,/\$\{state\.session&&!active&&!\(tab==='workouts'&&!historyPanel\)\?`<div class="floating-workout"/);
+ assert.match(app,/\$\{state\.session&&!active\?`<div class="floating-workout\$\{tab==='workouts'&&!historyPanel\?' on-workouts near-notice':''\}"/);
+ assert.match(app,/new IntersectionObserver/);
+ assert.match(read('scroll-chrome.css'),/\.floating-workout\.on-workouts\.near-notice\{opacity:0/);
  assert.doesNotMatch(app,/Another plan requires your choice/);
  assert.match(app,/'Continue workout':'Start workout'/);
  assert.match(native,/html\.recomp-native body::before\{/);

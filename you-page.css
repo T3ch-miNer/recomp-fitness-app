@@ -82,3 +82,29 @@
 .you-screen-feedback.okay .you-feedback-mark{background:#86efac}
 .you-screen-feedback.high .you-feedback-mark{background:#fbbf24}
 .you-screen-feedback.heavy .you-feedback-mark{background:#fb923c}
+/* v3.4: calendar sits first on You and is more compact. */
+.you-calendar{padding:10px 10px 8px;margin-bottom:8px}
+.you-cal-head{margin:0 2px 6px}
+.you-cal-head h2{font-size:15px}
+.you-cal-nav{width:32px;height:32px;min-height:32px;font-size:18px}
+.you-cal-grid{gap:2px}
+.you-cal-weekday{padding:0 0 2px;font-size:10px}
+.you-cal-day,.you-cal-empty{aspect-ratio:auto;height:38px}
+.you-cal-day{padding:3px 0 4px;border-radius:10px;font-size:13px}
+.you-cal-dot{width:4px;height:4px}
+.you-cal-dots{gap:2px;height:4px}
+.you-cal-legend{margin:6px 2px 0;gap:4px 12px;font-size:10px}
+.you-day{padding:14px 14px 12px}
+.you-day h2{font-size:15px}
+.you-day-workout{display:flex;justify-content:space-between;gap:12px;margin:10px 0 8px;font-size:13px}
+.you-day-workout span{color:var(--muted)}
+.you-day-workout b{text-align:right;font-weight:650;min-width:0;overflow-wrap:anywhere}
+.you-day-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px;margin:0 0 4px}
+.you-day-stats>div{background:var(--panel2);border-radius:12px;padding:8px 9px;min-width:0}
+.you-day-stats dt{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.you-day-stats dd{margin:3px 0 0;font-size:14px;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.you-day-stats dd small{display:block;font-size:10px;font-weight:600;color:var(--muted);margin-top:1px}
+.you-day-note{gap:8px;margin-top:10px}
+.you-mood span{padding:7px 4px}
+.you-day-note textarea{min-height:60px}
+.you-day-photos img{width:72px;height:96px}

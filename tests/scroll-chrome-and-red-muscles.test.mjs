@@ -58,6 +58,6 @@ test('new nav script and CSS precached and versioned',()=>{
  assert.ok(sw.includes(CACHE));
  assert.ok(sw.includes("'./scroll-chrome.js'"));
  assert.ok(sw.includes("'./scroll-chrome.css'"));
- assert.ok(html.includes('scroll-chrome.css?v=2.9.5-red-muscle-scroll'));
- assert.ok(html.includes('workout-focus-flow.css?v=2.9.5-red-muscle-scroll'));
+ assert.ok(html.includes('scroll-chrome.css?v=3.4'));
+ assert.ok(html.includes('workout-focus-flow.css?v=3.4'));
 });

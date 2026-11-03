@@ -102,6 +102,8 @@ permissions='''
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <!-- Android Special App Access; must be enabled in system settings by user. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <!-- Reminders: lets a workout alarm fire on time once the user allows it in settings. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <queries><package android:name="com.google.android.apps.healthdata" /></queries>
 '''
 pos=xml.find('>',xml.index('<manifest'))+1
@@ -132,4 +134,15 @@ if '</application>' not in xml:
 # A shared filter makes Android offer both Recomp and Recomp Beta in its chooser.
 xml=xml.replace('</application>',activities+'    </application>',1)
 manifest.write_text(xml)
-print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions.')
+
+# Status-bar icon for reminders: a white pulse line, drawn as a vector.
+drawable=base/'res'/'drawable'
+drawable.mkdir(parents=True,exist_ok=True)
+(drawable/'ic_stat_recomp.xml').write_text("""<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M2.5,13h4l2.5,-6 4,11 3,-8 2,3h3.5"/>
+</vector>
+""")
+print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions, plus the reminder icon.')

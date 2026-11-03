@@ -116,6 +116,7 @@ export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTask
  const steps=Math.max(0,Number(activity?.steps)||0),goal=Math.max(1,Number(stepGoal)||8000);
  const fb=device?screenTimeFeedback({minutes:Number(device.screenMinutes),unlocks:Number(device.unlocks),recent:recentScreenMinutes(data.device,date),partial:hour<21}):null;
  return `<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>
+ ${calendarHtml}
  <section class="you-card you-hero" aria-label="Daily consistency">
   <div class="you-card-top"><span class="eyebrow">Habit streak</span><span class="you-flame" aria-hidden="true">✦</span></div>
   <div class="you-big">${streak} <small>day${streak===1?'':'s'}</small></div>
@@ -123,7 +124,6 @@ export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTask
   <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${habit.total}" aria-valuenow="${habit.completed}" aria-label="Habits completed"><span style="width:${habit.total?Math.round(100*habit.completed/habit.total):0}%"></span></div>
   <p class="you-caption">${habit.completed} of ${habit.total} wellbeing habits · ${dailyTasksDone} of ${dailyTasksTotal} Recomp tasks today</p>
  </section>
- ${calendarHtml?`<div class="you-section-title"><h2>Your calendar</h2><span>Tap a day for its overview</span></div>${calendarHtml}`:''}
  <div class="you-section-title"><h2>Daily movement</h2><span>${esc(activity?.source||'Manual or not recorded')}</span></div>
  <section class="you-card">
   <div class="you-card-top"><strong>Steps</strong><span class="you-muted">Goal ${goal.toLocaleString('en-GB')}</span></div>

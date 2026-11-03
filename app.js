@@ -10,6 +10,7 @@ import {renderGiantSetView} from './giant-set-view.js';
 import {renderMuscleFocus,renderMuscleFocusLink} from './muscle-focus.js';
 import {nextBackStep,createPageTrail} from './back-navigation.js';
 import {renderCalendar,renderDayDetail,dayOverview,dayMarks,cleanNote,shiftMonth,monthKey} from './you-calendar.js';
+import {cleanReminders,renderReminderSettings,readReminderForm,applyReminders,nativeRemindersAvailable,reminderSummary,exactAlarmStatus,openExactAlarmSettings,onReminderTap,dueNow} from './reminders.js';
 import {reopenCompletedWorkout,saveSessionDetails} from './workout-recovery.js';
 import {nextScrollChromeState} from './scroll-chrome.js';
 import {warmupView,WARMUP_VIDEO_ID} from './warmup.js';
@@ -132,12 +133,14 @@ const INITIAL = () => ({
  tasks:[{id:'protein',label:'Reach protein target',auto:'protein'},{id:'walk',label:'Reach step goal',auto:'steps'},{id:'water',label:'Reach water goal',auto:'water'},{id:'training',label:'Complete planned workout',auto:'workout'}],
  taskChecks:{},dailyTasks:[],dailyTaskPlanning:null, mealGuideItems:structuredClone(DEFAULT_MEAL_GUIDE), food:[],water:[],activity:[],weights:[],
  measurements:[],
- photos:[],workoutHistory:[],dayNotes:{},session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
+ photos:[],workoutHistory:[],dayNotes:{},reminders:cleanReminders(),session:null,templates:structuredClone([...FTS_WORKOUTS,...FTS_WORKOUTS_5_TO_15,...FTS_WORKOUTS_16_TO_41]),ftsWorkoutImportVersion:5,
  lastTab:'home',lastBodyPanel:'measurements',lastNutritionPanel:'diary',dirty:false,lastSync:null
 });
 let confirmation=null,workoutBackGuard=null,pageHistory=null;
 let musclePage=false,nativeBack=false;const pageTrail=createPageTrail();
 let youMonth=null,youSelected=null,youPhotoLoad=null,lastWellbeingRefresh=0; // View-only calendar position.
+let exactAlarm='granted',lastReminderMinute='';
+let workoutMotion=null,lastWorkoutPct=null; // One-shot motion after the next render.
 let state,tab='home',modal=null,restSheet=false,exerciseOpen=null,foodMeal='Breakfast',bodyPanel='measurements',nutritionPanel='diary',chartPeriod=4,appMode='normal';
 let lastMotionPage=null;
 let clerkSignInBusy=false,clerkSignInError='',nativeAuthRefreshing=false;
@@ -584,7 +587,7 @@ function personalMealSuggestionsView(){
  </details>`;
 }
 function nutritionView(){if(historyPanel==='food')return foodHistoryHtml(state.food);
- const t=nutritionTotals(),entries=daily(state.food);const MACRO_COLOUR={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${MACRO_COLOUR[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');return `${heading('Fuel up.','Logging beats guessing. Every single time.',historyHeaderButton('food'))}<div class="mp-launch card"><div><b>Recipes & weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div><div class="nutrition-guide-first">${mealGuideView()}</div>${personalMealSuggestionsView()}<div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div><div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div><div style="margin-top:4px">${bar}</div></div><div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.aiEstimate?' · AI photo estimate':f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">Empty plate, clean slate. Tap Add to fix that.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a few meals and your regulars will queue up here for one-tap repeats.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcode lookup is available. Photo recognition is optional; confirm foods and weights. Review cooking oil and ingredients before logging.</div>`;}
+ const t=nutritionTotals(),entries=daily(state.food);const MACRO_COLOUR={protein:'var(--c-protein)',carbs:'var(--c-carb)',fat:'var(--c-fat)',fibre:'var(--c-fibre)'};let bar= ['protein','carbs','fat','fibre'].map(k=>`<div class="macro-row" style="--mc:${MACRO_COLOUR[k]}"><div class="row space small"><span class="strong"><i class="macro-dot"></i>${k[0].toUpperCase()+k.slice(1)}</span><span><strong>${Math.round(t[k])}</strong> / ${state.goals[k]} g</span></div>${progress(t[k],state.goals[k])}</div>`).join('');return `${heading('Fuel up.','Logging beats guessing. Every single time.',historyHeaderButton('food'))}<div class="summary-hero nutrition-intake-card"><div class="eyebrow">Today's intake</div><div class="hero-number" style="margin-top:12px">${num(t.calories)} <span class="muted small">/ ${num(state.goals.calories)} kcal</span></div><div style="margin:16px 0 20px;--mc:var(--c-fuel)">${progress(t.calories,state.goals.calories)}</div><div style="margin-top:4px">${bar}</div><button type="button" class="btn block plate-guide-button" data-action="open-meal-guide">${svg('food','tiny-icon')} Your everyday plate</button></div><div class="mp-launch card"><div><b>Recipes & weekly plan</b><p class="hint">Save recipes, plan dinner and next-day lunch, and build your grocery list.</p></div><button type="button" class="btn primary" data-action="open-meal-planner">Open planner</button></div>${personalMealSuggestionsView()}<div class="tab-row"><button class="tab ${nutritionPanel==='diary'?'active':''}" data-action="nutrition-panel" data-panel="diary">Food diary</button><button class="tab ${nutritionPanel==='favourites'?'active':''}" data-action="nutrition-panel" data-panel="favourites">Quick add</button></div>${nutritionPanel==='diary'?['Breakfast','Lunch','Dinner','Snack'].map(meal=>{let foods=entries.filter(x=>x.meal===meal);return `<div class="card" style="margin-bottom:12px"><div class="row space"><h3 class="section-title">${meal}</h3><button class="btn ghost" data-action="add-food" data-meal="${meal}">${svg('plus','tiny-icon')} Add</button></div>${foods.length?foods.map(f=>`<div class="list-entry"><div class="list-icon">${svg('food')}</div><div style="flex:1"><div class="strong">${escapeHtml(f.name)}</div><div class="small muted">${f.grams?`${num(f.grams)} g cooked · `:''}${num(f.protein)} g protein · ${num(f.carbs)} g carbs${f.aiEstimate?' · AI photo estimate':f.foodSource==='recomp-estimate-v1'?' · estimate':''}</div></div><div style="text-align:right"><div class="log-amount">${num(f.calories)} kcal</div><button class="btn ghost" data-action="delete-food" data-id="${f.id}" title="Delete food">${svg('trash','tiny-icon')}</button></div></div>`).join(''):`<div class="hint" style="padding:16px 0">Empty plate, clean slate. Tap Add to fix that.</div>`}</div>`}).join(''):`<div class="card"><h3 style="margin-top:0">Recent foods</h3>${[...state.food].reverse().filter((f,i,arr)=>arr.findIndex(x=>x.name===f.name)===i).slice(0,15).map(f=>`<div class="list-entry"><div style="flex:1"><b>${escapeHtml(f.name)}</b><div class="hint">${f.calories} kcal · ${f.protein} g protein</div></div><button class="btn" data-action="repeat-food" data-id="${f.id}">Add today</button></div>`).join('')||'<p class="muted small">Log a few meals and your regulars will queue up here for one-tap repeats.</p>'}</div>`}<div class="outline-banner" style="margin-top:15px">${svg('info','sm-icon')} <b>New:</b> Search ${FOOD_COUNT} Indian home-food estimates offline. Packaged-food barcode lookup is available. Photo recognition is optional; confirm foods and weights. Review cooking oil and ingredients before logging.</div>`;}
 const PHOTO_VIEWS=['Front','Left side','Right side','Back'];
 function photoThumb(p){
  const url=photoUrls.get(p.id),alt=escapeHtml(p.view+' progress photograph from '+dateDisplay(p.date));
@@ -732,8 +735,31 @@ function workoutView(){
 function elapsed(ts){const secs=Math.max(0,Math.floor((Date.now()-ts)/1000));return `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
 function restLeft(){let r=state.session?.rest;return r?(r.paused?Math.ceil(r.remainingMs/1000):Math.max(0,Math.ceil((r.endsAt-Date.now())/1000))):0;}
 function clock(seconds){return `${String(Math.floor(Math.max(0,seconds)/60)).padStart(2,'0')}:${String(Math.max(0,seconds)%60).padStart(2,'0')}`;}
+// "Foundation A · Lose fat & build muscle" shows as a short title with the goal above it.
+function workoutNameParts(name=''){const parts=String(name).split(' · ');return parts.length>1?[parts[0],parts.slice(1).join(' · ')]:[String(name),''];}
+// Your most recent completed sets for this exercise, from any earlier workout.
+let lastTimeCache={size:-1,map:new Map()};
+function lastTimeFor(name){
+ if(lastTimeCache.size!==state.workoutHistory.length){
+  const map=new Map();
+  for(const w of state.workoutHistory)for(const ex of w.exercises||[]){
+   const done=(ex.sets||[]).filter(x=>x.done&&(n(x.kg)>0||n(x.reps)>0));
+   if(done.length)map.set(ex.name,done);
+  }
+  lastTimeCache={size:state.workoutHistory.length,map};
+ }
+ return lastTimeCache.map.get(name)||null;
+}
+function lastTimeLine(e){
+ const sets=lastTimeFor(e.name);if(!sets)return '';
+ const unit=e.unit==='seconds'?' s':e.unit==='minutes'?' min':'';
+ const f=v=>String(+n(v).toFixed(2)); // keeps 22.5 kg as 22.5
+ const kgs=[...new Set(sets.map(x=>n(x.kg)))];
+ const text=kgs.length===1&&kgs[0]>0?`${f(kgs[0])} kg × ${sets.map(x=>f(x.reps)+unit).join(', ')}`:sets.map(x=>(n(x.kg)>0?f(x.kg)+' kg × ':'')+f(x.reps)+unit).join(', ');
+ return `<span class="last-time">Last time: ${escapeHtml(text)}</span>`;
+}
 function musclePageView(s){return `<div class="muscle-page"><button type="button" class="btn history-back" data-action="close-muscle-focus">← Back to workout</button><div class="top"><div class="workout-title-block"><div class="eyebrow">TODAY'S WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1></div></div>${renderMuscleFocus(s.exercises)}</div>`;}
-function activeWorkoutView(){const s=state.session;if(!s) return workoutView();if(musclePage)return musclePageView(s);const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">FOCUSED WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?`<details class="giant-coach-notes"><summary>${String(s.templateId||'').startsWith('fts-')?'Coach notes from FTS':'Coach notes'} · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:''}${!roundMode?renderMuscleFocusLink(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span></span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions"><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demonstration</button><button class="btn danger" data-action="remove-session-exercise" data-index="${i}">${svg('trash','tiny-icon')} Remove</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
+function activeWorkoutView(){const s=state.session;if(!s) return workoutView();if(musclePage)return musclePageView(s);const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">${escapeHtml(workoutNameParts(s.name)[1]||'FOCUSED WORKOUT').toUpperCase()}</div><h1 class="page-title">${escapeHtml(workoutNameParts(s.name)[0])}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div class="workout-progress" style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?`<details class="giant-coach-notes"><summary>${String(s.templateId||'').startsWith('fts-')?'Coach notes from FTS':'Coach notes'} · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:''}${!roundMode?renderMuscleFocusLink(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''} ${open?'is-open':''}" data-ex-card="${i}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span>${lastTimeLine(e)}</span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions compact"><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demo</button><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn danger icon-only" data-action="remove-session-exercise" data-index="${i}" aria-label="Remove ${escapeHtml(e.name)} from this workout" title="Remove">${svg('trash','tiny-icon')}</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
 function settingsSectionHeading(icon,title,description){
  return `<header class="settings-section-head"><span class="settings-section-icon" aria-hidden="true">${svg(icon,'tiny-icon')}</span><span class="settings-section-text"><h2>${title}</h2><p>${description}</p></span></header>`;
 }
@@ -742,7 +768,7 @@ function settingsView(){
  return `${heading('Make it yours.','Your goals, account and preferences in one place.',`<button type="button" class="btn" data-action="settings-home" aria-label="Back to Home">${svg('arrow','tiny-icon')} Home</button>`)}
  <div class="settings-hub">
  <nav class="settings-shortcuts" aria-label="Jump to settings section">
- <a href="#settings-account">Account</a><a href="#settings-targets">Daily targets</a><a href="#settings-routine">Activity &amp; routine</a><a href="#settings-appearance">Look &amp; feel</a><a href="#settings-data">Data &amp; privacy</a>
+ <a href="#settings-account">Account</a><a href="#settings-targets">Daily targets</a><a href="#settings-routine">Activity &amp; routine</a><a href="#settings-reminders">Reminders</a><a href="#settings-appearance">Look &amp; feel</a><a href="#settings-data">Data &amp; privacy</a>
  </nav>
  <section id="settings-account" class="settings-section" aria-label="Account">
  ${settingsSectionHeading('home','Your account','Manage your Google sign-in and profile.')}
@@ -762,12 +788,16 @@ ${state.fitnessMode==='advanced'?personalPromptControls():''}
 <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Build a routine that belongs to you.</div></div><button class="btn" data-action="add-task">${svg('plus','tiny-icon')} Add task</button></div><div class="card task-manager settings-tasks-card">${state.tasks.map(t=>`<div class="task-manage-row"><span class="task-manage-label">${escapeHtml(t.label)}${t.auto?'<small>Auto-linked to your logs, but you can tick manually</small>':'<small>Manually completed from the dashboard</small>'}</span>${t.auto?'<span class="pill">AUTO</span>':''}<button class="btn ghost" data-action="edit-task" data-id="${escapeHtml(t.id)}" aria-label="Edit ${escapeHtml(t.label)}">${svg('edit','tiny-icon')}</button><button class="btn ghost danger" data-action="delete-task" data-id="${escapeHtml(t.id)}" aria-label="Delete ${escapeHtml(t.label)}">${svg('trash','tiny-icon')}</button></div>`).join('')}</div>
 <div class="section-head"><h2 class="section-title">Galaxy Watch and activity</h2></div><div class="card settings-activity-card"><p class="small muted">${nativeHealthAvailable()?'Health Connect is ready to request step and active calorie permissions on your Android device.':'Google Fit is being retired. Health Connect is the Android path for compatible Google Fit and Samsung Health data, but browser-only PWAs cannot read it directly.'}</p><div class="row wrap"><button class="btn" data-action="activity">${svg('pencil','tiny-icon')} Enter steps &amp; active calories</button>${nativeHealthAvailable()?'<button class="btn primary" data-action="refresh-steps">Sync from Health Connect</button>':''}</div><p class="hint">Read-only access, requested when you tap Sync. Your activity stays local unless you opt in to a cloud backup. Google sign-in never grants health permissions.</p></div>
 </section>
+ <section id="settings-reminders" class="settings-section" aria-label="Reminders">
+ ${settingsSectionHeading('bell','Reminders',escapeHtml(reminderSummary(state.reminders)))}
+ <div class="card settings-reminders-card">${renderReminderSettings(state.reminders,{native:nativeRemindersAvailable(),exact:exactAlarm})}</div>
+</section>
  <section id="settings-appearance" class="settings-section" aria-label="Appearance and sound">
  ${settingsSectionHeading('sun','Look &amp; feel','Make the experience feel like yours.')}
 
 <div class="section-head"><h2 class="section-title">Appearance</h2></div><div class="card settings-appearance-card"><label class="label" for="appearance-mode">Theme</label><select class="input" id="appearance-mode" aria-label="Theme"><option value="system" ${themeChoice()==='system'?'selected':''}>Follow phone settings</option><option value="light" ${themeChoice()==='light'?'selected':''}>Day · Light</option><option value="dark" ${themeChoice()==='dark'?'selected':''}>Night · Dark</option></select><p class="small muted" style="margin-bottom:0">Use the sun and moon beside Settings to switch instantly.</p></div>
 <div class="section-head"><h2 class="section-title">Feel and sound</h2></div><div class="card stack settings-sound-card"><p class="small muted" style="margin:0">A tiny bit of feedback, just where it matters. Sound plays through your phone’s media volume. Vibration depends on Android and browser support.</p><label class="check-task"><input class="checkbox" type="checkbox" id="enable-haptics" ${state.preferences?.haptics===false?'':'checked'}/> Gentle haptics</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-water-sound" ${state.preferences?.waterSound===false?'':'checked'}/> Water sound effects</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-app-sounds" ${state.preferences?.appSounds===false?'':'checked'}/> App sound effects <span class="small muted">· taps, tasks & saves</span></label><div class="row feel-test-actions"><button class="btn" data-action="test-haptics">${svg('check','tiny-icon')} Test haptics</button><button class="btn" data-action="test-water-sound">${svg('volume','tiny-icon')} Test water sound</button><button class="btn" data-action="test-app-sound">${svg('volume','tiny-icon')} Test app sound</button></div></div>
-<div class="section-head"><h2 class="section-title">Notifications</h2></div><div class="card settings-notifications-card"><p class="small muted">Preferred rest alert: chime + vibration, normal priority. This web prototype plays an alert while the app is running. Locked-screen alerts need native Android testing and implementation.</p><button class="btn" data-action="test-chime">${svg('volume','tiny-icon')} Test chime</button> <button class="btn" data-action="notification-permission">${svg('bell','tiny-icon')} Allow notifications</button></div>
+<div class="section-head"><h2 class="section-title">Rest timer alert</h2></div><div class="card settings-notifications-card"><p class="small muted">When rest ends, Recomp plays a chime and vibrates while the app is open.</p><button class="btn" data-action="test-chime">${svg('volume','tiny-icon')} Test chime</button> <button class="btn" data-action="notification-permission">${svg('bell','tiny-icon')} Allow notifications</button></div>
 </section>
  <section id="settings-data" class="settings-section" aria-label="Data and privacy">
  ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
@@ -901,6 +931,7 @@ function toggleFoodMenu(open){
  for(const action of cluster.querySelectorAll('.food-fab-option'))action.tabIndex=foodMenuOpen?0:-1;
 }
 function modalView(){if(!modal)return '';
+if(modal.type==='meal-guide')return modalShell('Your everyday plate',`<div class="meal-guide-modal">${mealGuideView()}</div>`);
 if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
 if(modal.type==='personal-prompt'){
  if(!state.fitnessProfile)return modalShell('Complete profile first','<p class="hint">Save a fitness profile to generate your personal GPT prompt.</p><button type="button" class="btn primary block" data-action="fitness-profile">Complete profile</button>');
@@ -1014,6 +1045,34 @@ function syncDock(visible){
 }
 // Move elapsed time and set count into the sticky header as the title scrolls away.
 let workoutScrollFrame=0;
+// On Workouts, the floating bar steps aside while the in-progress card is on
+// screen, and slides in once you scroll past it, so it's always one tap away.
+let sessionNoticeObserver=null;
+function watchSessionNotice(){
+ sessionNoticeObserver?.disconnect();sessionNoticeObserver=null;
+ const bar=document.querySelector('.floating-workout.on-workouts');
+ const notice=document.querySelector('.active-session-notice');
+ if(!bar)return;
+ if(!notice||typeof IntersectionObserver!=='function'){bar.classList.remove('near-notice');return;}
+ sessionNoticeObserver=new IntersectionObserver(([entry])=>{bar.classList.toggle('near-notice',entry.isIntersecting);},{threshold:0.15});
+ sessionNoticeObserver.observe(notice);
+}
+function playWorkoutMotion(){
+ const s=state.session,bar=document.querySelector('.workout-progress .progress>div');
+ const total=s.exercises.reduce((a,e)=>a+e.sets.length,0),done=s.exercises.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
+ const pct=total?done/total*100:0;
+ if(bar&&lastWorkoutPct!=null&&Math.abs(lastWorkoutPct-pct)>.1)runMotion('playProgressFill',bar,lastWorkoutPct,pct);
+ lastWorkoutPct=pct;
+ const m=workoutMotion;workoutMotion=null;
+ if(!m)return;
+ if(m.done)runMotion('playSetTick',document.querySelector(`[data-action="tick-set"][data-ex="${m.ex}"][data-set="${m.set}"]`));
+ const card=document.querySelector(`[data-ex-card="${s.activeIndex}"]`);
+ if(m.done&&s.activeIndex!==m.ex&&card){
+  runMotion('playExerciseAdvance',card,document.querySelector(`[data-ex-card="${m.ex}"]`));
+  const top=card.getBoundingClientRect().top;
+  if(top>window.innerHeight*.55||top<80)card.scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'start'});
+ }
+}
 function updateWorkoutScrollHeader(){
  const main=document.querySelector('.main.workout-focus-shell');
  const titleCounter=main?.querySelector('.workout-start-progress');
@@ -1067,6 +1126,16 @@ function youCalendarHtml(){
  return renderCalendar({month:youMonth,selected:youSelected,today:now,marksFor:date=>dayMarks(dayOverview(date,records))})+
   renderDayDetail(overview,{today:now,photoUrlFor:id=>photoUrls.get(id)||null});
 }
+function checkWebReminders(){
+ const now=new Date(),key=now.toISOString().slice(0,16);
+ if(key===lastReminderMinute||!state)return;
+ lastReminderMinute=key;
+ for(const n of dueNow(state.reminders,now)){
+  notify(n.title+'. '+n.body);
+  if('Notification' in window&&Notification.permission==='granted'&&navigator.serviceWorker?.controller)
+   navigator.serviceWorker.ready.then(reg=>reg.showNotification(n.title,{body:n.body,icon:'./icon.svg',tag:'recomp-'+n.kind})).catch(()=>{});
+ }
+}
 async function saveDayNote(date,{text,mood}){
  if(!date||date>today())return;
  const note=cleanNote({text,mood});
@@ -1091,11 +1160,13 @@ async function refreshWellbeingQuietly(){
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,you:youView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active&&!(tab==='workouts'&&!historyPanel)?`<div class="floating-workout" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume current workout">${svg('dumbbell')}<span style="flex:1"><b>Workout in progress</b><span style="display:block" class="muted mini-workout-details">${escapeHtml(state.session.name)} · <span class="elapsed">${elapsed(state.session.startedAt)}</span></span></span>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout${tab==='workouts'&&!historyPanel?' on-workouts near-notice':''}" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume ${escapeHtml(state.session.name)}">${svg('dumbbell')}<span class="mini-workout-copy"><b>Workout in progress</b><span class="muted mini-workout-details">${escapeHtml(workoutNameParts(state.session.name)[0])}</span></span><strong class="elapsed mini-workout-time">${elapsed(state.session.startedAt)}</strong>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
 if(state.fitnessMode==='basic')document.querySelector('[data-action="create-template"]')?.remove();
 if(active)updateWorkoutScrollHeader();
+watchSessionNotice();
+if(active)playWorkoutMotion();else lastWorkoutPct=null;
 if(focusedGoal)document.getElementById('goal-'+focusedGoal)?.focus({preventScroll:true});
 if(bodyPanel==='photos'&&tab==='body')updateCompare();
 workoutBackGuard?.arm();
@@ -1122,6 +1193,7 @@ async function handleAndroidBack(){
  switch(step){
   case 'close-confirmation':settleConfirmation(false);return;
   case 'close-modal':
+   if(modal?.type==='meal-guide-item'&&modal.returnTo==='meal-guide'){modal={type:'meal-guide'};render();return;}
    if(modal?.type==='photo-guide')stopGuideCamera().catch(console.warn);
    leaveFoodModal().catch(console.warn);
    modal=null;render();return;
@@ -1170,6 +1242,7 @@ function tickSet(exI,setI){
  const roundWasDone=group?isRoundDone(group,setI):false;
  set.done=!set.done;
  set.completedAt=set.done?new Date().toISOString():null;
+ workoutMotion={ex:exI,set:setI,done:set.done,from:s.activeIndex};
  set.exerciseName=set.done?e.name:null;
  if(group){
   // The same saved set is used in both views. Advance A1 → A2 → A3, then round 2.
@@ -1303,6 +1376,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'settings-home':setTab('home');break;
  case 'you-sync-steps':await syncNativeActivity();break;
  case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
+ case 'reminders-exact':await openExactAlarmSettings();exactAlarm=await exactAlarmStatus();render();break;
  case 'you-cal-prev':youMonth=shiftMonth(youMonth||monthKey(today()),-1);render();break;
  case 'you-cal-next':{const next=shiftMonth(youMonth||monthKey(today()),1);if(next<=monthKey(today())){youMonth=next;render();}break;}
  case 'you-cal-day':{const d=el.dataset.date;if(d&&d<=today()){youSelected=d;render();document.getElementById('you-day-title')?.scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'nearest'});}break;}
@@ -1387,10 +1461,11 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'refresh-steps':{if(stepRefresh)break;if(nativeHealthAvailable()){stepRefresh=true;try{await syncNativeActivity();}finally{stepRefresh=false;}}else{stepRefreshInfo=true;render();notify('Health Connect is only available through the native Android app. Manual tracking still works.');}break;}
  case 'metric-active':modal={type:'activity'};render();notify('Come on, burn it. Log your move!');break;
  case 'quick-water':await addQuickWater(n(el.dataset.amount));break;
- case 'add-guide-item':mealGuideActionsId=null;modal={type:'meal-guide-item',id:null};render();break;
+ case 'open-meal-guide':mealGuideActionsId=null;modal={type:'meal-guide'};render();break;
+ case 'add-guide-item':mealGuideActionsId=null;modal={type:'meal-guide-item',id:null,returnTo:modal?.type==='meal-guide'?'meal-guide':null};render();break;
  case 'edit-guide-item':{
   const item=mealGuideItems().find(x=>x.id===el.dataset.id);
-  if(item){mealGuideActionsId=null;modal={type:'meal-guide-item',id:item.id};render();}break;
+  if(item){mealGuideActionsId=null;modal={type:'meal-guide-item',id:item.id,returnTo:modal?.type==='meal-guide'?'meal-guide':null};render();}break;
  }
  case 'delete-guide-item':{
   const item=mealGuideItems().find(x=>x.id===el.dataset.id);
@@ -1430,7 +1505,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   case 'add-task':modal={type:'task'};render();break;
  case 'edit-task':{const t=todaysTasks().find(t=>t.id===el.dataset.id);if(t){taskActionsId=null;modal={type:'edit-task',id:t.id};render();}break;}
  case 'delete-task':{const t=todaysTasks().find(t=>t.id===el.dataset.id);if(t&&await confirmInApp(`Remove “${t.label}” from your daily tasks?`)){taskActionsId=null;if(t.date)state.dailyTasks=state.dailyTasks.filter(x=>x.id!==t.id);else state.tasks=state.tasks.filter(x=>x.id!==t.id);await commit();}break;}
- case 'close-modal':if(modal?.type==='video'&&modal.templateId){modal={type:modal.returnTo==='video-library'?'video-library':'edit-template',id:modal.templateId};render();break;}if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
+ case 'close-modal':if(modal?.type==='meal-guide-item'&&modal.returnTo==='meal-guide'){modal={type:'meal-guide'};render();break;}if(modal?.type==='video'&&modal.templateId){modal={type:modal.returnTo==='video-library'?'video-library':'edit-template',id:modal.templateId};render();break;}if(modal?.type==='photo-guide')await stopGuideCamera();await leaveFoodModal();modal=null;render();break;
  case 'nutrition-panel':nutritionPanel=el.dataset.panel;state.lastNutritionPanel=nutritionPanel;render();put('state',state).catch(console.error);break;
  case 'body-panel':bodyPanel=el.dataset.panel;state.lastBodyPanel=bodyPanel;render();put('state',state).catch(console.error);break;
  case 'delete-food':if(await confirmInApp('Delete this food entry?')){state.food=state.food.filter(f=>f.id!==el.dataset.id);await commit();}break;
@@ -1535,7 +1610,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   const index=Number(el.dataset.ex);if(!group?.items.some(item=>item.index===index))break;
   s.giantCursor={group:group.id,round:cursor.round,index};s.activeIndex=index;render();await persist();break;
  }
- case 'expand-exercise':exerciseOpen=Number(el.dataset.index);if(state.session)state.session.activeIndex=exerciseOpen;await put('state',state);render();break;
+ case 'expand-exercise':{const wasOpen=exerciseOpen;exerciseOpen=Number(el.dataset.index);if(state.session)state.session.activeIndex=exerciseOpen;await put('state',state);render();if(wasOpen!==exerciseOpen)runMotion('playExerciseOpen',document.querySelector(`[data-ex-card="${exerciseOpen}"]`));break;}
  case 'tick-set':tickSet(Number(el.dataset.ex),Number(el.dataset.set));break;
  case 'add-session-exercise':if(state.session){modal={type:'session-exercise'};render();}break;
  case 'remove-session-exercise':{
@@ -1620,6 +1695,15 @@ case 'export-backup':await exportData();break;
  }
 }
 async function onSubmit(form){let data=new FormData(form),id=form.id;
+ if(id==='form-reminders'){
+  state.reminders=readReminderForm(form);state.dirty=true;await persist();
+  const result=await applyReminders(state.reminders);
+  if(nativeRemindersAvailable())exactAlarm=await exactAlarmStatus();
+  render();
+  notify(result.native?(result.scheduled?`Reminders saved. ${result.scheduled} set on this phone.`:'Reminders turned off.'):'Reminders saved. They show while Recomp is open.');
+  if(!result.native&&state.reminders&&'Notification' in window&&Notification.permission==='default')Notification.requestPermission().catch(()=>{});
+  return;
+ }
  if(id==='you-day-note-form'){await saveDayNote(form.dataset.date,{text:data.get('note'),mood:data.get('mood')});render();notify('Note saved for this day.');return;}
  if(id==='you-add-habit-form'){addYouHabit(data.get('habit'));render();notify('Wellbeing habit added.');return;}
  if(id==='form-fitness-profile'){
@@ -1639,6 +1723,7 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
   if(item){item.label=label;item.description=description;item.group=group;}
   else state.mealGuideItems.push({id:uid(),group,label,description});
   mealGuideActionsId=null;haptic('success');notify(item?'Guide entry updated':'Added to meal guide');
+  if(modal?.returnTo==='meal-guide'){modal={type:'meal-guide'};await commit();return;}
  }
  else if(id==='form-barcode-lookup'){
   await resolveBarcode(String(data.get('barcode')||''));return;
@@ -1940,11 +2025,11 @@ document.addEventListener('keydown',event=>{
 // The meal guide uses press-and-hold to expose edit/delete, just like workout plans.
 function clearMealGuideHold(){if(mealGuideHoldTimer!==null)clearTimeout(mealGuideHoldTimer);mealGuideHoldTimer=null;mealGuideHoldPoint=null;}
 function showMealGuideActions(id){
- if(tab!=='nutrition'||modal||!mealGuideItems().some(x=>x.id===id))return;
+ if((tab!=='nutrition'||modal)&&modal?.type!=='meal-guide'||!mealGuideItems().some(x=>x.id===id))return;
  mealGuideActionsId=id;haptic('hold');render();
 }
 document.addEventListener('pointerdown',event=>{
- if(event.button!==0||tab!=='nutrition'||modal)return;
+ if(event.button!==0||(tab!=='nutrition'||modal)&&modal?.type!=='meal-guide')return;
  const item=event.target.closest('[data-guide-item]');
  if(!item||event.target.closest('button,input,textarea,select,a'))return;
  clearMealGuideHold();mealGuideHoldPoint={x:event.clientX,y:event.clientY,id:item.dataset.guideItem};
@@ -2057,6 +2142,7 @@ async function init(){try{
  if(!state.goals||typeof state.goals!=='object')state.goals=defaults.goals;
  else state.goals={...defaults.goals,...state.goals};
  if(!state.dayNotes||typeof state.dayNotes!=='object'||Array.isArray(state.dayNotes))state.dayNotes={};
+ state.reminders=cleanReminders(state.reminders);
  for(const key of ['food','water','activity','weights','measurements','photos','workoutHistory','templates']){
   if(!Array.isArray(state[key]))state[key]=defaults[key];
  }
@@ -2145,6 +2231,12 @@ async function init(){try{
  render();
  void startOnlineCatalogue();
  if(tab==='you'&&isNativeWellbeingAvailable())refreshWellbeingQuietly().catch(console.warn);
+ // Reminders: Android keeps them scheduled with the system, the website checks while open.
+ if(nativeRemindersAvailable()){
+  onReminderTap(dest=>{if(state&&dest!==tab)setTab(dest);});
+  applyReminders(state.reminders).catch(console.warn);
+  exactAlarmStatus().then(v=>{exactAlarm=v;}).catch(()=>{});
+ }else setInterval(checkWebReminders,30000);
  // The approved Pulse intro overlays the first app paint, then gracefully disappears.
  // Keep the approved intro for at least 2.5 seconds; slow boots add no further delay.
  // Reduced-motion users enter immediately. No training data is accessed here.

@@ -40,3 +40,5 @@ html.recomp-native #recomp-bottom-dock.bottom-nav.premium-dock{
  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
  background:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
 }
+/* Glow on the Home rings is a GPU filter that Android repaints each frame. */
+html.recomp-native .ring-bar{filter:none!important}
