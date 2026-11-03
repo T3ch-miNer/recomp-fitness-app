@@ -4,17 +4,17 @@
 // 1. Close whatever is on top: a confirmation, a dialog, the rest timer sheet,
 //    the food menu, or the muscle focus page.
 // 2. A full-screen workout minimises. It is never discarded by Back.
-// 3. History closes back to the list it came from.
+// 3. History and Settings pages close back to the list they came from.
 // 4. Otherwise go to the previous page the person visited, then Home.
 // 5. On Home with nowhere left to go, ask before leaving the app.
 export const BACK_STEPS=Object.freeze([
  'close-confirmation','close-modal','close-rest','close-food-menu','close-muscle-page',
- 'minimise-workout','close-history','previous-page','home','ask-exit'
+ 'minimise-workout','close-history','close-settings-page','previous-page','home','ask-exit'
 ]);
 
 export function nextBackStep({
  confirmation=false,modal=false,restSheet=false,foodMenuOpen=false,musclePage=false,
- workoutFocused=false,historyPanel=null,previousPage=null,tab='home'
+ workoutFocused=false,historyPanel=null,settingsPage=null,previousPage=null,tab='home'
 }={}){
  if(confirmation)return 'close-confirmation';
  if(modal)return 'close-modal';
@@ -23,6 +23,7 @@ export function nextBackStep({
  if(musclePage&&workoutFocused)return 'close-muscle-page';
  if(workoutFocused)return 'minimise-workout';
  if(historyPanel)return 'close-history';
+ if(settingsPage&&tab==='settings')return 'close-settings-page';
  if(previousPage&&previousPage!==tab)return 'previous-page';
  if(tab!=='home')return 'home';
  return 'ask-exit';

@@ -511,7 +511,7 @@ function weightChart(points){
 function historyHeaderButton(kind){const food=kind==='food';return `<button type="button" class="btn round history-trigger" title="${food?'Food history':'Workout history'}" aria-label="${food?'View food history':'View workout history'}" data-action="toggle-history">${svg('history')}</button>`;}
 // Saved subtitles may end with an exercise count that goes stale after edits; the card shows the live count instead.
 function planSubtitle(text=''){return String(text||'').replace(/\s*·\s*\d+\s+exercises?\s*$/i,'').replace(/\s*·\s*$/,'').trim();}
-function heading(title,desc='',action=''){const isDark=effectiveTheme()==='dark';return `<header class="top"><div>${tab==='settings'?'':`<div class="eyebrow">${EYEBROWS[tab]||'Recomp'}</div>`}<h1 class="page-title">${title}</h1>${desc?`<div class="subhead">${desc}</div>`:''}</div><div class="right-actions">${action}<button type="button" class="btn round theme-trigger" title="Switch to ${isDark?'day':'night'} mode" aria-label="Switch to ${isDark?'light':'dark'} mode" data-action="toggle-theme">${svg(isDark?'sun':'moon')}</button><button class="btn round settings-trigger" title="Open settings" aria-label="Open settings" data-action="settings">${svg('settings')}</button></div></header>`;}
+function heading(title,desc='',action=''){const isDark=effectiveTheme()==='dark';return `<header class="top"><div>${tab==='settings'?'':`<div class="eyebrow">${EYEBROWS[tab]||'Recomp'}</div>`}<h1 class="page-title">${title}</h1>${desc?`<div class="subhead">${desc}</div>`:''}</div><div class="right-actions">${action}<button type="button" class="btn round theme-trigger" title="Switch to ${isDark?'day':'night'} mode" aria-label="Switch to ${isDark?'light':'dark'} mode" data-action="toggle-theme">${svg(isDark?'sun':'moon')}</button>${tab==='settings'?'':`<button class="btn round settings-trigger" title="Open settings" aria-label="Open settings" data-action="settings">${svg('settings')}</button>`}</div></header>`;}
 function metric(title,value,goal,unit,iconName,action='',quip=''){
  const logged=value!==null&&value!==undefined&&value!=='';
  const tag=action?'button':'div';
@@ -763,45 +763,49 @@ function activeWorkoutView(){const s=state.session;if(!s) return workoutView();i
 function settingsSectionHeading(icon,title,description){
  return `<header class="settings-section-head"><span class="settings-section-icon" aria-hidden="true">${svg(icon,'tiny-icon')}</span><span class="settings-section-text"><h2>${title}</h2><p>${description}</p></span></header>`;
 }
+// Settings opens as a short menu. Each row shows a live summary and opens its own page.
+const SETTINGS_PAGES=Object.freeze([
+ {id:'account',icon:'user',title:'Account',desc:'Sign-in and how you train.'},
+ {id:'targets',icon:'chart',title:'Daily targets',desc:'Your nutrition and activity goals.'},
+ {id:'reminders',icon:'bell',title:'Reminders',desc:'Water, meal logging and workout alarms.'},
+ {id:'routine',icon:'dumbbell',title:'Activity & routine',desc:'Daily tasks, steps and Health Connect.'},
+ {id:'appearance',icon:'sun',title:'Look & feel',desc:'Theme, sounds and vibration.'},
+ {id:'data',icon:'cloud',title:'Data & backup',desc:'Backups, cloud sync and the online catalogue.'}
+]);
+let settingsPage=null;
+function settingsSummary(id,{clerkUser,ses}){
+ const g=state.goals;
+ if(id==='account')return clerkUser?(clerkUser.name||clerkUser.email||'Signed in'):'Guest · records stay on this phone';
+ if(id==='targets')return `${num(g.calories)} kcal · ${num(g.protein)} g protein · ${num(g.steps)} steps`;
+ if(id==='reminders')return reminderSummary(state.reminders);
+ if(id==='routine')return `${state.tasks.length} daily task${state.tasks.length===1?'':'s'}`;
+ if(id==='appearance'){const t=themeChoice();return t==='system'?'Follows your phone':t==='dark'?'Dark':'Light';}
+ if(id==='data')return ses?'Cloud backup on':'Saved on this phone';
+ return '';
+}
 function settingsView(){
  const cfg=cloud.getConfig(),ses=cloud.getSession(),clerkUser=getClerkAccount(),clerkReady=isClerkLoginAvailable(),clerkDev=isClerkDevelopmentMode();
- return `${heading('Make it yours.','Your goals, account and preferences in one place.',`<button type="button" class="btn" data-action="settings-home" aria-label="Back to Home">${svg('arrow','tiny-icon')} Home</button>`)}
- <div class="settings-hub">
- <nav class="settings-shortcuts" aria-label="Jump to settings section">
- <a href="#settings-account">Account</a><a href="#settings-targets">Daily targets</a><a href="#settings-routine">Activity &amp; routine</a><a href="#settings-reminders">Reminders</a><a href="#settings-appearance">Look &amp; feel</a><a href="#settings-data">Data &amp; privacy</a>
- </nav>
- <section id="settings-account" class="settings-section" aria-label="Account">
- ${settingsSectionHeading('home','Your account','Manage your Google sign-in and profile.')}
-
+ const pages={
+  account:`<section id="settings-account" class="settings-section settings-page-body">
 <div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?(state.basicProgramme?'Basic: '+state.basicProgramme.title+' · '+state.basicProgramme.days+' days/week':'Basic: Full Body A & B · set up your programme'):'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':'<button type="button" class="btn" data-action="basic-profile">'+(state.basicProfile?'Edit Basic profile &amp; plan':'Set up Basic programme')+'</button>'}</div></div>
 <div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" type="button" data-action="clerk-login" '+(clerkSignInBusy?'disabled aria-busy="true"':'')+'>'+(clerkSignInBusy?'Signing in…':'Continue with Google')+'</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}${clerkSignInError?'<p class="hint" role="alert" data-clerk-login-error>'+escapeHtml(clerkSignInError)+'</p>':''}</div>
-</section>
- <section id="settings-targets" class="settings-section" aria-label="Daily targets">
- ${settingsSectionHeading('chart','Daily targets','Your personal nutrition and activity goals.')}
-
+</section>`,
+  targets:`<section id="settings-targets" class="settings-section settings-page-body">
 ${state.fitnessMode==='advanced'?personalPromptControls():''}
 <div class="card settings-targets-card"><p class="small muted settings-targets-intro">Edit freely. Targets change only when you press Save goals.</p><form id="settings-goals"><div class="field-row">${[['calories','Calories (kcal)'],['protein','Protein (g)'],['carbs','Carbohydrates (g)'],['fat','Fat (g)'],['fibre','Fibre (g)'],['water','Water (ml)'],['steps','Steps']].map(([k,label])=>`<div class="field"><label class="label" for="goal-${k}">${label}</label><input class="input" id="goal-${k}" name="${k}" type="number" inputmode="numeric" min="0" step="1" required value="${escapeHtml(goalDraft?.[k] ?? state.goals[k])}"/></div>`).join('')}</div><button class="btn primary" type="submit">Save goals</button></form></div>
-</section>
- <section id="settings-routine" class="settings-section" aria-label="Activity and routine">
- ${settingsSectionHeading('dumbbell','Activity &amp; routine','Manage daily tasks, movement and your watch.')}
-
+</section>`,
+  routine:`<section id="settings-routine" class="settings-section settings-page-body">
 <div class="section-head"><div><h2 class="section-title">Daily tasks</h2><div class="muted small">Build a routine that belongs to you.</div></div><button class="btn" data-action="add-task">${svg('plus','tiny-icon')} Add task</button></div><div class="card task-manager settings-tasks-card">${state.tasks.map(t=>`<div class="task-manage-row"><span class="task-manage-label">${escapeHtml(t.label)}${t.auto?'<small>Auto-linked to your logs, but you can tick manually</small>':'<small>Manually completed from the dashboard</small>'}</span>${t.auto?'<span class="pill">AUTO</span>':''}<button class="btn ghost" data-action="edit-task" data-id="${escapeHtml(t.id)}" aria-label="Edit ${escapeHtml(t.label)}">${svg('edit','tiny-icon')}</button><button class="btn ghost danger" data-action="delete-task" data-id="${escapeHtml(t.id)}" aria-label="Delete ${escapeHtml(t.label)}">${svg('trash','tiny-icon')}</button></div>`).join('')}</div>
 <div class="section-head"><h2 class="section-title">Galaxy Watch and activity</h2></div><div class="card settings-activity-card"><p class="small muted">${nativeHealthAvailable()?'Health Connect is ready to request step and active calorie permissions on your Android device.':'Google Fit is being retired. Health Connect is the Android path for compatible Google Fit and Samsung Health data, but browser-only PWAs cannot read it directly.'}</p><div class="row wrap"><button class="btn" data-action="activity">${svg('pencil','tiny-icon')} Enter steps &amp; active calories</button>${nativeHealthAvailable()?'<button class="btn primary" data-action="refresh-steps">Sync from Health Connect</button>':''}</div><p class="hint">Read-only access, requested when you tap Sync. Your activity stays local unless you opt in to a cloud backup. Google sign-in never grants health permissions.</p></div>
-</section>
- <section id="settings-reminders" class="settings-section" aria-label="Reminders">
- ${settingsSectionHeading('bell','Reminders',escapeHtml(reminderSummary(state.reminders)))}
- <div class="card settings-reminders-card">${renderReminderSettings(state.reminders,{native:nativeRemindersAvailable(),exact:exactAlarm})}</div>
-</section>
- <section id="settings-appearance" class="settings-section" aria-label="Appearance and sound">
- ${settingsSectionHeading('sun','Look &amp; feel','Make the experience feel like yours.')}
-
+</section>`,
+  reminders:`<section id="settings-reminders" class="settings-section settings-page-body"> <div class="card settings-reminders-card">${renderReminderSettings(state.reminders,{native:nativeRemindersAvailable(),exact:exactAlarm})}</div>
+</section>`,
+  appearance:`<section id="settings-appearance" class="settings-section settings-page-body">
 <div class="section-head"><h2 class="section-title">Appearance</h2></div><div class="card settings-appearance-card"><label class="label" for="appearance-mode">Theme</label><select class="input" id="appearance-mode" aria-label="Theme"><option value="system" ${themeChoice()==='system'?'selected':''}>Follow phone settings</option><option value="light" ${themeChoice()==='light'?'selected':''}>Day · Light</option><option value="dark" ${themeChoice()==='dark'?'selected':''}>Night · Dark</option></select><p class="small muted" style="margin-bottom:0">Use the sun and moon beside Settings to switch instantly.</p></div>
 <div class="section-head"><h2 class="section-title">Feel and sound</h2></div><div class="card stack settings-sound-card"><p class="small muted" style="margin:0">A tiny bit of feedback, just where it matters. Sound plays through your phone’s media volume. Vibration depends on Android and browser support.</p><label class="check-task"><input class="checkbox" type="checkbox" id="enable-haptics" ${state.preferences?.haptics===false?'':'checked'}/> Gentle haptics</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-water-sound" ${state.preferences?.waterSound===false?'':'checked'}/> Water sound effects</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-app-sounds" ${state.preferences?.appSounds===false?'':'checked'}/> App sound effects <span class="small muted">· taps, tasks & saves</span></label><div class="row feel-test-actions"><button class="btn" data-action="test-haptics">${svg('check','tiny-icon')} Test haptics</button><button class="btn" data-action="test-water-sound">${svg('volume','tiny-icon')} Test water sound</button><button class="btn" data-action="test-app-sound">${svg('volume','tiny-icon')} Test app sound</button></div></div>
 <div class="section-head"><h2 class="section-title">Rest timer alert</h2></div><div class="card settings-notifications-card"><p class="small muted">When rest ends, Recomp plays a chime and vibrates while the app is open.</p><button class="btn" data-action="test-chime">${svg('volume','tiny-icon')} Test chime</button> <button class="btn" data-action="notification-permission">${svg('bell','tiny-icon')} Allow notifications</button></div>
-</section>
- <section id="settings-data" class="settings-section" aria-label="Data and privacy">
- ${settingsSectionHeading('cloud','Data &amp; privacy','Your records stay on your device unless you choose to back them up.')}
-
+</section>`,
+  data:`<section id="settings-data" class="settings-section settings-page-body">
 <div class="card online-catalogue-settings">
  <div class="row space"><b>Online food &amp; workout catalogue</b><span class="pill">${escapeHtml(onlineStatus)}</span></div>
  <p class="small muted">${onlineCatalog.foods.length} online foods · ${onlineCatalog.workouts.length} workout plans · ${onlineCatalog.exercises.length} exercises</p>
@@ -818,7 +822,13 @@ ${state.fitnessMode==='advanced'?personalPromptControls():''}
  </summary><div class="settings-advanced-body">
 
 <div class="card settings-cloud-card"><div class="row space"><span class="strong">${ses?`Signed in as ${escapeHtml(ses.user?.email||'Google user')}`:'Not signed in'}</span><span class="pill">${state.lastSync?'Last saved '+dateDisplay(state.lastSync.slice(0,10)):'Device-first'}</span></div><p class="small muted">${ses?'You can back up your data and restore it on another device. Automatic uploads can be enabled after your first manual backup.':'To enable private cloud sync, create your own Supabase project and configure Google OAuth using the provided SQL and setup guide.'}</p>${cfg?`<p class="hint">Project: ${escapeHtml(new URL(cfg.url).host)}</p>`:''}<div class="row" style="flex-wrap:wrap"><button class="btn" data-action="configure-cloud">${svg('settings','tiny-icon')} Configure</button>${ses?`<button class="btn" data-action="cloud-upload">Back up now</button><button class="btn" data-action="cloud-download">Restore</button><button class="btn ghost" data-action="cloud-logout">Sign out</button><button class="btn danger" data-action="delete-cloud-backup">Delete cloud backup</button>`:`<button class="btn primary" data-action="google-login">Continue with Google</button>`}</div>${ses?`<label class="check-task"><input type="checkbox" class="checkbox" id="auto-cloud-sync" ${localStorage.getItem('recomp-auto-sync')==='yes'?'checked':''}/> Automatically back up changes after initial sync</label>`:''}</div>
-</div></details></section></div>`;
+</div></details></section>`
+ };
+ const page=SETTINGS_PAGES.find(x=>x.id===settingsPage);
+ if(page&&pages[page.id])return `<div class="settings-subpage"><button type="button" class="btn history-back settings-back" data-action="settings-menu">${svg('chevron','tiny-icon')} Settings</button>${heading(escapeHtml(page.title),escapeHtml(page.desc))}${pages[page.id]}</div>`;
+ return `${heading('Settings','Your goals, reminders and preferences.')}
+ <nav class="settings-menu" aria-label="Settings">${SETTINGS_PAGES.map(x=>`<button type="button" class="settings-menu-row" data-action="settings-page" data-page="${x.id}"><span class="settings-menu-icon" aria-hidden="true">${svg(x.icon)}</span><span class="settings-menu-copy"><b>${escapeHtml(x.title)}</b><small>${escapeHtml(settingsSummary(x.id,{clerkUser,ses}))}</small></span>${svg('chevron','tiny-icon settings-menu-go')}</button>`).join('')}</nav>
+ <p class="settings-menu-foot">Recomp keeps your records on this phone unless you turn on backup.</p>`;
 }
 const REST_CIRC=2*Math.PI*88;
 function restFraction(){const r=state.session?.rest;if(!r)return 0;const total=Math.max(1,n(r.totalSeconds??state.session.exercises?.[r.exerciseIndex]?.restSeconds,60))*1000;const remaining=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());return Math.min(1,Math.max(0,remaining/total));}
@@ -930,7 +940,20 @@ function toggleFoodMenu(open){
  const menu=document.getElementById('food-fab-menu');if(menu)menu.setAttribute('aria-hidden',String(!foodMenuOpen));
  for(const action of cluster.querySelectorAll('.food-fab-option'))action.tabIndex=foodMenuOpen?0:-1;
 }
+function stopWorkoutView(){
+ const s=state.session;if(!s)return '';
+ const total=s.exercises.reduce((a,e)=>a+e.sets.length,0),done=s.exercises.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
+ return modalShell('Stop this workout?',`<p class="stop-workout-summary"><b>${escapeHtml(workoutNameParts(s.name)[0])}</b><span>${done} of ${total} sets done · <span class="elapsed">${elapsed(s.startedAt)}</span></span></p>
+ <div class="stop-workout-actions">
+  <button type="button" class="btn primary block" data-action="stop-save" ${done?'':'disabled aria-describedby="stop-save-hint"'}>${svg('check','tiny-icon')} Save workout</button>
+  ${done?'':'<p class="hint" id="stop-save-hint">Complete at least one set to save this workout.</p>'}
+  <button type="button" class="btn danger block" data-action="stop-discard">${svg('trash','tiny-icon')} Discard</button>
+  <button type="button" class="btn ghost block" data-action="close-modal">Cancel</button>
+ </div>
+ <p class="hint">Discard removes this session. Your saved workouts and plans stay as they are.</p>`);
+}
 function modalView(){if(!modal)return '';
+if(modal.type==='stop-workout')return stopWorkoutView();
 if(modal.type==='meal-guide')return modalShell('Your everyday plate',`<div class="meal-guide-modal">${mealGuideView()}</div>`);
 if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
 if(modal.type==='personal-prompt'){
@@ -1113,7 +1136,7 @@ function scheduleScrollChrome(){
 window.addEventListener('scroll',scheduleScrollChrome,{passive:true});
 window.addEventListener('resize',scheduleScrollChrome,{passive:true});
 document.addEventListener('focusin',scheduleScrollChrome);
-function youView(){const tasks=todaysTasks();return renderYouPage({date:today(),activity:activityToday(),stepGoal:state.goals.steps,dailyTasksTotal:tasks.length,dailyTasksDone:tasks.filter(checkboxDone).length,calendarHtml:youCalendarHtml()});}
+function youView(){const tasks=todaysTasks();return renderYouPage({headerHtml:heading('You.','Small daily wins, without the pressure.'),date:today(),activity:activityToday(),stepGoal:state.goals.steps,dailyTasksTotal:tasks.length,dailyTasksDone:tasks.filter(checkboxDone).length,calendarHtml:youCalendarHtml()});}
 function youRecords(){const you=getYouData();return {workoutHistory:state.workoutHistory,food:state.food,activity:state.activity,weights:state.weights,photos:state.photos,dayNotes:state.dayNotes,device:you.device,habits:you.habits,checks:you.checks};}
 function youCalendarHtml(){
  const now=today();
@@ -1160,7 +1183,7 @@ async function refreshWellbeingQuietly(){
 function render(){const focusedGoal=tab==='settings'&&document.activeElement?.closest?.('#settings-goals')?document.activeElement.name:null;foodMenuOpen=false;applyTheme();const active=Boolean(state.session&&!state.session.minimized&&tab==='workouts');document.body.classList.toggle('screen-mode',active);
 // The bottom dock is mounted once on document.body and never rebuilt with page content.
 let section=active?activeWorkoutView():({home:homeView,workouts:workoutView,nutrition:nutritionView,body:bodyView,you:youView,settings:settingsView}[tab]||homeView)();
-$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout${tab==='workouts'&&!historyPanel?' on-workouts near-notice':''}" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume ${escapeHtml(state.session.name)}">${svg('dumbbell')}<span class="mini-workout-copy"><b>Workout in progress</b><span class="muted mini-workout-details">${escapeHtml(workoutNameParts(state.session.name)[0])}</span></span><strong class="elapsed mini-workout-time">${elapsed(state.session.startedAt)}</strong>${svg('minimise','lift-icon')}</div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
+$('#app').innerHTML=svgSymbols+`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark"><svg class="big-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 3-8 2 3h3.5"/></svg></span><span class="brand-name">recomp<span style="color:var(--accent)">.</span></span></div>${navHtml()}<div class="sidebar-foot"><div class="row">${svg('cloud','tiny-icon')} Offline-first personal tracker</div><p>Version 2.7 · Preview</p></div></aside><main data-page="${tab}" class="main ${active?'workout-focus-shell':''}">${section}</main></div>${!active&&(tab==='nutrition'||tab==='body'||tab==='workouts')?(tab==='nutrition'?`<div id="food-fab-cluster" class="food-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button id="food-fab-button" type="button" class="quick-fab" data-action="toggle-food-menu" aria-label="Add food" title="Add food">${svg('plus')}<span class="quick-fab-label">Food</span></button></div>`:tab==='body'?`<button type="button" class="quick-fab ${state.session?'above-workout':''}" data-action="add-weight" aria-label="Log weight" title="Log weight">${svg('plus')}<span class="quick-fab-label">Weight</span></button>`:`<div class="plan-fab-cluster history-action-cluster ${state.session?'above-workout':''}"><button type="button" class="quick-fab" data-action="create-template" aria-label="Create workout plan" title="Create workout plan">${svg('plus')}<span class="quick-fab-label">Plan</span></button></div>`):''}${state.session&&!active?`<div class="floating-workout${tab==='workouts'&&!historyPanel?' on-workouts near-notice':''}" role="button" tabindex="0" data-action="resume-workout" aria-label="Resume ${escapeHtml(state.session.name)}">${svg('dumbbell')}<span class="mini-workout-copy"><b>Workout in progress</b><span class="muted mini-workout-details">${escapeHtml(workoutNameParts(state.session.name)[0])}</span></span><strong class="elapsed mini-workout-time">${elapsed(state.session.startedAt)}</strong><button type="button" class="mini-workout-stop" data-action="stop-workout" aria-label="Stop workout" title="Stop workout">${svg('stop','tiny-icon')}</button></div>`:''}${waterCelebration&&tab==='home'&&!modal?`<div class="water-cheers" role="status" aria-live="polite"><span class="cheers-bubbles" aria-hidden="true">✧ ✦ ✧</span><div><b>Cheers! +${num(waterCelebration.ml)} ml 💧</b><small>Another sip, another win.</small></div><button class="btn water-undo" data-action="undo-water">Undo</button></div>`:''}${taskCelebration?taskWinView():''}${restOverlay()}${modalView()}${confirmation?confirmationHtml(confirmation):''}`;
 syncDock(!active);
 if(active)resetScrollChrome();
 if(state.fitnessMode==='basic')document.querySelector('[data-action="create-template"]')?.remove();
@@ -1189,7 +1212,7 @@ refreshMotionClock(Boolean(state.session),timerTick);
 async function handleAndroidBack(){
  if(!state)return;
  const workoutFocused=Boolean(state.session&&!state.session.minimized&&tab==='workouts');
- const step=nextBackStep({confirmation:Boolean(confirmation),modal:Boolean(modal),restSheet,foodMenuOpen,musclePage,workoutFocused,historyPanel,previousPage:pageTrail.previous(),tab});
+ const step=nextBackStep({confirmation:Boolean(confirmation),modal:Boolean(modal),restSheet,foodMenuOpen,musclePage,workoutFocused,historyPanel,settingsPage,previousPage:pageTrail.previous(),tab});
  switch(step){
   case 'close-confirmation':settleConfirmation(false);return;
   case 'close-modal':
@@ -1205,6 +1228,7 @@ async function handleAndroidBack(){
    motionChange(()=>{state.session.minimized=true;restSheet=false;tab='home';state.lastTab='home';render();},'minimize');
    haptic('tap');await persist();return;
   case 'close-history':historyPanel=null;window.scrollTo({top:0,behavior:'instant'});render();return;
+  case 'close-settings-page':settingsPage=null;window.scrollTo({top:0,behavior:'instant'});render();return;
   case 'previous-page':setTab(pageTrail.pop(),null,{fromBack:true});return;
   case 'home':pageTrail.clear();setTab('home',null,{fromBack:true});return;
   case 'ask-exit':{
@@ -1217,6 +1241,7 @@ async function handleAndroidBack(){
 function setTab(dest,swipeDirection=null,{fromBack=false}={}){toggleFoodMenu(false);resetScrollChrome();
  if(tab===dest)return;
  if(!fromBack)pageTrail.leave(tab);
+ if(dest==='settings'||tab==='settings')settingsPage=null;
  const order=['home','workouts','nutrition','body','you'];
  const direction=swipeDirection??(order.indexOf(dest)>=order.indexOf(tab)?1:-1);
  historyPanel=null;
@@ -1305,7 +1330,7 @@ async function eraseLocalFitnessData(){
  window.scrollTo({top:0,behavior:'instant'});render();
  notify('Local fitness data cleared. Built-in workout plans remain available.');
 }
-async function finishWorkout(){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);const historyId=uid();state.workoutHistory.push({id:historyId,templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises,sessionDetails:saveSessionDetails(s)});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',historyId,duration:minutes,volume,sets:done.length};await commit();runMotion('playWorkoutSuccess',document.getElementById('recomp-workout-win'));}
+async function finishWorkout({confirmed=false}={}){if(!state.session)return;const s=state.session;const done=s.exercises.flatMap(e=>e.sets.filter(x=>x.done).map(set=>({...set,exercise:set.exerciseName||e.name})));if(!done.length){notify('Complete at least one set before finishing');return;}if(!confirmed&&!await confirmInApp('Finish this workout and save your completed sets?',{title:'Finish workout?',approveLabel:'Save workout',danger:false}))return;const minutes=Math.max(1,Math.round((Date.now()-s.startedAt)/60000));const volume=done.reduce((v,x)=>v+n(x.kg)*n(x.reps),0);const historyId=uid();state.workoutHistory.push({id:historyId,templateId:s.templateId,date:today(),name:s.name,startedAt:s.startedAt,endedAt:Date.now(),durationMin:minutes,sets:done.length,volume,exercises:s.exercises,sessionDetails:saveSessionDetails(s)});rememberWorkoutSets(s);state.session=null;restSheet=false;tab='workouts';state.lastTab='workouts';modal={type:'workout-summary',historyId,duration:minutes,volume,sets:done.length};await commit();runMotion('playWorkoutSuccess',document.getElementById('recomp-workout-win'));}
 function timerControl(action){const r=state.session?.rest;if(!r)return;const leftMs=r.paused?r.remainingMs:Math.max(0,r.endsAt-Date.now());if(action==='timer-plus'||action==='timer-minus'){let newMs=Math.max(0,leftMs+(action==='timer-plus'?15000:-15000));if(!newMs){state.session.rest=null;restSheet=false;}else if(r.paused)r.remainingMs=newMs;else r.endsAt=Date.now()+newMs;}
 if(action==='timer-pause'){if(r.paused){r.paused=false;r.endsAt=Date.now()+r.remainingMs;}else{r.remainingMs=leftMs;r.paused=true;}}
 if(action==='timer-skip'){state.session.rest=null;restSheet=false;}
@@ -1374,6 +1399,8 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'tab':setTab(el.dataset.tab);break;
  case 'settings':setTab('settings');break;
  case 'settings-home':setTab('home');break;
+ case 'settings-page':settingsPage=el.dataset.page;window.scrollTo({top:0,behavior:'instant'});render();break;
+ case 'settings-menu':settingsPage=null;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'you-sync-steps':await syncNativeActivity();break;
  case 'you-usage-settings':await openUsageSettings();notify('Enable Usage Access for Recomp, return here, then tap Refresh usage.');break;
  case 'reminders-exact':await openExactAlarmSettings();exactAlarm=await exactAlarmStatus();render();break;
@@ -1555,6 +1582,9 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
  case 'open-muscle-focus':musclePage=true;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'close-muscle-focus':musclePage=false;window.scrollTo({top:0,behavior:'instant'});render();break;
  case 'minimise-workout':musclePage=false;pageTrail.clear();if(state.session){motionChange(()=>{state.session.minimized=true;tab='home';state.lastTab='home';restSheet=false;render();},'minimize');haptic('tap');await persist();}break;
+ case 'stop-workout':if(state.session){restSheet=false;modal={type:'stop-workout'};render();haptic('tap');}break;
+ case 'stop-save':modal=null;render();await finishWorkout({confirmed:true});break;
+ case 'stop-discard':if(state.session){modal=null;musclePage=false;state.session=null;restSheet=false;await commit();haptic('check');notify('Workout discarded.');}break;
  case 'discard-workout':if(await confirmInApp('Discard this unfinished workout? Completed sets will not be added to history.',{title:'Discard workout?',approveLabel:'Discard workout'})){state.session=null;restSheet=false;await commit();}break;
  case 'warmup-show-video':{
   const player=document.getElementById('recomp-warmup-player');

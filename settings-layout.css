@@ -119,3 +119,26 @@
 .reminder-note{display:grid;gap:8px;padding:12px;border-radius:12px;background:var(--panel2)}
 .reminder-note p{margin:0;font-size:12px;line-height:1.5}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* v3.5: Settings menu and sub-pages. */
+.settings-menu{display:grid;border:1px solid var(--line);border-radius:20px;background:var(--panel);overflow:hidden;box-shadow:var(--shadow)}
+.settings-menu-row{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:12px 14px 12px 16px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.settings-menu-row:first-child{border-top:0}
+.settings-menu-row:active{background:var(--panel2)}
+.settings-menu-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.settings-menu-icon{flex:none;width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:var(--accent2);color:var(--accent)}
+.settings-menu-icon .icon{width:20px;height:20px}
+.settings-menu-copy{flex:1;min-width:0;display:grid;gap:3px}
+.settings-menu-copy b{font-size:15px}
+.settings-menu-copy small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.settings-menu-go{flex:none;color:var(--muted);transform:rotate(-90deg)}
+.settings-menu-foot{margin:14px 4px 0;font-size:12px;color:var(--muted);text-align:center}
+.settings-back{margin:2px 0 14px;min-height:40px;gap:6px}
+.settings-back svg{transform:rotate(90deg)}
+.settings-subpage .settings-page-body{margin:0 0 24px;padding-top:0;border-top:0}
+.settings-subpage .settings-page-body>.card:first-child,.settings-subpage .settings-page-body>.section-head:first-child{margin-top:0}
+/* Reminder settings as labelled rows: times keep room for AM/PM on phones. */
+.reminder-fields,.reminder-fields-workout{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.reminder-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.reminder-row>span{font-size:13px;color:var(--muted);font-weight:650}
+.reminder-row .input{width:auto;min-width:0;flex:0 1 148px;min-height:42px;padding:8px 10px;font-size:15px}

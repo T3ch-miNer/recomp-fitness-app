@@ -126,19 +126,19 @@ export function renderReminderSettings(settings,{native=false,exact='granted'}={
  <fieldset class="reminder-group"><legend class="sr-only">Water</legend>
   ${sw('water-enabled',r.water.enabled,'Drink water')}
   <div class="reminder-fields">
-   <label class="field"><span class="label">Every</span><select class="input" name="water-every">${WATER_INTERVALS.map(m=>`<option value="${m}" ${m===r.water.every?'selected':''}>${m<60?m+' min':m%60?`${Math.floor(m/60)}h ${m%60}m`:`${m/60} hour${m===60?'':'s'}`}</option>`).join('')}</select></label>
-   <label class="field"><span class="label">From</span><input class="input" type="time" name="water-from" value="${esc(r.water.from)}"/></label>
-   <label class="field"><span class="label">Until</span><input class="input" type="time" name="water-to" value="${esc(r.water.to)}"/></label>
+   <label class="reminder-row"><span>Every</span><select class="input" name="water-every">${WATER_INTERVALS.map(m=>`<option value="${m}" ${m===r.water.every?'selected':''}>${m<60?m+' min':m%60?`${Math.floor(m/60)}h ${m%60}m`:`${m/60} hour${m===60?'':'s'}`}</option>`).join('')}</select></label>
+   <label class="reminder-row"><span>From</span><input class="input" type="time" name="water-from" value="${esc(r.water.from)}"/></label>
+   <label class="reminder-row"><span>Until</span><input class="input" type="time" name="water-to" value="${esc(r.water.to)}"/></label>
   </div>
  </fieldset>
  <fieldset class="reminder-group"><legend class="sr-only">Meal logging</legend>
   ${sw('meals-enabled',r.meals.enabled,'Log my meals')}
-  <div class="reminder-fields">${MEALS.map(m=>`<label class="field"><span class="label">${m.label}</span><input class="input" type="time" name="meal-${m.key}" value="${esc(r.meals[m.key])}"/></label>`).join('')}</div>
+  <div class="reminder-fields">${MEALS.map(m=>`<label class="reminder-row"><span>${m.label}</span><input class="input" type="time" name="meal-${m.key}" value="${esc(r.meals[m.key])}"/></label>`).join('')}</div>
  </fieldset>
  <fieldset class="reminder-group"><legend class="sr-only">Workout alarm</legend>
   ${sw('workout-enabled',r.workout.enabled,'Workout alarm')}
   <div class="reminder-fields reminder-fields-workout">
-   <label class="field"><span class="label">Time</span><input class="input" type="time" name="workout-time" value="${esc(r.workout.time)}"/></label>
+   <label class="reminder-row"><span>Time</span><input class="input" type="time" name="workout-time" value="${esc(r.workout.time)}"/></label>
    <div class="reminder-days" role="group" aria-label="Workout days">${WEEKDAYS.map(d=>`<label class="reminder-day"><input type="checkbox" name="workout-day" value="${d}" ${r.workout.days.includes(d)?'checked':''}/><span>${d.slice(0,2)}</span></label>`).join('')}</div>
   </div>
  </fieldset>

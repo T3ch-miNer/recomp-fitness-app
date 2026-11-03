@@ -102,7 +102,7 @@ export function renderCalendar({month,selected,today,marksFor}){
 
 export function renderDayDetail(o,{today,photoUrlFor=()=>null}={}){
  const isToday=o.date===today;
- const workout=o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} sets`).join('<br/>'):'Rest day';
+ const workout=o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} set${w.sets===1?'':'s'}`).join('<br/>'):'Rest day';
  const stats=[
   ['Food',o.meals?`${o.kcal.toLocaleString('en-GB')} kcal`:'—',o.meals?`${o.protein} g protein`:'Not logged'],
   ['Steps',o.steps?o.steps.toLocaleString('en-GB'):'—',''],

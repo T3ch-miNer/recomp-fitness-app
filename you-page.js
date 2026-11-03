@@ -110,12 +110,12 @@ export function recentScreenMinutes(device,date,days=7){
 }
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const prettyMinutes=value=>value==null?'Not connected':Math.floor(value/60)+'h '+String(value%60).padStart(2,'0')+'m';
-export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTasksTotal=0,calendarHtml='',hour=new Date().getHours()}){
+export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTasksTotal=0,calendarHtml='',headerHtml='',hour=new Date().getHours()}){
  const data=getYouData(),habit=todayHabitStats(data,date),streak=habitStreak(data,date);
  const device=data.device[date],native=isNativeWellbeingAvailable();
  const steps=Math.max(0,Number(activity?.steps)||0),goal=Math.max(1,Number(stepGoal)||8000);
  const fb=device?screenTimeFeedback({minutes:Number(device.screenMinutes),unlocks:Number(device.unlocks),recent:recentScreenMinutes(data.device,date),partial:hour<21}):null;
- return `<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>
+ return `${headerHtml||'<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>'}
  ${calendarHtml}
  <section class="you-card you-hero" aria-label="Daily consistency">
   <div class="you-card-top"><span class="eyebrow">Habit streak</span><span class="you-flame" aria-hidden="true">✦</span></div>
