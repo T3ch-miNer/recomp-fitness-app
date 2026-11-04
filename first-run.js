@@ -1,3 +1,4 @@
+import {runMotion} from './motion-bridge.js';
 // Lightweight guest-first welcome. A local UI preference only: fitness records stay in IndexedDB.
 export const FIRST_RUN_KEY='recomp-first-run-choice-v1';
 
@@ -26,6 +27,7 @@ export function showFirstRunWelcome({onGuest,onGoogle,googleEnabled=true,develop
   ${googleEnabled?'<p class="first-run-privacy">You can connect Google later in Settings.</p>':''}
  </section>`;
  document.body.appendChild(overlay);
+ runMotion('playWelcomeHeading',overlay);
  const guest=overlay.querySelector('[data-first-run="guest"]');
  const google=overlay.querySelector('[data-first-run="google"]');
  const error=overlay.querySelector('#first-run-error');

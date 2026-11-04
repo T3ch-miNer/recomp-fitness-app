@@ -80,7 +80,7 @@ test('responsive exercise demo connected to modal with safe PWA caching',()=>{
   assert.ok(sw.includes("'./"+file+"'"),'not in offline shell: '+file);
  }
  assert.match(html,/exercise-demonstration\.css/);
- assert.match(html,/2\.7-worker-access-compat/);
+ assert.match(html,/nutrition-v2\.css\?v=3\.4/);
 });
 
 test('workout cards show only Start and Edit, keeping exercise videos inside the plan editor',()=>{

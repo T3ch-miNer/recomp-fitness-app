@@ -1,0 +1,44 @@
+/* Capacitor 8 injects native insets as CSS variables. Keep all page content, including the sticky workout header, below Android's status icons. */
+html.recomp-native #app .main{
+ padding-top:max(30px,calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 28px))!important;
+}
+@media(max-width:700px){html.recomp-native #app .main{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));}}
+
+/* Android web views repaint every blurred layer on each scroll frame, which
+   makes the app feel laggy. In the APK, swap frosted glass for near-solid
+   surfaces built from the theme's own colours. The website keeps its blur. */
+html.recomp-native *,
+html.recomp-native *::before,
+html.recomp-native *::after{
+ -webkit-backdrop-filter:none!important;
+ backdrop-filter:none!important;
+}
+html.recomp-native .bottom-nav,
+html.recomp-native #recomp-bottom-dock{
+ background:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
+}
+html.recomp-native .quick-fab.quick-history-fab,
+html.recomp-native .floating-workout,
+html.recomp-native .workout-scroll-header,
+html.recomp-native .timer-sheet,
+html.recomp-native .btn.round{
+ background-color:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
+}
+html.recomp-native #toast{background:color-mix(in srgb,var(--panel2) 96%,var(--bg))!important}
+
+/* Paint the band behind Android's status bar, so page titles scroll under a
+   solid strip instead of colliding with the clock and icons. */
+html.recomp-native body::before{
+ content:"";position:fixed;inset:0 0 auto;z-index:60;pointer-events:none;
+ height:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+ background:var(--bg);
+}
+/* The workout's sticky controls stop just below that band. */
+html.recomp-native .workout-focus-shell .workout-scroll-header{top:var(--safe-area-inset-top,env(safe-area-inset-top,0px))}
+/* The phone-width dock forces its own blur; override it with matching weight. */
+html.recomp-native #recomp-bottom-dock.bottom-nav.premium-dock{
+ -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+ background:color-mix(in srgb,var(--panel2) 94%,var(--bg))!important;
+}
+/* Glow on the Home rings is a GPU filter that Android repaints each frame. */
+html.recomp-native .ring-bar{filter:none!important}

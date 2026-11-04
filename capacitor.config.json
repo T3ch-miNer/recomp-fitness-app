@@ -1,0 +1,23 @@
+{
+  "appId": "com.t3chminer.recomp",
+  "appName": "Recomp",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK",
+      "hidden": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_recomp",
+      "iconColor": "#6EF5C8"
+    }
+  }
+}

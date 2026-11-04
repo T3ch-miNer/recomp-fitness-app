@@ -25,7 +25,7 @@ test('basic vs advanced onboarding applies only to new users',()=>{
  assert.match(app,/state\.fitnessMode='advanced'/);
  assert.match(app,/if\(mode==='basic'&&firstChoice\)state\.templates=basicWorkoutTemplates\(\)/);
  assert.match(app,/state\.fitnessMode==='basic'\?state\.templates\.filter/);
- assert.match(app,/if\(state\.fitnessMode==='basic'&&\!\['A','B'\]\.includes\(id\)\)return/);
+ assert.match(app,/state\.basicProfile\?template\.basicGenerated/);
  assert.match(app,/maybeShowFitnessMode\(\);maybeShowInitialDailyTargets\(\)/);
 });
 test('private profile produces copyable self-directed GPT request rather than sending any health records',()=>{

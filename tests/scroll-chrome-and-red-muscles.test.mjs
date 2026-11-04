@@ -42,7 +42,7 @@ test('runtime locks focused sessions, and routes all main pages through same doc
  assert.match(app,/scroll-chrome-hidden/);
  assert.match(app,/window\.addEventListener\('scroll',scheduleScrollChrome/);
  assert.match(app,/if\(active\)resetScrollChrome\(\)/);
- assert.match(app,/function setTab\(dest,swipeDirection=null\)\{toggleFoodMenu\(false\);resetScrollChrome\(\)/);
+ assert.match(app,/function setTab\(dest,swipeDirection=null,\{fromBack=false\}=\{\}\)\{toggleFoodMenu\(false\);resetScrollChrome\(\)/);
  for(const name of ['home','workouts','nutrition','body','settings'])assert.ok(app.includes(name));
 });
 test('muscle diagram uses red emphasis for focused muscles and distinct secondary tone',()=>{
@@ -58,6 +58,6 @@ test('new nav script and CSS precached and versioned',()=>{
  assert.ok(sw.includes(CACHE));
  assert.ok(sw.includes("'./scroll-chrome.js'"));
  assert.ok(sw.includes("'./scroll-chrome.css'"));
- assert.ok(html.includes('scroll-chrome.css?v=2.9.5-red-muscle-scroll'));
- assert.ok(html.includes('workout-focus-flow.css?v=2.9.5-red-muscle-scroll'));
+ assert.ok(html.includes('scroll-chrome.css?v=3.5'));
+ assert.ok(html.includes('workout-focus-flow.css?v=3.4'));
 });

@@ -21,6 +21,8 @@ const mealOptions=current=>meals.map(m=>`<option ${current===m?'selected':''} va
 
 export function openNutrition({mode='home',meal,save,manual,notify,lookupProduct}={}) {
  let page=['home','search','photo','barcode'].includes(mode)?mode:'home';
+ // Opened straight into one mode (from the quick-add menu): Back from that page closes the sheet.
+ const entryPage=page;
  let selectedMeal=meals.includes(meal)?meal:mealForHour();
  let date=localDate(),query='',selected=null,grams=100,priorPage='search';
  let imageFile=null,imageURL='',photoStep='choose',photoQuery='',photoSearchVisible=false,photoSeparateMode=false,photoFoods=[],suggestions=[],recognising=false;
@@ -155,7 +157,7 @@ ${suggestions.length?`<div class="nf-suggestions"><span class="nf-section-label"
   if(sameView){const content=host.querySelector('.nf-content');if(content)content.scrollTop=previousScroll;}
  }
  function go(mode){stopAiScan();stopCamera();page=mode;notice='';aiStatus='idle';aiMessage='';aiIssue='';render();}
- function back(){stopAiScan();aiStatus='idle';aiMessage='';aiIssue='';if(recognising)stopRecognition();if(page==='home'){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
+ function back(){stopAiScan();aiStatus='idle';aiMessage='';aiIssue='';if(recognising)stopRecognition();if(page==='home'||(page===entryPage&&!(page==='photo'&&photoStep==='review'))){close();return;}if(page==='portion'){page=priorPage;}else if(page==='photo'&&photoStep==='review'){photoStep='choose';}else page='home';stopCamera();render();}
  function selectFood(item,origin='search'){selected=item;grams=item.defaultGrams||100;priorPage=origin;page='portion';render();}
  function addPhotoFood(id){const food=findFood(id);if(!food)return;if(photoFoods.length>=14){notice='Maximum 14 foods per meal.';render();return;}photoFoods.push({id,grams:food.defaultGrams||100});photoSearchVisible=false;photoQuery='';suggestions=suggestions.filter(f=>f.id!==id);render();}
  function setImage(file){if(recognising)stopRecognition();stopAiScan();aiMeal=null;aiModel='';aiIssue='';aiStatus='idle';aiMessage='';photoSeparateMode=false;if(!file)return;if(!file.type.startsWith('image/')){notice='Please choose a photograph.';render();return;}if(file.size>18*1024*1024){notice='Please choose a photo smaller than 18 MB.';render();return;}
