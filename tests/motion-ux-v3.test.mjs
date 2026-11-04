@@ -27,7 +27,7 @@ test('Weight graph glides only when actual history chart is present',()=>{
  assert.match(motion,/root\.querySelector\('\.weight-chart svg'\)/);
  assert.match(motion,/if\(!graph\)return/);
  assert.match(motion,/cubic-bezier\(\.7,\.1,\.5,\.9\)/);
- assert.match(app,/tab==='body'&&bodyPanel==='weight'/);
+ assert.match(app,/tab==='body'&&bodyPanel==='measurements'/);
 });
 test('Habit checks bounce and bottom navigation reacts, while real streak rules stay unchanged',()=>{
  assert.match(motion,/playHabitCheck/);

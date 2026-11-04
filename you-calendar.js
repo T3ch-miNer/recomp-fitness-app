@@ -96,11 +96,11 @@ export function renderCalendar({month,selected,today,marksFor}){
   ${['M','T','W','T','F','S','S'].map(d=>`<span class="you-cal-weekday" aria-hidden="true">${d}</span>`).join('')}
   ${cells}
  </div>
- <div class="you-cal-legend" aria-hidden="true">${Object.entries(MARK_LABELS).map(([k,l])=>`<span><i class="you-cal-dot ${k}"></i>${l}</span>`).join('')}</div>
+ <div class="you-cal-legend" aria-hidden="true">${Object.entries(MARK_LABELS).map(([k,l])=>`<span><i class="you-cal-dot ${k}"></i>${l}</span>`).join('')}<span class="you-cal-tip">Tap a day to open it</span></div>
  </section>`;
 }
 
-export function renderDayDetail(o,{today,photoUrlFor=()=>null}={}){
+export function renderDayDetail(o,{today,photoUrlFor=()=>null,closable=false}={}){
  const isToday=o.date===today;
  const workout=o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} set${w.sets===1?'':'s'}`).join('<br/>'):'Rest day';
  const stats=[
@@ -113,7 +113,7 @@ export function renderDayDetail(o,{today,photoUrlFor=()=>null}={}){
  const photos=o.photos.map(p=>{const url=photoUrlFor(p.id);return url?`<img src="${esc(url)}" alt="Progress photo, ${esc(p.view||'')} view" loading="lazy"/>`:'<span class="you-day-photo-missing">Photo saved</span>';}).join('');
  const quick=isToday&&(o.weight==null||!o.photos.length)?`<div class="you-actions">${o.weight==null?'<button type="button" class="btn" data-action="add-weight">Log weight</button>':''}${!o.photos.length?'<button type="button" class="btn" data-action="add-photo">Add photo</button>':''}</div>`:'';
  return `<section class="you-card you-day" aria-labelledby="you-day-title">
- <div class="you-card-top"><h2 id="you-day-title" aria-label="${esc(longDate(o.date))}">${esc(shortDate(o.date))}</h2>${isToday?'<span class="you-muted">Today</span>':''}</div>
+ ${closable?`<div class="you-day-nav"><button type="button" class="btn round you-cal-nav" data-action="you-day-step" data-dir="-1" aria-label="Previous day">‹</button><div class="you-day-heading"><h2 id="you-day-title" aria-label="${esc(longDate(o.date))}">${esc(shortDate(o.date))}</h2>${isToday?'<span class="you-muted">Today</span>':''}</div><button type="button" class="btn round you-cal-nav" data-action="you-day-step" data-dir="1" aria-label="Next day" ${isToday?'disabled':''}>›</button><button type="button" class="btn round you-day-close" data-action="you-day-close" aria-label="Close and show the calendar">×</button></div>`:`<div class="you-card-top"><h2 id="you-day-title" aria-label="${esc(longDate(o.date))}">${esc(shortDate(o.date))}</h2>${isToday?'<span class="you-muted">Today</span>':''}</div>`}
  <p class="you-day-workout"><span>Workout</span><b>${workout}</b></p>
  <dl class="you-day-stats">${stats.map(([k,v,sub])=>`<div><dt>${k}</dt><dd>${v}${sub?`<small>${sub}</small>`:''}</dd></div>`).join('')}</dl>
  ${photos?`<div class="you-day-photos">${photos}</div>`:''}

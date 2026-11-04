@@ -76,7 +76,7 @@ test('responsive stylesheet is loaded and cached with the same release',()=>{
  assert.match(css,/\.settings-targets-card \.field-row/);
  assert.match(css,/@media\(max-width:760px\)/);
  assert.match(css,/\.settings-advanced-summary:focus-visible/);
- assert.match(htmlPage,/settings-layout\.css\?v=3\.5/);
+ assert.match(htmlPage,/settings-layout\.css\?v=3\.6/);
  assert.match(css,/\.settings-menu-row\{/);
  assert.match(sw,/settings-layout\.css/);
  assert.ok(sw.includes(CACHE));

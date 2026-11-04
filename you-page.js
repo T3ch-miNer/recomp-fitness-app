@@ -1,5 +1,6 @@
 // The You dashboard keeps wellbeing events device-local. It is deliberately not part
 // of Recomp's cloud-backed fitness state, so phone usage is never uploaded by backup.
+import {phoneCard,screenWeek} from './you-insights.js';
 const KEY='recomp-you-local-v1';
 const DEFAULT_HABITS=[
  {id:'rest',label:'Make time to unwind'},
@@ -110,43 +111,25 @@ export function recentScreenMinutes(device,date,days=7){
 }
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const prettyMinutes=value=>value==null?'Not connected':Math.floor(value/60)+'h '+String(value%60).padStart(2,'0')+'m';
-export function renderYouPage({date,activity,stepGoal,dailyTasksDone=0,dailyTasksTotal=0,calendarHtml='',headerHtml='',hour=new Date().getHours()}){
+export function renderYouPage({date,dailyTasksDone=0,dailyTasksTotal=0,calendarHtml='',headerHtml='',insightsHtml={},hour=new Date().getHours()}){
  const data=getYouData(),habit=todayHabitStats(data,date),streak=habitStreak(data,date);
  const device=data.device[date],native=isNativeWellbeingAvailable();
- const steps=Math.max(0,Number(activity?.steps)||0),goal=Math.max(1,Number(stepGoal)||8000);
  const fb=device?screenTimeFeedback({minutes:Number(device.screenMinutes),unlocks:Number(device.unlocks),recent:recentScreenMinutes(data.device,date),partial:hour<21}):null;
+ const feedbackHtml=fb?`<div class="you-screen-feedback ${fb.level}" aria-live="polite"><span class="you-feedback-mark" aria-hidden="true"></span><div><strong>${esc(fb.title)}</strong><p>${esc(fb.message)}${fb.trend?' '+esc(fb.trend):''}</p>${fb.tip?`<p class="you-feedback-tip">${esc(fb.tip)}</p>`:''}${fb.checks?`<p class="you-feedback-tip">${esc(fb.checks)}</p>`:''}</div></div>`:'';
+ const phoneOpts={feedbackHtml,unlocks:device?Number(device.unlocks):null,native,hasToday:Boolean(device)};
+ const phone=typeof insightsHtml.phone==='function'?insightsHtml.phone(phoneOpts):phoneCard(screenWeek(data.device,date),phoneOpts);
  return `${headerHtml||'<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>'}
  ${calendarHtml}
- <section class="you-card you-hero" aria-label="Daily consistency">
-  <div class="you-card-top"><span class="eyebrow">Habit streak</span><span class="you-flame" aria-hidden="true">✦</span></div>
-  <div class="you-big">${streak} <small>day${streak===1?'':'s'}</small></div>
-  <p>${habit.all?'Your wellbeing habits are complete today.':'Check off your habits when they genuinely fit your day.'}</p>
-  <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${habit.total}" aria-valuenow="${habit.completed}" aria-label="Habits completed"><span style="width:${habit.total?Math.round(100*habit.completed/habit.total):0}%"></span></div>
-  <p class="you-caption">${habit.completed} of ${habit.total} wellbeing habits · ${dailyTasksDone} of ${dailyTasksTotal} Recomp tasks today</p>
- </section>
- <div class="you-section-title"><h2>Daily movement</h2><span>${esc(activity?.source||'Manual or not recorded')}</span></div>
- <section class="you-card">
-  <div class="you-card-top"><strong>Steps</strong><span class="you-muted">Goal ${goal.toLocaleString('en-GB')}</span></div>
-  <div class="you-big">${steps.toLocaleString('en-GB')}</div>
-  <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${goal}" aria-valuenow="${Math.min(steps,goal)}" aria-label="Step goal progress"><span style="width:${Math.min(100,Math.round(steps/goal*100))}%"></span></div>
-  <div class="you-actions">${native?'<button type="button" class="btn primary" data-action="you-sync-steps">Sync Health Connect</button>':'<button type="button" class="btn" data-action="activity">Enter steps manually</button>'}</div>
-  <p class="you-caption">No direct Google Fit access. On Android, Recomp reads permitted Health Connect totals.</p>
- </section>
- <div class="you-section-title"><h2>Digital wellbeing</h2><span>${native?'Android device':'Web version'}</span></div>
- <div class="you-metrics">
-  <section class="you-card"><span class="you-muted">Screen-on time</span><strong class="you-metric-value">${device?prettyMinutes(device.screenMinutes):'—'}</strong><small class="you-caption">Approximate, today</small></section>
-  <section class="you-card"><span class="you-muted">Phone unlocks</span><strong class="you-metric-value">${device?device.unlocks:'—'}</strong><small class="you-caption">Estimated keyguard unlocks</small></section>
- </div>
- ${fb?`<section class="you-card you-screen-feedback ${fb.level}" aria-live="polite"><span class="you-feedback-mark" aria-hidden="true"></span><div><strong>${esc(fb.title)}</strong><p>${esc(fb.message)}${fb.trend?' '+esc(fb.trend):''}</p>${fb.tip?`<p class="you-feedback-tip">${esc(fb.tip)}</p>`:''}${fb.checks?`<p class="you-feedback-tip">${esc(fb.checks)}</p>`:''}</div></section>`:''}
- <section class="you-card">
-  <p class="you-caption">${native?'Usage Access is optional. Android only supplies local statistics after you enable it in system settings.':'Automatic screen time and phone unlocks require the Android APK. iPhone and other browsers can still use habits and fitness tracking.'}</p>
-  ${native?'<div class="you-actions"><button class="btn" data-action="you-usage-settings">Usage Access settings</button><button class="btn primary" data-action="you-refresh-device">Refresh usage</button></div>':''}
-  ${device?'<button class="btn ghost" data-action="you-clear-device">Clear local usage history</button>':''}
- </section>
- <div class="you-section-title"><h2>Daily wellbeing habits</h2><span>${habit.completed} of ${habit.total}</span></div>
+ ${insightsHtml.insight?`<section class="you-insight" aria-label="Weekly insight"><span class="you-insight-mark" aria-hidden="true">✦</span><p>${esc(insightsHtml.insight)}</p></section>`:''}
+ ${insightsHtml.mood||''}
+ ${insightsHtml.training||''}
+ ${phone}
+ ${native?`<div class="you-actions you-usage-actions"><button class="btn" data-action="you-usage-settings">Usage Access settings</button><button class="btn primary" data-action="you-refresh-device">Refresh usage</button>${device?'<button class="btn ghost" data-action="you-clear-device">Clear usage history</button>':''}</div>`:''}
+ <div class="you-section-title"><h2>Habits</h2><span>${streak} day streak · ${habit.completed} of ${habit.total} today</span></div>
  <section class="you-card you-habit-list" aria-label="Daily habits">
-  ${data.habits.length?data.habits.map(h=>`<div class="you-habit"><label><input type="checkbox" data-you-habit="${esc(h.id)}" ${data.checks?.[date]?.[h.id]?'checked':''}/><span>${esc(h.label)}</span></label><button class="you-remove-habit" data-action="you-remove-habit" data-id="${esc(h.id)}" aria-label="Remove ${esc(h.label)}">×</button></div>`).join(''):'<p class="you-caption">Add one small habit to begin.</p>'}
+  <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${habit.total}" aria-valuenow="${habit.completed}" aria-label="Habits completed today"><span style="width:${habit.total?Math.round(100*habit.completed/habit.total):0}%"></span></div>
+  ${data.habits.length?data.habits.map(h=>`<div class="you-habit"><label><input type="checkbox" data-you-habit="${esc(h.id)}" ${data.checks?.[date]?.[h.id]?'checked':''}/><span>${esc(h.label)}</span></label><button class="you-remove-habit" data-action="you-remove-habit" data-id="${esc(h.id)}" aria-label="Remove ${esc(h.label)}">×</button></div>`).join(''):'<p class="you-caption">Add a habit that helps you switch off, like a screen-free walk.</p>'}
   <form id="you-add-habit-form" class="you-add-form"><input class="input" name="habit" type="text" maxlength="70" placeholder="Add your own habit" required aria-label="New wellbeing habit"/><button type="submit" class="btn primary">Add</button></form>
-  <p class="you-caption">Habits and phone usage are saved only on this device, not in cloud backup. You can take rest days.</p>
+  <p class="you-caption">${dailyTasksDone} of ${dailyTasksTotal} Recomp tasks done today. Habits and phone use stay on this phone, not in cloud backup.</p>
  </section>`;
 }

@@ -31,6 +31,6 @@ test('Android Back closes a Settings page before leaving Settings',()=>{
 });
 
 test('You uses the shared page header, so theme and settings buttons are there too',()=>{
- assert.match(app,/renderYouPage\(\{headerHtml:heading\('You\.','Small daily wins, without the pressure\.'\)/);
+ assert.match(app,/renderYouPage\(\{insightsHtml,headerHtml:heading\('You\.','Small daily wins, without the pressure\.'\)/);
  assert.match(read('you-page.js'),/\$\{headerHtml\|\|'<header class="you-header">/);
 });

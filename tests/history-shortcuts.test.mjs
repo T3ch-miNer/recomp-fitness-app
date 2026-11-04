@@ -45,8 +45,8 @@ test('history shortcut sits beside both Plan and Food and completed sessions ret
  const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
- assert.ok(app.includes('food-fab-cluster history-action-cluster'));
  assert.ok(app.includes('plan-fab-cluster history-action-cluster'));
+ assert.ok(app.includes('fan-cluster ${tab===\'nutrition\'?\'food-fab-cluster\':\'\'} history-action-cluster'));
  assert.match(app,/case 'toggle-history'/);
  assert.match(app,/case 'view-workout-history'/);
  assert.match(app,/orderedWorkoutPlans\(\(state\.fitnessMode==='basic'\?state\.templates\.filter/);

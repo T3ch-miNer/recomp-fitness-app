@@ -5,11 +5,12 @@ import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const app=read('app.js'),welcome=read('first-run.js'),mode=read('fitness-mode.js'),welcomeCss=read('first-run.css');
 
-test('Body shows one friendly empty state until the first measurements are saved',()=>{
- assert.match(app,/bodyPanel==='measurements'\?\(!baseline\?`<div class="card body-empty-state">/);
- assert.match(app,/Add first measurements<\/button>/);
- assert.match(app,/data-action="add-measurement">\$\{svg\('plus','tiny-icon'\)\} Add first measurements/);
- assert.match(app,/Not recorded/,'saved measurements keep the full table');
+test('Body shows a friendly empty state for any part with no entries yet',async()=>{
+ const {measurementsPanel}=await import('../body-progress.js');
+ const empty=measurementsPanel({part:'belly',weights:[],measurements:[]});
+ assert.match(empty,/No belly button measurements yet/);
+ assert.match(empty,/data-action="add-measurement">Add measurements/);
+ assert.match(measurementsPanel({part:'weight'}),/data-action="add-weight">Log weight/);
 });
 
 test('welcome puts the guest route first and drops developer wording',()=>{

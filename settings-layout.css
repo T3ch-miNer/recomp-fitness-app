@@ -142,3 +142,13 @@
 .reminder-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
 .reminder-row>span{font-size:13px;color:var(--muted);font-weight:650}
 .reminder-row .input{width:auto;min-width:0;flex:0 1 148px;min-height:42px;padding:8px 10px;font-size:15px}
+/* First-time reminders prompt */
+.reminder-prompt-intro{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--muted)}
+.reminder-prompt-list{display:grid;gap:8px;margin-bottom:10px}
+.reminder-pick{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
+.reminder-pick input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.reminder-pick span{display:grid;gap:2px}
+.reminder-pick b{font-size:14px}
+.reminder-pick small{font-size:12px;color:var(--muted)}
+.reminder-prompt-actions{display:grid;gap:6px;margin-top:4px}
+.reminder-prompt-actions .btn{min-height:48px;justify-content:center}
