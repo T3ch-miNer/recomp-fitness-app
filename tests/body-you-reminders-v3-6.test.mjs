@@ -97,7 +97,7 @@ test('Back closes the fan menu, photo compare and an open day before leaving the
 
 test('app wiring: Body tabs, You layout, reminders prompt and caching',()=>{
  assert.doesNotMatch(app,/Weight history<\/button>/);
- assert.match(app,/if\(youDayOpen\)return renderDayDetail\(overview,\{[^}]*closable:true\}\)/);
+ assert.match(app,/if\(youDayOpen\)return renderDayDetail\(overview,\{[^}]*closable:true[^}]*\}\)/);
  assert.match(app,/function maybeShowReminderPrompt\(\)/);
  assert.match(app,/if\(!force&&maybeShowReminderPrompt\(\)\)return false;/);
  assert.match(app,/if\(id==='form-reminder-prompt'\)/);
