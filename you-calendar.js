@@ -1,6 +1,7 @@
 // You page calendar: a month view of the days you trained, weighed in, took a
 // progress photo or wrote a note, plus a one-day overview with a journal note.
 // Pure functions only. app.js passes in the saved records and handles saving.
+import {SAVED_LABEL} from './premium-touches.js';
 
 export const MOODS=Object.freeze([
  {id:'great',label:'Great'},
@@ -86,7 +87,7 @@ export function renderCalendar({month,selected,today,marksFor}){
   const day=Number(date.slice(8));
   return `<button type="button" class="you-cal-day${date===today?' today':''}${date===selected?' selected':''}" data-action="you-cal-day" data-date="${date}" ${future?'disabled':''} aria-pressed="${date===selected}" aria-label="${esc(longDate(date))}${said?': '+said:''}"><span>${day}</span><span class="you-cal-dots" aria-hidden="true">${dots}</span></button>`;
  }).join('');
- return `<section class="you-card you-calendar" aria-label="Calendar">
+ return `<section class="you-card you-calendar foil-tint" aria-label="Calendar">
  <div class="you-cal-head">
   <button type="button" class="btn round you-cal-nav" data-action="you-cal-prev" aria-label="Previous month">‹</button>
   <h2>${esc(monthTitle(month))}</h2>
@@ -100,7 +101,7 @@ export function renderCalendar({month,selected,today,marksFor}){
  </section>`;
 }
 
-export function renderDayDetail(o,{today,photoUrlFor=()=>null,closable=false}={}){
+export function renderDayDetail(o,{today,photoUrlFor=()=>null,closable=false,saved=false}={}){
  const isToday=o.date===today;
  const workout=o.workouts.length?o.workouts.map(w=>`${esc(w.name)} · ${w.durationMin} min · ${w.sets} set${w.sets===1?'':'s'}`).join('<br/>'):'Rest day';
  const stats=[
@@ -122,7 +123,7 @@ export function renderDayDetail(o,{today,photoUrlFor=()=>null,closable=false}={}
   <span class="you-day-label" id="you-mood-label">How did the day go?</span>
   <div class="you-moods" role="radiogroup" aria-labelledby="you-mood-label">${MOODS.map(m=>`<label class="you-mood ${m.id}"><input type="radio" name="mood" value="${m.id}" ${o.note.mood===m.id?'checked':''}/><span>${m.label}</span></label>`).join('')}</div>
   <textarea id="you-day-note" class="input" name="note" rows="2" maxlength="${NOTE_LIMIT}" placeholder="A few words about your day: energy, sleep, wins, what got in the way." aria-label="Note for ${esc(longDate(o.date))}">${esc(o.note.text)}</textarea>
-  <button type="submit" class="btn primary">${o.note.text||o.note.mood?'Update note':'Save note'}</button>
+  <button type="submit" class="btn primary${saved?' is-saved':''}" data-dyn="day-note">${saved?SAVED_LABEL:o.note.text||o.note.mood?'Update note':'Save note'}</button>
  </form>
  </section>`;
 }

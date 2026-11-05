@@ -1,6 +1,7 @@
 // The You dashboard keeps wellbeing events device-local. It is deliberately not part
 // of Recomp's cloud-backed fitness state, so phone usage is never uploaded by backup.
 import {phoneCard,screenWeek} from './you-insights.js';
+import {streakBadge} from './rewards.js';
 const KEY='recomp-you-local-v1';
 const DEFAULT_HABITS=[
  {id:'rest',label:'Make time to unwind'},
@@ -124,11 +125,12 @@ export function renderYouPage({date,dailyTasksDone=0,dailyTasksTotal=0,calendarH
  ${insightsHtml.mood||''}
  ${insightsHtml.training||''}
  ${phone}
- ${native?`<div class="you-actions you-usage-actions"><button class="btn" data-action="you-usage-settings">Usage Access settings</button><button class="btn primary" data-action="you-refresh-device">Refresh usage</button>${device?'<button class="btn ghost" data-action="you-clear-device">Clear usage history</button>':''}</div>`:''}
+ ${native?`<div class="you-actions you-usage-actions"><button class="btn" data-action="you-usage-settings">Usage Access settings</button><button class="btn primary" data-action="you-refresh-device">Refresh usage</button>${device?'<button class="btn ghost" data-action="you-clear-device" data-hold="1500">Hold to clear usage history</button>':''}</div>`:''}
  <div class="you-section-title"><h2>Habits</h2><span>${streak} day streak · ${habit.completed} of ${habit.total} today</span></div>
+ ${streakBadge(streak)}
  <section class="you-card you-habit-list" aria-label="Daily habits">
   <div class="you-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${habit.total}" aria-valuenow="${habit.completed}" aria-label="Habits completed today"><span style="width:${habit.total?Math.round(100*habit.completed/habit.total):0}%"></span></div>
-  ${data.habits.length?data.habits.map(h=>`<div class="you-habit"><label><input type="checkbox" data-you-habit="${esc(h.id)}" ${data.checks?.[date]?.[h.id]?'checked':''}/><span>${esc(h.label)}</span></label><button class="you-remove-habit" data-action="you-remove-habit" data-id="${esc(h.id)}" aria-label="Remove ${esc(h.label)}">×</button></div>`).join(''):'<p class="you-caption">Add a habit that helps you switch off, like a screen-free walk.</p>'}
+  ${data.habits.length?data.habits.map(h=>`<div class="you-habit"><label><input type="checkbox" data-you-habit="${esc(h.id)}" ${data.checks?.[date]?.[h.id]?'checked':''}/><span>${esc(h.label)}</span></label><button class="you-remove-habit" data-action="you-remove-habit" data-id="${esc(h.id)}" data-hold="1200" title="Hold to remove" aria-label="Hold to remove ${esc(h.label)}">×</button></div>`).join(''):'<p class="you-caption">Add a habit that helps you switch off, like a screen-free walk.</p>'}
   <form id="you-add-habit-form" class="you-add-form"><input class="input" name="habit" type="text" maxlength="70" placeholder="Add your own habit" required aria-label="New wellbeing habit"/><button type="submit" class="btn primary">Add</button></form>
   <p class="you-caption">${dailyTasksDone} of ${dailyTasksTotal} Recomp tasks done today. Habits and phone use stay on this phone, not in cloud backup.</p>
  </section>`;
