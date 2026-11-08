@@ -118,3 +118,13 @@
 .recomp-warmup.pending .recomp-warmup-moves{margin-top:10px;font-size:13px}
 .recomp-warmup.pending .recomp-warmup-moves summary{cursor:pointer;color:var(--muted);font-weight:650}
 .recomp-warmup.pending .recomp-warmup-advice{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* v3.8 next-weight suggestion */
+.workout-card .last-time .next-up{display:inline;white-space:nowrap;font-size:inherit;font-weight:800;color:var(--accent)}
+.next-weight{display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
+.next-weight.stay{background:color-mix(in srgb,var(--text,#fff) 5%,transparent);border-color:var(--line,rgba(255,255,255,.08))}
+.next-weight>div{flex:1;min-width:0;display:grid;gap:2px}
+.next-weight b{font-size:14px;font-variant-numeric:tabular-nums}
+.next-weight span{font-size:12px;color:var(--muted);line-height:1.35}
+.next-weight .next-weight-use{min-height:38px;padding:0 12px;font-size:13px;white-space:nowrap;flex:none}
+.next-weight .next-weight-set{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:750;color:var(--accent);flex:none}

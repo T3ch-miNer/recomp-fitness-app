@@ -78,6 +78,9 @@ export function rememberDeviceDay(data){
  for(const key of Object.keys(d.device))if(Date.parse(key+'T12:00:00')<cutoff)delete d.device[key];
  store(d);
 }
+// Backups: the raw habits and phone-use data, and a way to put it back.
+export function getYouRaw(){try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch{return null;}}
+export function replaceYouData(data){if(data&&typeof data==='object')store(data);}
 export function clearDeviceDays(){const d=getYouData();d.device={};store(d);}
 // Friendly feedback on screen-on time. Totals include work and messaging, so
 // the bands are generous and the tone suggests rather than scolds.

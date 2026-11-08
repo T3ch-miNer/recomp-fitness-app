@@ -25,7 +25,8 @@ import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnline
 import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue} from './online-catalogue.js';
 import {openMealPlanner} from './meal-planner.js';
 import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
-import {renderYouPage,isNativeWellbeingAvailable,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays} from './you-page.js';
+import {renderYouPage,isNativeWellbeingAvailable,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays,getYouRaw,replaceYouData} from './you-page.js';
+import {buildBackup,readBackup,summariseBackup,describeBackup,workoutsCsv,foodCsv,weightsCsv,saveTextFiles,backupAge,nativeFileSharing} from './backup.js';
 import {runMotion,refreshMotionClock,motionBundleReady} from './motion-bridge.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
@@ -39,6 +40,8 @@ import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 import {initPremiumTouches,wasHeld,setDynamicLabel} from './premium-touches.js';
 import {personalBests,personalBestBadge} from './rewards.js';
+import {suggestNext,setsToChange} from './progression.js';
+import {prepareRestAlerts,scheduleRestAlert,cancelRestAlert} from './rest-alert.js';
 
 const $ = s => document.querySelector(s);
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -95,7 +98,7 @@ const svgSymbols = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none"
 const mkEx = (id,name,sets,reps,weight,rest,alts=[],savedSets=[])=>({id,name,
  sets:Array.from({length:sets},(_,i)=>({id:uid(),kg:n(savedSets?.[i]?.kg,weight),
   reps:n(savedSets?.[i]?.reps,reps),done:false,
-  manualKg:i>0&&savedSets?.[i]?.kg!=null&&n(savedSets[i].kg)!==n(savedSets[0]?.kg,weight)})),restSeconds:rest,alts});
+  manualKg:i>0&&savedSets?.[i]?.kg!=null&&n(savedSets[i].kg)!==n(savedSets[0]?.kg,weight)})),restSeconds:rest,alts,targetReps:n(reps)});
 function buildWorkoutExercises(template){
  // Existing v1.8 history can prefill v1.9 without altering older records.
  const previous=(state.workoutHistory||[]).slice().reverse().find(h=>h.name===template.name);
@@ -828,10 +831,23 @@ function lastTimeLine(e){
  const f=v=>String(+n(v).toFixed(2)); // keeps 22.5 kg as 22.5
  const kgs=[...new Set(sets.map(x=>n(x.kg)))];
  const text=kgs.length===1&&kgs[0]>0?`${f(kgs[0])} kg × ${sets.map(x=>f(x.reps)+unit).join(', ')}`:sets.map(x=>(n(x.kg)>0?f(x.kg)+' kg × ':'')+f(x.reps)+unit).join(', ');
- return `<span class="last-time">Last time: ${escapeHtml(text)}</span>`;
+ return `<span class="last-time">Last time: ${escapeHtml(text)}${nextWeightHint(e)}</span>`;
+}
+// Next-weight suggestion from last session. Sessions saved before v3.8 use the plan's reps as the target.
+function nextWeightFor(e){
+ const last=lastTimeFor(e.name);if(!last)return null;
+ const target=n(e.targetReps)||Math.max(0,...e.sets.map(x=>n(x.reps)));
+ return suggestNext(last,{target,unit:e.unit||'reps'});
+}
+function nextWeightHint(e){const s=nextWeightFor(e);return s?.kind==='add'?` · <b class="next-up">↑ ${escapeHtml(String(+s.kg.toFixed(2)))} kg</b>`:'';}
+function nextWeightCard(e,i){
+ const s=nextWeightFor(e);if(!s)return '';
+ const todo=setsToChange(e,s);
+ const action=todo.length?`<button type="button" class="btn next-weight-use" data-action="apply-next-weight" data-index="${i}">Use ${escapeHtml(String(+s.kg.toFixed(2)))} kg</button>`:`<span class="next-weight-set">${svg('check','tiny-icon')} Set</span>`;
+ return `<div class="next-weight ${s.kind}"><div><b>${escapeHtml(s.text)}</b><span>${escapeHtml(s.why)}</span></div>${action}</div>`;
 }
 function musclePageView(s){return `<div class="muscle-page"><button type="button" class="btn history-back" data-action="close-muscle-focus">← Back to workout</button><div class="top"><div class="workout-title-block"><div class="eyebrow">TODAY'S WORKOUT</div><h1 class="page-title">${escapeHtml(s.name)}</h1></div></div>${renderMuscleFocus(s.exercises)}</div>`;}
-function activeWorkoutView(){const s=state.session;if(!s) return workoutView();if(musclePage)return musclePageView(s);const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">${escapeHtml(workoutNameParts(s.name)[1]||'FOCUSED WORKOUT').toUpperCase()}</div><h1 class="page-title">${escapeHtml(workoutNameParts(s.name)[0])}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div class="workout-progress" style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?`<details class="giant-coach-notes"><summary>${String(s.templateId||'').startsWith('fts-')?'Coach notes from FTS':'Coach notes'} · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:''}${!roundMode?renderMuscleFocusLink(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''} ${open?'is-open':''}" data-ex-card="${i}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span>${lastTimeLine(e)}</span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div><div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions compact"><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demo</button><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn danger icon-only" data-action="remove-session-exercise" data-index="${i}" aria-label="Remove ${escapeHtml(e.name)} from this workout" title="Remove">${svg('trash','tiny-icon')}</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
+function activeWorkoutView(){const s=state.session;if(!s) return workoutView();if(musclePage)return musclePageView(s);const giantGroups=getGiantGroups(s),roundMode=giantGroups.length>0&&s.giantView!=='detailed';const total=s.exercises.reduce((acc,e)=>acc+e.sets.length,0),completed=s.exercises.reduce((acc,e)=>acc+e.sets.filter(x=>x.done).length,0);return `<header class="workout-scroll-header" aria-label="Workout controls"><button class="btn workout-header-action" data-action="minimise-workout">${svg("minimise","tiny-icon")} Minimise</button><div class="workout-sticky-status"><span class="pill workout-header-saved"><span class="status-dot" aria-hidden="true"></span> Session saved</span><span class="workout-header-progress" aria-hidden="true"><span class="elapsed">${elapsed(s.startedAt)}</span><span class="workout-progress-divider">·</span><span>${completed}/${total}</span><small>sets</small></span></div><button class="btn danger workout-header-action" data-action="discard-workout">Discard</button></header><div class="top"><div class="workout-title-block"><div class="eyebrow">${escapeHtml(workoutNameParts(s.name)[1]||'FOCUSED WORKOUT').toUpperCase()}</div><h1 class="page-title">${escapeHtml(workoutNameParts(s.name)[0])}</h1><div class="subhead workout-start-progress">${svg("timer","tiny-icon")} <span class="elapsed">${elapsed(s.startedAt)}</span> &nbsp; · &nbsp; ${completed}/${total} sets complete</div></div><div class="metric-icon">${svg("dumbbell")}</div></div><div class="workout-progress" style="margin:0 0 17px">${progress(completed,total)}</div>${warmupView(s)}${giantGroups.length?`<div class="giant-view-toggle" role="group" aria-label="Workout view"><button class="btn ${roundMode?'primary':''}" data-action="giant-view" data-mode="rounds" aria-pressed="${roundMode}">Giant set rounds</button><button class="btn ${!roundMode?'primary':''}" data-action="giant-view" data-mode="detailed" aria-pressed="${!roundMode}">Detailed View</button></div>`:''}${s.instructions?`<details class="giant-coach-notes"><summary>${String(s.templateId||'').startsWith('fts-')?'Coach notes from FTS':'Coach notes'} · Tap to expand</summary><p>${escapeHtml(s.instructions)}</p></details>`:''}${!roundMode?renderMuscleFocusLink(s.exercises):''}${s.rest?`<button class="rest-status-banner" data-action="open-rest" aria-label="Open the running rest timer">${svg('timer')} <span><b>${s.rest.suggested?'Suggested rest between rounds or sets':'Rest in progress'}</b><small>${s.rest.suggested?`${s.rest.totalSeconds||60} seconds suggested · skip whenever ready`:'Tap to reopen your countdown'}</small></span><strong class="inline-timer">${clock(restLeft())}</strong> ${svg('arrow','tiny-icon')}</button>`:''}${roundMode?renderGiantSetView(s):''}${!roundMode?s.exercises.map((e,i)=>{const open=exerciseOpen===i;const done=e.sets.every(x=>x.done);return `<div class="workout-card ${done?'completed':''} ${open?'is-open':''}" data-ex-card="${i}"><button class="workout-head" data-action="expand-exercise" data-index="${i}"><span class="workout-num">${done?svg('check'):i+1}</span><span style="flex:1"><b>${escapeHtml(e.name)}</b><span class="small muted" style="display:block">${e.targetLabel?escapeHtml(e.targetLabel)+" · ":""}${e.sets.filter(x=>x.done).length}/${e.sets.length} complete${e.ref?" · "+escapeHtml(e.ref):""}</span>${lastTimeLine(e)}</span>${svg('chevron','sm-icon')}</button>${open?`<div class="workout-inner"><div class="divider" style="margin-top:0"></div>${nextWeightCard(e,i)}<div class="set-grid set-head"><span>Set</span><span>kg</span><span>${e.unit==='seconds'?'Sec':e.unit==='minutes'?'Min':'Reps'}</span><span>Done</span></div>${e.sets.map((set,j)=>`<div class="set-grid"><b style="text-align:center">${j+1}</b><input class="input set-input" aria-label="Weight for set ${j+1}" data-setfield="kg" data-ex="${i}" data-set="${j}" type="number" inputmode="decimal" min="0" step="0.5" value="${n(set.kg)>0?escapeHtml(set.kg):''}" placeholder="—"/><input class="input set-input" aria-label="${e.unit==='seconds'?'Seconds':e.unit==='minutes'?'Minutes':'Repetitions'} for set ${j+1}" data-setfield="reps" data-ex="${i}" data-set="${j}" type="number" inputmode="numeric" min="0" step="1" value="${n(set.reps)>0?escapeHtml(set.reps):''}"/><button class="set-done ${set.done?'done':''}" data-action="tick-set" data-ex="${i}" data-set="${j}" aria-label="${set.done?'Unmark':'Complete'} set ${j+1}">${svg('check','sm-icon')}</button></div>`).join('')}<div class="workout-footer"><span class="small muted">Rest ${clock(e.restSeconds)}</span><span class="row"><button class="btn ghost" data-action="rest-setting" data-index="${i}">${svg('timer','tiny-icon')} Edit</button><button class="btn ghost" data-action="add-set" data-index="${i}">${svg('plus','tiny-icon')} Set</button></span></div><div class="exercise-actions compact"><button class="btn" data-action="exercise-video" data-index="${i}">${svg('play','tiny-icon')} Demo</button><button class="btn" data-action="swap-exercise" data-index="${i}">${svg('swap','tiny-icon')} Swap</button><button class="btn" data-action="exercise-notes" data-index="${i}">${svg('edit','tiny-icon')} Notes</button><button class="btn danger icon-only" data-action="remove-session-exercise" data-index="${i}" aria-label="Remove ${escapeHtml(e.name)} from this workout" title="Remove">${svg('trash','tiny-icon')}</button></div>${e.notes?`<p class="hint">Note: ${escapeHtml(e.notes)}</p>`:''}</div>`:''}</div>`}).join(''):''}<button class="btn block add-current-exercise" data-action="add-session-exercise">${svg('plus','tiny-icon')} Add exercise to this workout</button><div class="card"><div class="row space"><div><b>Done and dusted?</b><div class="small muted">Every completed set goes on the board.</div></div><button class="btn primary" data-action="finish-workout">Finish workout</button></div></div>`;}
 function settingsSectionHeading(icon,title,description){
  return `<header class="settings-section-head"><span class="settings-section-icon" aria-hidden="true">${svg(icon,'tiny-icon')}</span><span class="settings-section-text"><h2>${title}</h2><p>${description}</p></span></header>`;
 }
@@ -845,6 +861,12 @@ const SETTINGS_PAGES=Object.freeze([
  {id:'data',icon:'cloud',title:'Data & backup',desc:'Backups, cloud sync and the online catalogue.'}
 ]);
 let settingsPage=null;
+function hasPersonalData(){return state.workoutHistory.length+state.food.length+state.weights.length+state.photos.length>0;}
+function backupStatusHtml(){
+ const age=backupAge(state.lastExportAt);
+ const where=nativeFileSharing()?'Recomp opens the share sheet so you can save the file to Drive, Files or email.':'The file downloads to this device.';
+ return `<div class="backup-status${age.due&&hasPersonalData()?' due':''}"><b>${escapeHtml(age.text)}</b><span>${age.due&&hasPersonalData()?'Your records only live on this phone unless you back them up. ':''}${where}</span></div>`;
+}
 function settingsSummary(id,{clerkUser,ses}){
  const g=state.goals;
  if(id==='account')return clerkUser?(clerkUser.name||clerkUser.email||'Signed in'):'Guest · records stay on this phone';
@@ -852,7 +874,7 @@ function settingsSummary(id,{clerkUser,ses}){
  if(id==='reminders')return reminderSummary(state.reminders);
  if(id==='routine')return `${state.tasks.length} daily task${state.tasks.length===1?'':'s'}`;
  if(id==='appearance'){const t=themeChoice();return t==='system'?'Follows your phone':t==='dark'?'Dark':'Light';}
- if(id==='data')return ses?'Cloud backup on':'Saved on this phone';
+ if(id==='data'){const age=backupAge(state.lastExportAt);return ses?'Cloud backup on':hasPersonalData()&&age.due?`${age.text} · back up now`:age.text;}
  return '';
 }
 function settingsView(){
@@ -885,7 +907,7 @@ ${state.fitnessMode==='advanced'?personalPromptControls():''}
  ${onlineError?`<p class="hint" role="status">${escapeHtml(onlineError)}</p>`:''}
  <button type="button" class="btn" data-action="online-catalogue-refresh" ${onlineBusy?'disabled':''}>Check for catalogue updates</button>
  </div>
-<div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p><button class="btn block" data-action="export-backup">${svg('download','tiny-icon')} Export full backup (including photos)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Import backup</button><input type="file" id="import-file" accept="application/json" hidden/><div class="local-reset-control"><b>Delete data from this device</b><p class="small muted">Delete completed workouts, food logs, measurements, photos, custom plans and other personal settings saved here. Built-in workout plans will still appear. Cloud backups are separate.</p><button class="btn danger block" type="button" data-action="reset-all-local-data" data-hold="3000">${svg('trash','tiny-icon')} Hold 3 s to delete all local data</button></div><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
+<div class="card stack settings-data-card"><p class="small muted" style="margin:0">Your personal records are saved locally in IndexedDB. Cloud sync is opt-in and uses your project. Progress photos are not sent to AI services.</p>${backupStatusHtml()}<button class="btn primary block" data-action="export-backup">${svg('download','tiny-icon')} Back up everything (with photos)</button><button class="btn block" data-action="export-csv">${svg('chart','tiny-icon')} Export spreadsheets (CSV)</button><button class="btn block" data-action="import-backup">${svg('refresh','tiny-icon')} Restore from a backup file</button><input type="file" id="import-file" accept=".json,application/json" hidden/><div class="local-reset-control"><b>Delete data from this device</b><p class="small muted">Delete completed workouts, food logs, measurements, photos, custom plans and other personal settings saved here. Built-in workout plans will still appear. Cloud backups are separate.</p><button class="btn danger block" type="button" data-action="reset-all-local-data" data-hold="3000">${svg('trash','tiny-icon')} Hold 3 s to delete all local data</button></div><p class="hint">Keep the exported file private. It contains sensitive fitness details and photographs if you've added them.</p></div>
 <details class="settings-advanced" id="settings-cloud-details" ${settingsCloudOpen?'open':''}>
  <summary class="settings-advanced-summary">
  <span class="settings-advanced-summary-icon" aria-hidden="true">${svg('cloud','tiny-icon')}</span>
@@ -1357,7 +1379,9 @@ function beginWorkout(id){
  motionChange(()=>{window.scrollTo({top:0,behavior:'instant'});state.session={id:uid(),name:template.name,templateId:id,startedAt:Date.now(),minimized:false,instructions:template.notes||'',groupSettings:structuredClone(template.groupSettings||{}),exercises:buildWorkoutExercises(template),activeIndex:0,rest:null,warmupStatus:'pending'};exerciseOpen=0;tab='workouts';state.lastTab='workouts';render();},'expand');
  haptic('success');persist().catch(console.error);
 }
-function setRest(exIndex){const s=state.session,e=s.exercises[exIndex];s.rest={exerciseIndex:exIndex,endsAt:Date.now()+e.restSeconds*1000,paused:false,remainingMs:e.restSeconds*1000,id:uid()};restAlertedFor=null;restSheet=true;}
+let restAlertsPrepared=false;
+function setRest(exIndex){const s=state.session,e=s.exercises[exIndex];s.rest={exerciseIndex:exIndex,endsAt:Date.now()+e.restSeconds*1000,paused:false,remainingMs:e.restSeconds*1000,id:uid()};restAlertedFor=null;restSheet=true;
+ if(!restAlertsPrepared){restAlertsPrepared=true;void prepareRestAlerts();}}
 function tickSet(exI,setI){
  const s=state.session,e=s?.exercises?.[exI],set=e?.sets?.[setI];if(!set)return;
  const groups=s.giantView==='detailed'?[]:getGiantGroups(s);
@@ -1486,8 +1510,34 @@ async function loadPhotoUrls(){for(const p of state.photos){if(photoUrls.has(p.i
 function makePhotoJpeg(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{try{const scale=Math.min(1,1400/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Could not process photo'));},'image/jpeg',.82);}catch(e){URL.revokeObjectURL(url);reject(e);}};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Unsupported photo format'));};img.src=url;});}
 async function download(name,blob){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
 function toDataUrl(blob){return new Promise((res,rej)=>{let reader=new FileReader();reader.onload=()=>res(reader.result);reader.onerror=()=>rej(reader.error);reader.readAsDataURL(blob);});}
-async function exportData(){notify('Preparing private backup…');const photos=[];for(const p of state.photos){const blob=await getPhoto(p.id);if(blob)photos.push({id:p.id,data:await toDataUrl(blob)});}const safeState=structuredClone(state);delete safeState.dirty;await download(`recomp-backup-${today()}.json`,new Blob([JSON.stringify({format:'recomp-backup-v1',exportedAt:new Date().toISOString(),state:safeState,photos})],{type:'application/json'}));notify('Backup exported. Store it privately.');}
-async function importData(file){const backup=JSON.parse(await file.text());if(backup.format!=='recomp-backup-v1'||!backup.state||!Array.isArray(backup.photos))throw new Error('Unrecognised backup file');if(!await confirmInApp('Restore this backup? This replaces your current local fitness data.',{title:'Replace local data?',approveLabel:'Restore backup'}))return;let newState=backup.state;if(!newState.goals||!Array.isArray(newState.food)||!Array.isArray(newState.templates))throw new Error('Invalid backup state');for(const x of backup.photos){if(!x.data.startsWith('data:image/'))continue;let blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}state={...newState,dirty:true};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Backup restored');}
+async function exportData(){
+ notify('Preparing your backup…');
+ const photos=[];for(const p of state.photos){const blob=await getPhoto(p.id);if(blob)photos.push({id:p.id,date:p.date,view:p.view,data:await toDataUrl(blob)});}
+ const backup=buildBackup(state,{photos,youLocal:getYouRaw()});
+ const result=await saveTextFiles([{name:`recomp-backup-${today()}.json`,text:JSON.stringify(backup),mime:'application/json'}]);
+ if(result==='cancelled'){notify('Backup not saved.');return;}
+ state.lastExportAt=new Date().toISOString();await persist();render();
+ notify(result==='shared'?'Backup ready. Save it somewhere private, like Drive or Files.':'Backup downloaded. Keep it somewhere private.');
+}
+async function exportCsv(){
+ const d=today();
+ const result=await saveTextFiles([
+  {name:`recomp-workouts-${d}.csv`,text:workoutsCsv(state.workoutHistory),mime:'text/csv'},
+  {name:`recomp-food-${d}.csv`,text:foodCsv(state.food),mime:'text/csv'},
+  {name:`recomp-weight-${d}.csv`,text:weightsCsv(state.weights),mime:'text/csv'}
+ ],{title:'Recomp spreadsheets'});
+ if(result!=='cancelled')notify('Workouts, food and weight exported as spreadsheets.');
+}
+async function importData(file){
+ const backup=readBackup(await file.text());
+ const summary=describeBackup(summariseBackup(backup));
+ if(!await confirmInApp(`${summary} Restoring replaces everything saved on this phone now. Export a backup first if you want to keep it.`,{title:'Restore this backup?',approveLabel:'Restore backup'}))return;
+ for(const x of backup.photos){const blob=await(await fetch(x.data)).blob();await putPhoto(x.id,blob);}
+ if(backup.youLocal)replaceYouData(backup.youLocal);
+ state={...INITIAL(),...backup.state,dirty:true};await put('state',state);
+ for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();
+ tab='home';state.lastTab='home';settingsPage=null;render();notify('Backup restored.');
+}
 async function pushCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const ses=await cloud.usableSession();if(!ses)throw new Error('Sign in with Google first');for(const photo of state.photos){if(photo.cloudPath)continue;const blob=await getPhoto(photo.id);if(!blob)continue;photo.cloudPath=await cloud.uploadPhoto(photo.id,blob);}const syncedAt=new Date().toISOString();await cloud.uploadSnapshot({...state,lastSync:syncedAt,dirty:false});state.lastSync=syncedAt;state.dirty=false;await put('state',state);render();notify('Private cloud backup completed');}
 async function pullCloud(){if(!navigator.onLine)throw new Error('An internet connection is required');const remote=await cloud.downloadSnapshot();if(!remote){notify('No cloud backup found');return;}if(!await confirmInApp('Replace the local data on this device with your cloud backup? Unsynchronised local changes will be lost.',{title:'Replace local data?',approveLabel:'Restore cloud backup'}))return;const replacement=remote.payload;if(!replacement?.goals||!Array.isArray(replacement.photos))throw new Error('Cloud backup has unexpected data');state={...replacement,dirty:false};await put('state',state);for(const url of photoUrls.values())URL.revokeObjectURL(url);photoUrls.clear();await loadPhotoUrls();tab='home';state.lastTab='home';render();notify('Cloud backup restored');}
 async function handleAction(el,event){const a=el.dataset.action;if(a==='close-modal' && el.classList.contains('modal-shade') && event.target!==el)return;
@@ -1780,6 +1830,9 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   case 'preview-template-exercise':if(templateById(el.dataset.id)?.items?.[Number(el.dataset.index)]){modal={type:'video',templateId:el.dataset.id,index:Number(el.dataset.index),returnTo:modal?.type==='video-library'?'video-library':'edit-template',playing:false};render();}break;
  case 'load-exercise-video':if(modal?.type==='video'){modal.playing=true;render();}break;
  case 'close-rest':restSheet=false;render();break;
+ case 'apply-next-weight':{const e=state.session?.exercises?.[Number(el.dataset.index)];const sug=e&&nextWeightFor(e);if(!sug)break;
+  const idx=setsToChange(e,sug);for(const k of idx){e.sets[k].kg=sug.kg;e.sets[k].manualKg=false;}
+  await commit();haptic('tap');notify(`${idx.length} set${idx.length===1?'':'s'} set to ${+sug.kg.toFixed(2)} kg.`);break;}
  case 'open-rest':if(state.session?.rest){restSheet=true;haptic('tap');render();}break;
  case 'timer-plus':case 'timer-minus':case 'timer-pause':case 'timer-skip':timerControl(a);break;
  case 'finish-workout':await finishWorkout();break;
@@ -1840,6 +1893,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   notify(result.deleted?'Cloud backup and linked photos deleted.':'No cloud backup was found.');break;
  }
 case 'export-backup':await exportData();break;
+ case 'export-csv':await exportCsv();break;
  case 'import-backup':$('#import-file')?.click();break;
  }
 }
@@ -2005,6 +2059,8 @@ document.addEventListener('click',event=>{
 
 // Hold to confirm, sliding labels, foil and scroll fades. A plain tap on a hold button only shows a reminder.
 initPremiumTouches({hint:notify});
+// Rest timer: buzz from the lock screen while Recomp is in the background, beep in-app otherwise.
+document.addEventListener('visibilitychange',()=>{if(document.hidden)void scheduleRestAlert(state?.session);else void cancelRestAlert();});
 document.addEventListener('click',async event=>{const target=event.target.closest('[data-action]');if(!target){if(foodMenuOpen&&!event.target.closest('#food-fab-cluster'))toggleFoodMenu(false);return;}if(target.dataset.action==='close-modal'&&target.classList.contains('modal-shade')&&event.target!==target)return;event.preventDefault();try{await handleAction(target,event);}catch(err){console.error(err);notify(err.message||'Something went wrong');}});
 document.addEventListener('submit',async event=>{const form=event.target;if(!form.id)return;event.preventDefault();if(form.dataset.submitting==='yes')return;form.dataset.submitting='yes';try{await onSubmit(form);}catch(err){console.error(err);notify(err.message||'Could not save the entry');}finally{delete form.dataset.submitting;}});
 // Preserve every settings target, including temporarily empty fields, during unrelated redraws.
