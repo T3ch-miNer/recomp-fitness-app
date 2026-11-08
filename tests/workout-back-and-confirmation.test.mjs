@@ -61,7 +61,7 @@ test('workout controls use in-app confirmations and persist Back minimisation',(
  assert.match(app,/case 'confirm-accept':settleConfirmation\(true\)/);
  assert.match(app,/case 'confirm-cancel':settleConfirmation\(false\)/);
  assert.match(app,/await confirmInApp\('Discard this unfinished workout/);
- assert.match(app,/await confirmInApp\('Restore this backup/);
+ assert.match(app,/title:'Restore this backup\?'/);
  assert.match(app,/await (confirmInApp\(|sureInApp\(el,)'Delete this food entry/);
  assert.ok(!/\b(?:window\.)?(?:confirm|alert|prompt)\s*\(/.test(app),'native blocking dialogs must all be gone');
  assert.ok(!/indexedDB|deleteDatabase|\bclear\(/.test(backSrc+dialogSrc),'UI modules must not modify fitness records');
