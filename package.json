@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:android-web": "node scripts/prepare-android-web.mjs",
+    "lint": "eslint .",
     "test": "node --test meal-planner.test.mjs tests/*.test.mjs",
     "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-exclude='**/*.test.mjs' --test-coverage-exclude='**/*.min.js' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info meal-planner.test.mjs tests/*.test.mjs"
   },
@@ -21,6 +22,7 @@
     "@capacitor/share": "^8.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.0.0"
+    "@capacitor/cli": "^8.0.0",
+    "eslint": "^10.1.0"
   }
 }
