@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only token; this workflow never needs secrets or write access.
+permissions:
+  contents: read
+
+# A new push to the same PR or branch cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          # No lockfile is committed yet, so key the npm cache on package.json.
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    name: Test & coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # node --test exits non-zero if any test fails, which fails the job.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Write coverage summary
+        if: always() && hashFiles('coverage/lcov.info') != ''
+        run: |
+          node -e '
+            const lines = require("fs").readFileSync("coverage/lcov.info", "utf8").split("\n");
+            let found = 0, hit = 0;
+            for (const l of lines) {
+              if (l.startsWith("LF:")) found += Number(l.slice(3));
+              if (l.startsWith("LH:")) hit += Number(l.slice(3));
+            }
+            const pct = found ? (100 * hit / found).toFixed(1) : "0.0";
+            console.log(`### Coverage\n\n${hit} / ${found} lines covered (**${pct}%**) in modules imported by tests.`);
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
