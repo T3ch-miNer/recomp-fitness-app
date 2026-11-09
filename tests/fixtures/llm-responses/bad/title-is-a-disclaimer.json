@@ -1,0 +1,32 @@
+{
+  "format": "recomp-personal-plan-v1",
+  "title": "Note: these calorie targets are estimates based on incomplete data and should be reviewed by a registered dietitian before you follow them. This plan assumes moderate activity, three sessions per week and no injuries.",
+  "goals": {
+    "calories": 2000,
+    "protein": 110,
+    "carbs": 230,
+    "fat": 65,
+    "fibre": 28,
+    "water": 2500,
+    "steps": 7000
+  },
+  "workouts": [
+    {
+      "name": "Bodyweight circuit",
+      "exercises": [
+        {
+          "name": "Push-up",
+          "sets": 3,
+          "reps": 8,
+          "restSeconds": 60
+        },
+        {
+          "name": "Bodyweight squat",
+          "sets": 3,
+          "reps": 15,
+          "restSeconds": 60
+        }
+      ]
+    }
+  ]
+}
