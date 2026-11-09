@@ -4,9 +4,13 @@
   "version": "3.0.0-debug",
   "description": "Android test wrapper for the offline-first Recomp web application",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build:android-web": "node scripts/prepare-android-web.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test meal-planner.test.mjs tests/*.test.mjs",
+    "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-exclude='**/*.test.mjs' --test-coverage-exclude='**/*.min.js' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info meal-planner.test.mjs tests/*.test.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
