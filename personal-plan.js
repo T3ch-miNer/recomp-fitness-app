@@ -4,7 +4,7 @@ export const PERSONAL_PLAN_FORMAT='recomp-personal-plan-v1';
 const G=['calories','protein','carbs','fat','fibre','water','steps'];
 const max={calories:10000,protein:650,carbs:1400,fat:400,fibre:160,water:12000,steps:100000};
 const goodText=(s,n=120)=>typeof s==='string'&&s.trim()&&s.length<=n;
-function str(s,n=120){if(!goodText(s,n))throw Error('Invalid text in imported plan.');return s.trim();}
+function str(s,n=120,label='text'){if(!goodText(s,n))throw Error('Check the '+label+'. It must be text of 1–'+n+' characters.');return s.trim();}
 function planTitle(value){
  if(typeof value!=='string'||!value.trim())throw Error('Plan title is missing. Ask your AI for a short, descriptive title.');
  const title=value.trim();
@@ -13,7 +13,7 @@ function planTitle(value){
 }
 function number(value,low,high,label){
  if(typeof value!=='number'||!Number.isFinite(value)||value<low||value>high)
-  throw Error('Check '+label+' in the imported plan.');
+  throw Error('Check '+label+'. It must be a number from '+low+' to '+high+'.');
  return value;
 }
 function dateField(value){
@@ -87,7 +87,10 @@ export function parsePersonalPlan(value){
  let p=value;
  if(typeof value==='string'){
   if(value.length>300000)throw Error('Plan file exceeds 300 KB.');
-  try{p=JSON.parse(value);}catch{throw Error('Please upload a valid Recomp JSON file, not a PDF or spreadsheet.');}
+  try{p=JSON.parse(value);}catch{
+   if(/^\s*```/.test(value))throw Error('The plan is wrapped in Markdown code fences (```). Remove them, or ask your AI for the raw JSON only.');
+   throw Error('This is not a valid JSON file. It may be cut off or include extra text. Ask your AI for the raw Recomp JSON only, not a PDF or spreadsheet.');
+  }
  }
  if(!p||typeof p!=='object'||Array.isArray(p)||p.format!==PERSONAL_PLAN_FORMAT)
   throw Error('Unsupported plan format. Ask the GPT for recomp-personal-plan-v1 JSON.');
@@ -95,28 +98,33 @@ export function parsePersonalPlan(value){
  if(!Array.isArray(p.workouts)||p.workouts.length<1||p.workouts.length>7)
   throw Error('The plan must include 1–7 workouts.');
  if(!p.goals||typeof p.goals!=='object')throw Error('Daily nutrition and activity targets are required.');
- const goals=Object.fromEntries(G.map(k=>[k,number(p.goals[k],0,max[k],k)]));
+ const goals=Object.fromEntries(G.map(k=>[k,number(p.goals[k],0,max[k],'the daily '+k+' target')]));
  if(goals.calories<1000)throw Error('The calorie target needs review. Recomp does not accept very low-calorie plans.');
  const workouts=p.workouts.map((w,i)=>{
   if(!w||!Array.isArray(w.exercises)||!w.exercises.length||w.exercises.length>20)
-   throw Error('Each workout needs 1–20 exercises.');
+   throw Error('Each workout needs 1–20 exercises. Check workout '+(i+1)+'.');
+  const where='workout '+(i+1);
   return {
-   id:'personal-'+(i+1),name:str(w.name,80),subtitle:goodText(w.subtitle||'Personal plan',160)?(w.subtitle||'Personal plan'):'Personal plan',
+   id:'personal-'+(i+1),name:str(w.name,80,'name of '+where),subtitle:goodText(w.subtitle||'Personal plan',160)?(w.subtitle||'Personal plan'):'Personal plan',
    source:'User-reviewed imported plan',
    items:w.exercises.map((e,j)=>{
-    const name=str(e?.name,120),sets=number(e.sets,1,12,'sets'),reps=number(e.reps,1,100,'reps');
-    const restSeconds=number(e.restSeconds,0,600,'rest time');
+    const at=where+', exercise '+(j+1);
+    if(!e||typeof e!=='object'||Array.isArray(e))throw Error('Check '+at+'. Each exercise must be an object.');
+    const name=str(e.name,120,'name of '+at),sets=number(e.sets,1,12,'sets in '+at),reps=number(e.reps,1,100,'reps in '+at);
+    const restSeconds=number(e.restSeconds,0,600,'rest time in '+at);
     return ['personal-'+(i+1)+'-exercise-'+(j+1),name,sets,reps,0,restSeconds,[],[],String(e.notes||'').slice(0,400),sets+' × '+reps,'reps','',''];
    })
   };
  });
  const meals=Array.isArray(p.meals)?p.meals:[];
  if(meals.length>21)throw Error('A plan can include at most 21 meal suggestions.');
- const recommendedMeals=meals.map(m=>{
-  const meal=str(m.meal,30);
-  if(!['Breakfast','Lunch','Dinner','Snack'].includes(meal))throw Error('Each meal needs Breakfast, Lunch, Dinner or Snack.');
-  const metrics=Object.fromEntries(['calories','protein','carbs','fat','fibre'].map(k=>[k,number(m[k],0,k==='calories'?3500:550,'meal '+k)]));
-  return {name:str(m.name,110),meal,grams:number(m.grams,1,2500,'serving grams'),...metrics,
+ const recommendedMeals=meals.map((m,k)=>{
+  const at='meal '+(k+1);
+  if(!m||typeof m!=='object'||Array.isArray(m))throw Error('Check '+at+'. Each meal suggestion must be an object.');
+  const meal=str(m.meal,30,'category of '+at);
+  if(!['Breakfast','Lunch','Dinner','Snack'].includes(meal))throw Error('Each meal needs Breakfast, Lunch, Dinner or Snack. Check '+at+'.');
+  const metrics=Object.fromEntries(['calories','protein','carbs','fat','fibre'].map(n=>[n,number(m[n],0,n==='calories'?3500:550,n+' in '+at)]));
+  return {name:str(m.name,110,'name of '+at),meal,grams:number(m.grams,1,2500,'serving grams in '+at),...metrics,
    notes:String(m.notes||'').slice(0,300),source:'Estimated · imported plan'};
  });
  return {title,goals,workouts,meals:recommendedMeals};

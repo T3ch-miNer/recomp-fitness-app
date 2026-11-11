@@ -1,0 +1,140 @@
+{
+  "format": "recomp-personal-plan-v1",
+  "title": "Vegetarian recomp: 3-day full body",
+  "goals": {
+    "calories": 2250,
+    "protein": 135,
+    "carbs": 260,
+    "fat": 70,
+    "fibre": 32,
+    "water": 2800,
+    "steps": 9000
+  },
+  "workouts": [
+    {
+      "name": "Full Body A",
+      "subtitle": "Monday. Calorie target is an estimate from height, weight and moderate activity.",
+      "exercises": [
+        {
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Pick a load that leaves 2 reps in reserve"
+        },
+        {
+          "name": "Dumbbell bench press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90
+        },
+        {
+          "name": "Seated cable row",
+          "sets": 3,
+          "reps": 12,
+          "restSeconds": 75
+        },
+        {
+          "name": "Plank",
+          "sets": 3,
+          "reps": 1,
+          "restSeconds": 60,
+          "notes": "Hold 30–45 seconds"
+        }
+      ]
+    },
+    {
+      "name": "Full Body B",
+      "subtitle": "Wednesday",
+      "exercises": [
+        {
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 8,
+          "restSeconds": 120,
+          "notes": "Keep a neutral spine"
+        },
+        {
+          "name": "Lat pulldown",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90
+        },
+        {
+          "name": "Walking lunge",
+          "sets": 2,
+          "reps": 12,
+          "restSeconds": 90
+        }
+      ]
+    },
+    {
+      "name": "Full Body C",
+      "subtitle": "Friday",
+      "exercises": [
+        {
+          "name": "Leg press",
+          "sets": 3,
+          "reps": 12,
+          "restSeconds": 90
+        },
+        {
+          "name": "Overhead dumbbell press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90
+        },
+        {
+          "name": "Face pull",
+          "sets": 2,
+          "reps": 15,
+          "restSeconds": 60
+        }
+      ]
+    }
+  ],
+  "meals": [
+    {
+      "name": "Paneer bhurji with 2 rotis",
+      "meal": "Breakfast",
+      "grams": 300,
+      "calories": 520,
+      "protein": 30,
+      "carbs": 45,
+      "fat": 24,
+      "fibre": 7,
+      "notes": "Rotis weighed cooked"
+    },
+    {
+      "name": "Rajma chawal",
+      "meal": "Brunch",
+      "grams": 400,
+      "calories": 560,
+      "protein": 22,
+      "carbs": 92,
+      "fat": 10,
+      "fibre": 14,
+      "notes": "Rice weighed cooked"
+    },
+    {
+      "name": "Greek yoghurt with berries",
+      "meal": "Snack",
+      "grams": 250,
+      "calories": 220,
+      "protein": 20,
+      "carbs": 24,
+      "fat": 5,
+      "fibre": 3
+    },
+    {
+      "name": "Tofu and vegetable stir-fry with rice",
+      "meal": "Dinner",
+      "grams": 420,
+      "calories": 610,
+      "protein": 32,
+      "carbs": 78,
+      "fat": 18,
+      "fibre": 8
+    }
+  ]
+}

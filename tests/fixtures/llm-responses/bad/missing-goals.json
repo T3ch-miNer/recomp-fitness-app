@@ -1,0 +1,23 @@
+{
+  "format": "recomp-personal-plan-v1",
+  "title": "Home bodyweight starter",
+  "workouts": [
+    {
+      "name": "Bodyweight circuit",
+      "exercises": [
+        {
+          "name": "Push-up",
+          "sets": 3,
+          "reps": 8,
+          "restSeconds": 60
+        },
+        {
+          "name": "Bodyweight squat",
+          "sets": 3,
+          "reps": 15,
+          "restSeconds": 60
+        }
+      ]
+    }
+  ]
+}
