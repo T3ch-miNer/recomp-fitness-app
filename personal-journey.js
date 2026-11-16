@@ -2,12 +2,12 @@
 // Drafts are device-local. No network request or AI service is used here.
 export const JOURNEY_DRAFT_KEY='recomp-advanced-journey-draft-v3.2';
 export const JOURNEY_STAGES=Object.freeze([
- {name:'Your ambition',tag:'01 / DIRECTION',title:'What does progress look like to you?',sub:'Choose your main goal. There is no wrong answer.'},
- {name:'Starting point',tag:'02 / FOUNDATION',title:'Start where you are.',sub:'Your age, height, weight and sex let your AI coach estimate realistic targets, so these four are required.'},
- {name:'Measurements',tag:'03 / BODY MAP',title:'Your body, your baseline.',sub:'Tap a body area, then add what you can. Measurements are optional, but the more you add, the better your plan can be tailored.'},
- {name:'Training',tag:'04 / TRAINING',title:'Build a routine that fits real life.',sub:'Your programme should fit your week, not the other way round.'},
- {name:'Food & life',tag:'05 / FUEL',title:'Food you actually enjoy.',sub:'Your culture, schedule and preferences belong in your plan.'},
- {name:'Your profile',tag:'06 / REVIEW',title:'This is your starting line.',sub:'Review and edit any answers before generating your own AI planning prompt.'}
+ {name:'Your ambition',title:'What does progress look like to you?',sub:'Choose your main goal. There is no wrong answer.'},
+ {name:'Starting point',title:'Start where you are.',sub:'Your age, height, weight and sex let your AI coach estimate realistic targets, so these four are required.'},
+ {name:'Measurements',title:'Your body, your baseline.',sub:'Tap a body area, then add what you can. Measurements are optional, but the more you add, the better your plan can be tailored.'},
+ {name:'Training',title:'Build a routine that fits real life.',sub:'Your programme should fit your week, not the other way round.'},
+ {name:'Food & life',title:'Food you actually enjoy.',sub:'Your culture, schedule and preferences belong in your plan.'},
+ {name:'Your profile',title:'This is your starting line.',sub:'Review and edit any answers before generating your own AI planning prompt.'}
 ]);
 export const JOURNEY_MEASUREMENTS=Object.freeze([
  ['neck','Neck','upper'],['shoulders','Shoulder circumference','upper'],['chest','Chest','upper'],
@@ -20,20 +20,20 @@ export const JOURNEY_MEASUREMENTS=Object.freeze([
  ['rightCalf','Right calf','lower'],['leftCalf','Left calf','lower'],
  ['rightAnkle','Right ankle','lower'],['leftAnkle','Left ankle','lower']
 ]);
-const GOALS=[['body-recomposition','⚡','Lose fat & build muscle'],['lose-fat','🔥','Lose body fat'],['build-muscle','🏋️','Build muscle'],['maintain','🌿','Maintain my progress'],['improve-fitness','💚','Improve fitness']];
-const SECONDARY=[['strength','💪','Get stronger'],['endurance','🫀','Build endurance'],['mobility','🤸','Improve mobility'],['consistency','📅','Build consistency']];
+const GOALS=[['body-recomposition','Lose fat & build muscle'],['lose-fat','Lose body fat'],['build-muscle','Build muscle'],['maintain','Maintain my progress'],['improve-fitness','Improve fitness']];
+const SECONDARY=[['strength','Get stronger'],['endurance','Build endurance'],['mobility','Improve mobility'],['consistency','Build consistency']];
 const ACTIVITY=[
- ['sedentary','','Mostly sitting','Desk job or studying, little walking. Under about 5,000 steps a day.'],
- ['light','','Lightly active','Short walks, errands and some time on your feet. About 5,000–7,500 steps.'],
- ['moderate','','Moderately active','Brisk daily walks, an active commute or on your feet for part of the day. About 7,500–10,000 steps.'],
- ['active','','Very active','A physical job or on your feet most of the day, such as building, nursing or warehouse work. Over 10,000 steps.']];
+ ['sedentary','Mostly sitting','Desk job or studying, little walking. Under about 5,000 steps a day.'],
+ ['light','Lightly active','Short walks, errands and some time on your feet. About 5,000–7,500 steps.'],
+ ['moderate','Moderately active','Brisk daily walks, an active commute or on your feet for part of the day. About 7,500–10,000 steps.'],
+ ['active','Very active','A physical job or on your feet most of the day, such as building, nursing or warehouse work. Over 10,000 steps.']];
 const EXPERIENCE=[['beginner','Getting started'],['intermediate','Some experience'],['advanced','Experienced']];
-const EQUIPMENT=[['gym','🏟️','Gym access'],['home','🏠','Home equipment'],['bodyweight','🧘','Bodyweight only']];
-const DIETS=[['omnivore','🥗','Mixed diet'],['vegetarian','🌱','Vegetarian'],['vegan','🥬','Vegan'],['pescatarian','🐟','Pescatarian'],['halal','🍲','Halal'],['other','✏️','Other']];
-const CUISINES=[['indian','🇮🇳','Indian favourites'],['mixed','🌍','Indian + global'],['global','🍽️','Global'],['mediterranean','🫒','Mediterranean'],['east-asian','🍜','East Asian'],['other','✏️','Other']];
-const TRAINING_STYLE=[['balanced','⚖️','Balanced strength'],['strength','🏋️','Strength focused'],['hypertrophy','💪','Muscle building'],['cardio','🏃','Cardio focused'],['mobility','🧘','Movement & mobility']];
+const EQUIPMENT=[['gym','Gym access'],['home','Home equipment'],['bodyweight','Bodyweight only']];
+const DIETS=[['omnivore','Mixed diet'],['vegetarian','Vegetarian'],['vegan','Vegan'],['pescatarian','Pescatarian'],['halal','Halal'],['other','Other']];
+const CUISINES=[['indian','Indian favourites'],['mixed','Indian + global'],['global','Global'],['mediterranean','Mediterranean'],['east-asian','East Asian'],['other','Other']];
+const TRAINING_STYLE=[['balanced','Balanced strength'],['strength','Strength focused'],['hypertrophy','Muscle building'],['cardio','Cardio focused'],['mobility','Movement & mobility']];
 const SEX=[['','Choose…'],['female','Female'],['male','Male'],['not-specified','Prefer not to say']];
-const INJURY_ANSWERS=[['no','','No'],['yes','','Yes']];
+const INJURY_ANSWERS=[['no','No'],['yes','Yes']];
 const INJURY_WHEN=[['','Choose…'],['under-6-weeks','Less than 6 weeks ago'],['6-weeks-6-months','6 weeks to 6 months ago'],['6-12-months','6 to 12 months ago'],['over-1-year','More than a year ago'],['long-term','It is long-term or comes and goes']];
 const INJURY_RECOVERY=[['','Choose…'],['recovered','Fully recovered'],['mostly','Mostly recovered, some discomfort'],['recovering','Still recovering'],['unsure','Not sure']];
 // Questions where several answers can be picked. Stored as arrays.
@@ -145,22 +145,32 @@ export function makeJourneyResult(draft){
  else fields.waistCm=fields.waistCm||'';
  return {profile:fields,measurements:Object.fromEntries(parts.map(([k])=>[k,draft.measurements[k]]))};
 }
+// Line icons in the app's own style (24px grid, round caps), inlined so the
+// journey does not depend on the main app's icon sprite being rendered.
+const ICON_PATHS={
+ check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ close:'<path d="M6 6l12 12M18 6L6 18"/>',
+ back:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
+ forward:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+ tape:'<path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>'
+};
+const icon=name=>'<svg class="journey-icon" viewBox="0 0 24 24" aria-hidden="true">'+ICON_PATHS[name]+'</svg>';
 const choices=(key,options,value)=>{
  const multi=Boolean(MULTI[key]),picked=multi?choiceList(value,key):[value];
- return '<div class="journey-choices'+(options.some(o=>o[3])?' has-descriptions':'')+'" role="group" aria-label="'+esc(key)+'">'+options.map(([v,symbol,label,desc])=>{
-  const title=label||symbol,on=picked.includes(v);
-  const emoji=label&&symbol?'<span aria-hidden="true" class="journey-choice-emoji">'+symbol+'</span>':'';
-  const text=desc?'<span class="journey-choice-text"><span>'+esc(title)+'</span><small>'+esc(desc)+'</small></span>':'<span>'+esc(title)+'</span>';
-  return '<button type="button" class="journey-choice '+(on?'is-selected':'')+'" data-journey-choice="'+esc(key)+'" data-value="'+esc(v)+'" aria-pressed="'+on+'">'+emoji+text+'<span class="journey-choice-check" aria-hidden="true">'+(on?'✓':multi?'□':'○')+'</span></button>';
+ return '<div class="journey-choices'+(options.some(o=>o[2])?' has-descriptions':'')+'" role="group" aria-label="'+esc(key)+'">'+options.map(([v,label,desc])=>{
+  const on=picked.includes(v);
+  const text='<span class="journey-choice-text"><span>'+esc(label)+'</span>'+(desc?'<small>'+esc(desc)+'</small>':'')+'</span>';
+  return '<button type="button" class="journey-choice '+(on?'is-selected':'')+'" data-journey-choice="'+esc(key)+'" data-value="'+esc(v)+'" aria-pressed="'+on+'">'+text+
+   '<span class="journey-mark '+(multi?'is-multi':'')+'" aria-hidden="true">'+icon('check')+'</span></button>';
  }).join('')+'</div>';
 };
-const labelOf=(options,value)=>{const o=options.find(x=>x[0]===value);return o?(o[2]||o[1]):'';};
+const labelOf=(options,value)=>{const o=options.find(x=>x[0]===value);return o?o[1]:'';};
 const listLabels=(key,value)=>choiceList(value,key).map(v=>labelOf(MULTI[key],v)).join(', ');
 const select=(key,label,options,f)=>'<label class="journey-field"><span>'+esc(label)+'</span><select name="'+esc(key)+'">'+options.map(([v,t])=>'<option value="'+esc(v)+'" '+(f[key]===v?'selected':'')+'>'+esc(t)+'</option>').join('')+'</select></label>';
 const field=(key,label,f,{type='text',placeholder='',min='',max='',step='',help='',limit=160}={})=>
  '<label class="journey-field"><span>'+esc(label)+'</span><input name="'+esc(key)+'" type="'+type+'" value="'+esc(f[key]??'')+'"'+(placeholder?' placeholder="'+esc(placeholder)+'"':'')+
  (min!==''?' min="'+min+'"':'')+(max!==''?' max="'+max+'"':'')+(step!==''?' step="'+step+'"':'')+
- ' maxlength="'+limit+'" autocomplete="off"/>'+(help?'<small>'+esc(help)+'</small>':'')+'</label>';
+ (type==='number'?' inputmode="decimal"':'')+' maxlength="'+limit+'" autocomplete="off"/>'+(help?'<small>'+esc(help)+'</small>':'')+'</label>';
 const textarea=(key,label,f,placeholder='')=>'<label class="journey-field"><span>'+esc(label)+'</span><textarea name="'+esc(key)+'" maxlength="'+(key==='notes'?650:300)+'" rows="2" placeholder="'+esc(placeholder)+'">'+esc(f[key]||'')+'</textarea></label>';
 const group=(title,text,html)=>'<section class="journey-question"><div class="journey-question-head"><h3>'+esc(title)+'</h3>'+(text?'<p>'+esc(text)+'</p>':'')+'</div>'+html+'</section>';
 function bodyDiagram(zone){
@@ -180,15 +190,15 @@ function content(d){
  const f=d.fields,step=d.step;
  if(step===0)return group('Your main goal','We will prioritise this when designing your workouts.',choices('goal',GOALS,f.goal))+
   group('Anything else you would love to improve?','Optional. Pick as many as you like.',choices('secondaryGoal',SECONDARY,f.secondaryGoal));
- if(step===1)return group('Your starting point','Required. These help estimate your energy needs. They do not define your worth.',
-  '<div class="journey-fields">'+field('age','Age in years',f,{type:'number',min:18,max:100,placeholder:'Required'})+
-  field('heightCm','Height in cm',f,{type:'number',min:100,max:230,step:'0.1',placeholder:'Required'})+
-  field('weightKg','Weight in kg',f,{type:'number',min:30,max:350,step:'0.1',placeholder:'Required'})+
-  select('sexForEstimate','Sex (for the calorie estimate)',SEX,f)+'</div>')+
+ if(step===1)return group('Your starting point','Required. These help estimate your energy needs, including sex for the calorie estimate. They do not define your worth.',
+  '<div class="journey-fields">'+field('age','Age in years',f,{type:'number',min:18,max:100})+
+  field('heightCm','Height in cm',f,{type:'number',min:100,max:230,step:'0.1'})+
+  field('weightKg','Weight in kg',f,{type:'number',min:30,max:350,step:'0.1'})+
+  select('sexForEstimate','Sex',SEX,f)+'</div>')+
   group('How much do you move?','On a typical day, outside of planned workouts.',choices('activity',ACTIVITY,f.activity))+
   group('How familiar are you with structured exercise?',null,choices('experience',EXPERIENCE,f.experience));
  if(step===2){
-  if(!d.tapeReady)return '<div class="journey-tape-intro"><span class="journey-tape-icon" aria-hidden="true">📏</span>'+
+  if(!d.tapeReady)return '<div class="journey-tape-intro"><span class="journey-tape-icon">'+icon('tape')+'</span>'+
    '<h3>Grab a measuring tape</h3><p>Measuring takes about five minutes. Use a soft, flexible tape and wear light clothing.</p>'+
    '<p>Measurements are optional, but every one you add helps your AI coach tailor your workouts and track real progress.</p>'+
    '<button type="button" class="journey-tape-ready" data-journey-tape>I have my tape, let’s measure</button>'+
@@ -198,7 +208,7 @@ function content(d){
    bodyDiagram(d.zone)+
    '<p class="journey-tip">Measure with a flexible tape without pulling it tight. Skip unknown values. We store centimetre or inch answers consistently in inches for Recomp’s existing Body records.</p>'+
    '<div class="journey-measurement-grid">'+options.map(([key,label])=>
-    '<label class="journey-field"><span>'+esc(label)+'</span><input type="number" inputmode="decimal" data-journey-measure="'+key+'" min="0.1" max="'+(d.unit==='cm'?'305':'120')+'" step="0.1" value="'+esc(fromInches(d.measurements[key],d.unit))+'" placeholder="Optional"/><small>'+esc(d.unit)+' · optional</small></label>').join('')+'</div>';
+    '<label class="journey-field"><span>'+esc(label)+'<span class="journey-sr"> in '+(d.unit==='cm'?'centimetres':'inches')+'</span></span><span class="journey-affix"><input type="number" inputmode="decimal" data-journey-measure="'+key+'" min="0.1" max="'+(d.unit==='cm'?'305':'120')+'" step="0.1" value="'+esc(fromInches(d.measurements[key],d.unit))+'"/><span aria-hidden="true">'+esc(d.unit)+'</span></span></label>').join('')+'</div>';
  }
  if(step===3)return group('Where will you train?',null,choices('equipment',EQUIPMENT,f.equipment))+
   group('What is realistic for your week?',null,'<div class="journey-fields">'+field('days','Training days per week',f,{type:'number',min:1,max:7,step:1})+
@@ -220,7 +230,7 @@ function content(d){
   group('Your routine','Optional details help us suggest realistic meals.', '<div class="journey-fields">'+
    select('mealPrep','Cooking time',[['quick','Under 20 minutes'],['moderate','20–45 minutes'],['flexible','Flexible']],f)+
    select('budget','Food budget',[['low','Budget-conscious'],['moderate','Moderate'],['flexible','Flexible']],f)+
-   field('sleepHours','Average sleep (hours)',f,{type:'number',min:1,max:16,step:0.5,placeholder:'Optional'})+
+   field('sleepHours','Average sleep in hours (optional)',f,{type:'number',min:1,max:16,step:0.5})+
    select('stress','Typical stress level',[['low','Low'],['moderate','Moderate'],['high','High'],['unsure','Prefer not to say']],f)+'</div>')+
   group('Anything we should respect?','All optional.',textarea('allergies','Food allergies',f,'For example: peanuts')+
    textarea('avoidFoods','Disliked or avoided foods',f,'For example: mushrooms')+
@@ -232,14 +242,14 @@ function content(d){
  const tags=[
   ['Goal',(labelOf(GOALS,f.goal)||'Not chosen')+(secondary?' · also '+secondary:''),0],
   ['Starting point',[f.age&&f.age+' years',f.heightCm&&f.heightCm+' cm',f.weightKg&&f.weightKg+' kg',labelOf(SEX,f.sexForEstimate),labelOf(ACTIVITY,f.activity)].filter(Boolean).join(' · '),1],
-  ['Measurements',Object.keys(d.measurements).length+' recorded, private on this device',2],
+  ['Measurements',(Object.keys(d.measurements).length||'None')+' recorded'+(Object.keys(d.measurements).length?', private on this device':' yet'),2],
   ['Training',f.days+' days per week · '+f.minutes+' minutes · '+labelOf(EQUIPMENT,f.equipment)+' · '+listLabels('trainingStyle',f.trainingStyle),3],
   ['Injuries',f.hasInjury==='yes'?bounded(f.injuryDetails,80)+' · '+labelOf(INJURY_RECOVERY,f.injuryRecovery):'None reported',3],
   ['Food',diets+' · '+cuisine,4]
  ];
  return '<div class="journey-review-list">'+tags.map(([label,value,index])=>
   '<div class="journey-review-card"><div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div><button type="button" data-journey-edit="'+index+'">Edit</button></div>').join('')+'</div>'+
-  '<div class="journey-privacy"><strong>🔒 Your data, your decision.</strong><p>Unfinished answers stay on this device. Once saved, your profile follows Recomp’s existing optional backup settings. Nothing is sent to an AI service automatically. Review the prompt before sharing it.</p></div>';
+  '<div class="journey-privacy"><strong>Your data, your decision.</strong><p>Unfinished answers stay on this device. Once saved, your profile follows Recomp’s existing optional backup settings. Nothing is sent to an AI service automatically. Review the prompt before sharing it.</p></div>';
 }
 // Applies a tap on a choice button. Multi-select questions toggle the value.
 export function applyJourneyChoice(draft,key,value){
@@ -267,9 +277,11 @@ export function nextJourneyStep(draft){
 function nextLabel(d){
  if(d.step===5)return 'Save & create prompt';
  if(d.editingFromReview)return 'Save & back to review';
- if(d.step===2&&!d.tapeReady)return 'Skip for now →';
- return 'Continue →';
+ if(d.step===2&&!d.tapeReady)return 'Skip for now';
+ return 'Continue';
 }
+// Only plain forward moves carry the arrow; saving does not.
+const nextButton=d=>esc(nextLabel(d))+(d.step===5||d.editingFromReview?'':icon('forward'));
 function saveDraft(storage,d){try{storage?.setItem(JOURNEY_DRAFT_KEY,JSON.stringify(d));}catch{/* Storage is optional; user can still finish. */}}
 export function showPersonalJourney({profile=null,measurements=null,onSave,onExit=()=>{},storage=globalThis.localStorage}={}){
  if(typeof document==='undefined'||typeof onSave!=='function')throw Error('Journey requires a document and save callback.');
@@ -284,20 +296,24 @@ export function showPersonalJourney({profile=null,measurements=null,onSave,onExi
  let busy=false;
  // keepPlace re-renders the same step without jumping: scroll position and
  // keyboard focus return to where they were.
- function render(keepPlace=null){
+ // keepPlace re-renders the same step without jumping: scroll position and
+ // keyboard focus return to where they were. Otherwise this is a step change:
+ // the new step slides in from `direction` and focus moves to its heading.
+ function render(keepPlace=null,direction=''){
   const scrollTop=keepPlace?root.querySelector('.journey-scroll')?.scrollTop||0:0;
-  const stage=JOURNEY_STAGES[draft.step],percent=Math.round((draft.step+1)/JOURNEY_STAGES.length*100);
+  const stage=JOURNEY_STAGES[draft.step],total=JOURNEY_STAGES.length,percent=Math.round((draft.step+1)/total*100);
   root.innerHTML='<div class="journey-dialog" role="dialog" aria-modal="true" aria-labelledby="journey-heading">'+
-   '<header class="journey-topbar"><div class="journey-brand"><span class="journey-brand-dot"></span> RECOMP <span> / ADVANCED</span></div>'+
-   '<button type="button" class="journey-close" data-journey-close aria-label="Save progress and close">✕</button></header>'+
-   '<div class="journey-progress" role="progressbar" aria-label="Interview progress" aria-valuenow="'+(draft.step+1)+'" aria-valuemin="1" aria-valuemax="6"><span style="width:'+percent+'%"></span></div>'+
-   '<div class="journey-progress-label"><span>'+esc(stage.tag)+'</span><span>STEP '+(draft.step+1)+' OF '+JOURNEY_STAGES.length+'</span></div>'+
-   '<div class="journey-scroll" tabindex="-1"><h1 id="journey-heading">'+esc(stage.title)+'</h1><p class="journey-subtitle">'+esc(stage.sub)+'</p>'+
-   '<div class="journey-step-content">'+content(draft)+'</div><p class="journey-error" role="alert" hidden></p></div>'+
-   '<footer class="journey-footer"><button type="button" data-journey-back '+(draft.step===0?'disabled':'')+'>← Back</button>'+
-   '<span class="journey-saved">◉ Progress saved locally</span>'+
-   '<button type="button" class="journey-next" data-journey-next>'+esc(nextLabel(draft))+'</button></footer></div>';
-  if(!keepPlace)return;
+   '<header class="journey-topbar"><div class="journey-brand">Recomp <span>Advanced</span></div>'+
+   '<button type="button" class="journey-close" data-journey-close aria-label="Save progress and close">'+icon('close')+'</button>'+
+   '<div class="journey-progress" role="progressbar" aria-label="Interview progress" aria-valuenow="'+(draft.step+1)+'" aria-valuemin="1" aria-valuemax="'+total+'" aria-valuetext="Step '+(draft.step+1)+' of '+total+': '+esc(stage.name)+'"><span style="width:'+percent+'%"></span></div>'+
+   '<p class="journey-progress-label" aria-hidden="true">Step '+(draft.step+1)+' of '+total+'</p></header>'+
+   '<div class="journey-scroll'+(direction?' is-entering-'+direction:'')+'" tabindex="-1"><h1 id="journey-heading" tabindex="-1">'+esc(stage.title)+'</h1><p class="journey-subtitle">'+esc(stage.sub)+'</p>'+
+   '<div class="journey-step-content">'+content(draft)+'</div></div>'+
+   '<p class="journey-error" role="alert" hidden></p>'+
+   '<footer class="journey-footer'+(draft.step===5||draft.editingFromReview?' has-long-action':'')+'"><button type="button" class="journey-back" data-journey-back '+(draft.step===0?'disabled':'')+'>'+icon('back')+'Back</button>'+
+   '<span class="journey-saved">Progress saved on this device</span>'+
+   '<button type="button" class="journey-next" data-journey-next>'+nextButton(draft)+'</button></footer></div>';
+  if(!keepPlace){root.querySelector('#journey-heading')?.focus({preventScroll:true});return;}
   const scroller=root.querySelector('.journey-scroll');
   if(scroller)scroller.scrollTop=scrollTop;
   if(keepPlace!==true)root.querySelector(keepPlace)?.focus({preventScroll:true});
@@ -321,30 +337,26 @@ export function showPersonalJourney({profile=null,measurements=null,onSave,onExi
    draft.unit=button.dataset.journeyUnit;saveDraft(storage,draft);render(same('data-journey-unit',draft.unit));return;
   }
   if(button.hasAttribute('data-journey-tape')){
-   draft.tapeReady=true;saveDraft(storage,draft);render();
-   root.querySelector('[data-journey-zone]')?.focus();return;
+   draft.tapeReady=true;saveDraft(storage,draft);render(null,'forward');return;
   }
   if(button.dataset.journeyEdit!=null){
-   draft.step=Number(button.dataset.journeyEdit);draft.editingFromReview=true;saveDraft(storage,draft);render();
-   root.querySelector('.journey-next')?.focus();return;
+   draft.step=Number(button.dataset.journeyEdit);draft.editingFromReview=true;saveDraft(storage,draft);render(null,'back');return;
   }
   if(button.hasAttribute('data-journey-back')){
-   draft.step=Math.max(0,draft.step-1);saveDraft(storage,draft);render();return;
+   draft.step=Math.max(0,draft.step-1);saveDraft(storage,draft);render(null,'back');return;
   }
   if(!button.hasAttribute('data-journey-next'))return;
   try{
    validateJourneyStep(draft,draft.step);
    if(draft.step!==5){
-    nextJourneyStep(draft);saveDraft(storage,draft);render();
-    root.querySelector('.journey-scroll')?.scrollTo(0,0);
-    root.querySelector('.journey-next')?.focus();
+    nextJourneyStep(draft);saveDraft(storage,draft);render(null,'forward');
     return;
    }
    busy=true;button.disabled=true;button.textContent='Saving…';
    await onSave(makeJourneyResult(draft));
    try{storage?.removeItem(JOURNEY_DRAFT_KEY);}catch{}
    close();
-  }catch(error){alertError(error);button.disabled=false;busy=false;button.textContent=nextLabel(draft);}
+  }catch(error){alertError(error);button.disabled=false;busy=false;button.innerHTML=nextButton(draft);}
  });
  const clearError=()=>{const target=root.querySelector('.journey-error');if(target)target.hidden=true;};
  root.addEventListener('input',event=>{
@@ -377,6 +389,5 @@ export function showPersonalJourney({profile=null,measurements=null,onSave,onExi
   }
  });
  render();
- root.querySelector('.journey-close')?.focus();
  return true;
 }

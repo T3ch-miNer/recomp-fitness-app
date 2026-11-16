@@ -106,7 +106,7 @@ test('measurements start with a "grab your tape" intro and stay optional',()=>{
  assert.equal(d.tapeReady,false);
  assert.match(journey,/Grab a measuring tape/);
  assert.match(journey,/every one you add helps your AI coach tailor your workouts/);
- assert.match(journey,/'Skip for now →'/);
+ assert.match(journey,/'Skip for now'/);
  assert.equal(validateJourneyStep(d,2),true,'skipping measurements is allowed');
  assert.equal(draftFromSaved({}, {chest:40}).tapeReady,true,'people who already measured skip the intro');
 });
@@ -138,7 +138,7 @@ test('injuries ask what, when, how it is now, and what to be careful with',()=>{
 });
 
 test('tapping an option keeps the scroll position and focus',()=>{
- assert.match(journey,/function render\(keepPlace=null\)/);
+ assert.match(journey,/function render\(keepPlace=null,direction=''\)/);
  assert.match(journey,/scroller\.scrollTop=scrollTop/);
  assert.match(journey,/focus\(\{preventScroll:true\}\)/);
  assert.match(journey,/render\(same\('data-journey-choice'/);
