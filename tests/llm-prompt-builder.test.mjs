@@ -39,7 +39,7 @@ test('embeds the validated profile as JSON with numbers, not raw form strings',(
  assert.equal(embedded.days,3);
  assert.equal(embedded.minutes,45);
  assert.equal(embedded.goal,'body-recomposition');
- assert.equal(embedded.diet,'vegetarian');
+ assert.deepEqual(embedded.diet,['vegetarian'],'diet is a list of choices');
  assert.equal(embedded.equipment,'gym');
  assert.equal(embedded.activity,'moderate');
 });
@@ -70,9 +70,10 @@ test('never copies profile fields outside the allow-list',()=>{
  const prompt=buildPersonalPlanningPrompt({...profile,email:'someone@example.com',apiKey:'sk-test-not-a-real-key',clerkUserId:'user_123'});
  assert.doesNotMatch(prompt,/someone@example\.com|sk-test|user_123|apiKey|clerkUserId/);
  assert.deepEqual(Object.keys(jsonAfter(prompt,PROFILE_LABEL)).sort(),
-  ['activity','age','allergies','avoidFoods','budget','cuisine','days','diet','equipment','exerciseLimits',
-   'experience','foodNotes','goal','heightCm','mealPrep','minutes','notes','secondaryGoal','sexForEstimate',
-   'sleepHours','stress','targetWeeks','trainingStyle','trainingTime','waistCm','weightKg']);
+  ['activity','age','allergies','avoidFoods','budget','cuisine','cuisineOther','days','diet','dietOther','equipment',
+   'exerciseLimits','experience','foodNotes','goal','hasInjury','heightCm','injuryCare','injuryDetails',
+   'injuryRecovery','injuryWhen','mealPrep','minutes','notes','secondaryGoal','sexForEstimate','sleepHours',
+   'stress','targetWeeks','trainingStyle','trainingTime','waistCm','weightKg']);
 });
 
 test('user notes stay inside a JSON string and are capped at 650 characters',()=>{
