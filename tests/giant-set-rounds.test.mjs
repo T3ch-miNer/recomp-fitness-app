@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const source=read('giant-sets.js');
 const logicUrl='data:text/javascript;base64,'+Buffer.from(source).toString('base64');
@@ -144,9 +145,9 @@ test('app uses same set completion and detailed view, skippable suggested rest, 
 });
 test('PWA caches new round tracker and keeps existing premium colours',()=>{
  for(const name of ['giant-sets.js','giant-set-view.js','giant-sets.css','custom-giant-sets.js'])assert.ok(sw.includes("'./"+name+"'"));
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
  assert.match(index,/giant-sets\.css\?v=2\.6/);
- assert.match(index,/app\.js\?v=3-android-you/);
+ assert.ok(index.includes(APP_SCRIPT));
  assert.match(css,/var\(--accent\)/);
  assert.match(css,/var\(--panel\)/);
 });

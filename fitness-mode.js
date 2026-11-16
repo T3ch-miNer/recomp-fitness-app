@@ -13,10 +13,10 @@ export function showFitnessModeSelection({onChoose}){
    <h1 id="fitness-mode-title">How would you like to train?</h1>
    <p class="fitness-mode-hint">You can switch modes later. Your saved workouts and meals will never be erased just by changing modes.</p>
    <div class="fitness-mode-choices">
-    <button type="button" data-fitness-mode="basic"><b>Basic mode</b><span>Keep it simple with Full Body A and Full Body B. Start tracking today.</span></button>
-    <button type="button" data-fitness-mode="advanced"><b>Advanced mode</b><span>Describe your goals, preferences and measurements. Copy a GPT prompt, import a reviewed personal plan.</span></button>
+    <button type="button" data-fitness-mode="basic"><b>Basic mode</b><span>Answer a few quick questions and get your own four-week starter programme, no AI needed.</span></button>
+    <button type="button" data-fitness-mode="advanced"><b>Advanced mode</b><span>Build a personal plan around your goals, with help from an AI chat app such as ChatGPT.</span></button>
    </div>
-   <p class="fitness-mode-hint">No account or AI subscription required for Basic mode. Advanced planning is optional and happens on the GPT service you choose.</p>
+   <p class="fitness-mode-hint">Basic mode needs no account or AI subscription.</p>
    <p id="fitness-mode-error" role="alert" hidden></p>
   </section>`;
  document.body.append(root);

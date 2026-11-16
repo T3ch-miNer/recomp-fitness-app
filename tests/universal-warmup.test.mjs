@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {WARMUP_STEPS,WARMUP_VIDEO_ID,WARMUP_VIDEO_URL,warmupState,warmupView} from '../warmup.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 test('warm-up follows the original Rowan Row 17-movement sequence',()=>{
  assert.equal(WARMUP_VIDEO_ID,'VecbXgWY0DI');
@@ -48,7 +49,7 @@ test('warm-up sits before workout mode controls, exercises and giant-set rounds'
 test('offline cache contains warm-up and page loads its stylesheet',()=>{
  const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
  const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.match(worker,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(worker.includes(CACHE));
  assert.ok(worker.includes("'./warmup.js'"));
  assert.ok(worker.includes("'./warmup.css'"));
  assert.ok(page.includes('./warmup.css?v=2.9.3-universal-warmup'));

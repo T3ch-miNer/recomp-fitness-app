@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const js=readFileSync(new URL('../app.js',import.meta.url),'utf8');
 const markup=readFileSync(new URL('../index.html',import.meta.url),'utf8');
@@ -34,7 +35,8 @@ test('Clerk account is optional and separated from existing private backups',()=
  assert.match(js,/const hadSavedState=/);
  assert.match(js,/hasSavedState:hadSavedState/);
  assert.match(onboarding,/Continue without signing in/);
- assert.match(onboarding,/Optional Google sign-in uses Clerk/);
+ assert.match(onboarding,/No account needed/);
+ assert.doesNotMatch(onboarding,/Clerk when configured/,'welcome copy avoids developer jargon');
  assert.match(js,/await openClerkSignIn\(\)/);
  assert.match(js,/No authentication/);
  assert.match(js,/clerkClient\.addListener/);
@@ -50,5 +52,5 @@ test('Clerk integration requires a public key; no secrets or record migration',(
  assert.ok(!/indexedDB|deleteDatabase|uploadSnapshot|downloadSnapshot/.test(clerk));
  assert.ok(!/fetch\(.*health/.test(clerk));
  assert.match(sw,/clerk-auth\.js/);
- assert.ok(markup.includes('src="./app.js?v=3-android-you"'));
+ assert.ok(markup.includes(`src="./${APP_SCRIPT}"`));
 });

@@ -1,0 +1,85 @@
+/* Premium touches (v3.7): hold to confirm, sliding labels, iridescent foil,
+   a faint scroll tint and edge fades. Pairs with premium-touches.js. */
+:root{--pt-ease:cubic-bezier(.23,1,.32,1)}
+
+/* ---------- 1. Hold to confirm ---------- */
+[data-hold]{position:relative;isolation:isolate;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;transition:transform .15s var(--pt-ease),background-color .15s var(--pt-ease),color .15s var(--pt-ease)}
+[data-hold][data-input="pointer"]:active{transform:scale(.97)}
+[data-hold] .hold-fill{position:absolute;inset:-1px;z-index:1;display:flex;align-items:center;justify-content:center;gap:inherit;padding:inherit;border-radius:inherit;background:var(--red);color:#fff;pointer-events:none;clip-path:inset(0 100% 0 0);transition:clip-path 180ms var(--pt-ease)}
+[data-hold] .hold-fill .icon,[data-hold] .hold-fill svg{color:#fff;stroke:currentColor}
+[data-hold].is-holding .hold-fill{clip-path:inset(0 0 0 0);transition:clip-path var(--hold-ms,1500ms) linear}
+[data-hold].hold-instant .hold-fill{transition-duration:0ms}
+[data-hold].is-held{background:var(--red)!important;color:#fff!important;border-color:var(--red)!important}
+[data-hold].is-held .hold-fill{clip-path:inset(0 0 0 0)}
+.btn.danger.hold-btn{border-color:color-mix(in srgb,var(--red) 45%,transparent);background:color-mix(in srgb,var(--red) 9%,transparent)}
+
+/* ---------- 2. Sliding labels ---------- */
+.dyn-busy{transition:width 260ms var(--pt-ease)!important;overflow:hidden;white-space:nowrap}
+span[data-dyn]{display:inline-block}
+.dyn-slot{display:inline-grid;overflow:hidden;vertical-align:middle;justify-items:center}
+.dyn-slot>span{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+.dyn-slot>.dyn-new{animation:pt-dyn-in 180ms var(--pt-ease) both}
+.dyn-slot>.dyn-old{animation:pt-dyn-out 180ms var(--pt-ease) both}
+@keyframes pt-dyn-in{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pt-dyn-out{from{transform:none;opacity:1}to{transform:translateY(-8px);opacity:0}}
+.btn.primary.is-saved{background:var(--accent2);color:var(--accent);border-color:transparent}
+
+/* ---------- 3. Iridescent foil (ported from the IridescentFoil CSS module) ---------- */
+.foil-surface{
+ --pointer-x:50%;--pointer-y:50%;--foil-shift:0%;--foil-y-shift:0%;--glare-x:50%;--glare-y:50%;--shine-angle:135deg;--shine-opacity:.62;
+ --shine-opacity-scale:1;--film-opacity:.34;--foil-filter:saturate(1.18) contrast(1.22) brightness(1);--highlight-filter:brightness(1) saturate(1);
+ --foil-base:linear-gradient(135deg,#eeeeee 0%,#dcdcdc 40%,#c9c9c9 72%,#e8e8e8 100%);--glare-opacity:.38;--pearl-opacity:.98;
+ --surface-inset:inset 0 0 0 1px rgba(255,255,255,.38);
+ position:relative;isolation:isolate;overflow:hidden;background:#e3e3e3;box-shadow:var(--surface-inset);contain:layout paint style;color:#111
+}
+:root[data-theme="dark"] .foil-surface{--film-opacity:.46;--foil-filter:saturate(1.22) contrast(1.12) brightness(.96);--highlight-filter:brightness(.72) saturate(.82);--foil-base:linear-gradient(135deg,#161d23 0%,#161d23 44%,#1d262d 72%,#161d23 100%);--glare-opacity:.26;--pearl-opacity:.56;--shine-opacity-scale:.42;--surface-inset:inset 0 0 0 1px rgba(255,255,255,.08);background:#161d23;color:#f2f5f7}
+.foil-surface>.f-foil,.foil-surface>.f-film,.foil-surface>.f-pearl,.foil-surface>.f-shine,.foil-surface>.f-glare{position:absolute;background-repeat:no-repeat;pointer-events:none}
+.foil-surface>.f-foil,.foil-surface>.f-film,.foil-surface>.f-pearl,.foil-surface>.f-shine{inset:-48%}
+.foil-surface>.f-glare{inset:0}
+.foil-surface>:not(.f-foil,.f-film,.f-pearl,.f-shine,.f-glare){position:relative;z-index:3}
+.f-foil{z-index:0;background:linear-gradient(112deg,transparent 0%,transparent 28%,rgba(0,220,255,.08) 32%,rgba(80,255,190,.07) 36%,rgba(190,255,80,.05) 40%,transparent 46%,rgba(255,230,70,.04) 50%,rgba(255,70,180,.07) 56%,rgba(150,90,255,.07) 64%,rgba(60,120,255,.06) 70%,transparent 75%,transparent 100%),var(--foil-base);background-position:var(--foil-shift) center,center;background-size:320% 100%,100% 100%;filter:var(--foil-filter)}
+.f-film{z-index:1;background:radial-gradient(ellipse at 16% 28%,rgba(255,70,180,.1) 0%,rgba(255,70,180,.04) 18%,transparent 48%),radial-gradient(ellipse at 66% 18%,rgba(0,220,255,.1) 0%,rgba(0,220,255,.04) 20%,transparent 52%),radial-gradient(ellipse at 78% 70%,rgba(80,255,190,.1) 0%,rgba(80,255,190,.04) 22%,transparent 56%),radial-gradient(ellipse at 38% 82%,rgba(150,90,255,.1) 0%,rgba(150,90,255,.04) 18%,transparent 52%);background-position:calc(var(--foil-shift) * -.2) calc(var(--foil-y-shift) * .3),calc(var(--foil-shift) * .5) calc(var(--foil-y-shift) * -.2),calc(var(--foil-shift) * -.4) calc(var(--foil-y-shift) * .5),calc(var(--foil-shift) * .35) calc(var(--foil-y-shift) * .25);background-size:150% 150%,160% 160%,145% 145%,155% 155%;filter:blur(.4px) saturate(1.35);mix-blend-mode:screen;opacity:var(--film-opacity)}
+.f-pearl{z-index:2;background:radial-gradient(ellipse at calc(var(--glare-x) * .9) calc(var(--glare-y) * .85),rgba(224,233,240,.48) 0%,rgba(205,217,226,.18) 22%,transparent 54%),linear-gradient(112deg,rgba(220,230,238,.32) 0%,rgba(220,230,238,0) 28%,rgba(84,108,128,.2) 48%,rgba(215,226,235,.3) 72%,rgba(215,226,235,.04) 100%),linear-gradient(28deg,rgba(188,218,255,.12) 0%,transparent 34%,rgba(255,223,244,.12) 58%,transparent 100%);background-position:center,var(--foil-shift) center,var(--foil-shift) center;background-size:100% 100%,180% 100%,160% 100%;filter:var(--highlight-filter);mix-blend-mode:soft-light;opacity:var(--pearl-opacity)}
+.f-shine{z-index:4;background:linear-gradient(var(--shine-angle),transparent 0%,rgba(220,230,238,.04) 12%,rgba(226,235,242,.48) 31%,rgba(37,52,66,.24) 52%,rgba(0,124,255,.08) 64%,rgba(255,0,147,.08) 74%,rgba(223,232,239,.28) 88%,transparent 100%),linear-gradient(112deg,transparent 0%,transparent 30%,rgba(0,220,255,.04) 34%,rgba(80,255,190,.04) 38%,rgba(190,255,80,.03) 42%,transparent 45%,rgba(255,230,70,.03) 52%,rgba(255,70,180,.05) 59%,transparent 66%,rgba(150,90,255,.05) 73%,rgba(60,120,255,.04) 78%,transparent 84%);background-position:calc(50% + (var(--pointer-x) - 50%) * .35) calc(50% + (var(--pointer-y) - 50%) * .24);background-size:220% 100%;filter:blur(.25px) var(--highlight-filter);mix-blend-mode:screen;opacity:calc(var(--shine-opacity) * var(--shine-opacity-scale))}
+.f-glare{z-index:5;background:radial-gradient(circle at var(--glare-x) var(--glare-y),rgba(226,235,242,.34) 0%,rgba(205,218,228,.14) 9%,rgba(226,237,246,.08) 22%,transparent 36%);mix-blend-mode:screen;opacity:var(--glare-opacity)}
+
+/* Reward cards that use the foil */
+.reward-kicker{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.72}
+.banked-card{border-radius:20px;padding:16px 16px 14px;margin:8px 0 10px;display:grid;gap:10px;text-align:center}
+.banked-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.banked-stats div{border-radius:12px;padding:8px 6px;background:rgba(127,127,127,.12);display:grid;gap:1px}
+.banked-stats b{font-size:22px;font-weight:830;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1.15}
+.banked-stats span{font-size:11px;opacity:.72}
+.reward-badge{display:grid;justify-items:center;align-content:center;gap:2px;text-align:center;border-radius:22px;padding:14px 16px;margin:0 auto 12px;width:min(100%,220px)}
+.reward-badge b{font-size:30px;font-weight:840;letter-spacing:-.8px;line-height:1.05;font-variant-numeric:tabular-nums}
+.reward-badge small{font-size:11.5px;opacity:.74}
+.streak-badge{margin:0 0 12px;width:auto;grid-template-columns:auto 1fr;grid-template-rows:auto auto;justify-items:start;text-align:left;column-gap:12px;row-gap:0;padding:12px 16px}
+.streak-badge b{grid-row:1/3;font-size:34px}
+.streak-badge .reward-kicker{align-self:end}
+.streak-badge small{align-self:start}
+
+/* ---------- Faint tint: large surfaces, scroll-driven only ---------- */
+.foil-tint{position:relative;isolation:isolate}
+.summary-hero.foil-tint,.you-calendar.foil-tint{overflow:hidden}
+.summary-hero.foil-tint::after,.you-calendar.foil-tint::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+ background:linear-gradient(112deg,transparent 0%,rgba(0,220,255,.09) 14%,rgba(80,255,190,.08) 24%,rgba(190,255,80,.05) 32%,transparent 42%,rgba(255,230,70,.05) 52%,rgba(255,70,180,.08) 62%,rgba(150,90,255,.09) 74%,rgba(60,120,255,.07) 84%,transparent 100%);
+ background-size:400% 100%;background-position:var(--tint-shift,0%) 50%;opacity:.55}
+:root[data-theme="dark"] .summary-hero.foil-tint::after,:root[data-theme="dark"] .you-calendar.foil-tint::after{opacity:.4}
+.summary-hero.foil-tint>*,.you-calendar.foil-tint>*{position:relative;z-index:1}
+/* The dock blocks its own pseudo-elements, so the tint is a background layer instead. */
+#recomp-bottom-dock.bottom-nav.premium-dock.foil-tint.foil-tint{
+ background-image:linear-gradient(100deg,transparent 0%,rgba(0,220,255,.07) 16%,rgba(80,255,190,.06) 28%,transparent 40%,rgba(255,70,180,.06) 58%,rgba(150,90,255,.07) 72%,transparent 88%)!important;
+ background-size:400% 100%!important;background-position:var(--tint-shift,0%) 50%!important;background-repeat:no-repeat!important
+}
+
+/* ---------- 4. Scroll fades ---------- */
+[data-fade="v"]{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 var(--fade-start,0px),#000 calc(100% - var(--fade-end,0px)),transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 var(--fade-start,0px),#000 calc(100% - var(--fade-end,0px)),transparent 100%)}
+[data-fade="h"]{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-start,0px),#000 calc(100% - var(--fade-end,0px)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-start,0px),#000 calc(100% - var(--fade-end,0px)),transparent 100%);overscroll-behavior-x:contain}
+
+@media (prefers-reduced-motion:reduce){
+ [data-hold] .hold-fill,[data-hold].is-holding .hold-fill{transition-duration:0ms}
+ .dyn-slot>.dyn-new,.dyn-slot>.dyn-old{animation:none}
+ .dyn-slot>.dyn-old{display:none}
+}
+/* White on the light dark-mode red is too faint, so the fill uses a deeper red there. */
+:root[data-theme="dark"] [data-hold] .hold-fill,:root[data-theme="dark"] [data-hold].is-held{background:#c62f45!important;border-color:#c62f45!important}

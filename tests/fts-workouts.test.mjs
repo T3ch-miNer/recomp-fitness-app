@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const data=readFileSync(new URL('../fts-workouts.js',import.meta.url),'utf8');
 const {FTS_WORKOUTS,mergeFtsWorkouts}=await import('data:text/javascript;base64,'+Buffer.from(data).toString('base64'));
@@ -61,6 +62,6 @@ test('one-time migration preserves existing templates including personal edits',
 
 test('updated PWA caches plans offline and forces latest app script',()=>{
  assert.ok(worker.includes("'./fts-workouts.js'"));
- assert.ok(worker.includes('recomp-shell-v3-you-1000-recipes'));
- assert.ok(index.includes('app.js?v=3-android-you'));
+ assert.ok(worker.includes(CACHE));
+ assert.ok(index.includes(APP_SCRIPT));
 });

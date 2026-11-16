@@ -6,6 +6,22 @@
 export const CLERK_PUBLISHABLE_KEY='pk_test_Z2l2aW5nLXRvbWNhdC04Njc0LmNsZXJrLmFjY291bnRzLmRldiQ';
 const KEY='recomp-clerk-publishable-key-v1';
 let loading=null;
+let nativeAccount=null;
+const isNative=()=>Boolean(globalThis.Capacitor?.isNativePlatform?.());
+const nativeBridge=()=>globalThis.Capacitor?.Plugins?.RecompAuth;
+function checkNativeBridge(){
+ const plugin=nativeBridge();
+ if(!plugin)throw Error('Recomp Android sign-in is not installed. Update your test APK.');
+ return plugin;
+}
+// Android Clerk SDK manages its own session; JavaScript receives identity only.
+export async function restoreNativeClerkAccount(){
+ if(!isNative())return null;
+ const answer=await checkNativeBridge().getAccount();
+ nativeAccount=answer?.user?.id?answer.user:null;
+ return nativeAccount;
+}
+
 
 export function getClerkKey(){
  if(CLERK_PUBLISHABLE_KEY)return CLERK_PUBLISHABLE_KEY;
@@ -72,6 +88,7 @@ export async function loadClerk(){
  return loading;
 }
 export function getClerkAccount(){
+ if(isNative())return nativeAccount;
  const client=typeof window!=='undefined'?window.Clerk:null;
  const user=client?.user;
  if(!user)return null;
@@ -82,12 +99,23 @@ export function getClerkAccount(){
  return {id:String(user.id),email,firstName,lastName,name};
 }
 export async function openClerkSignIn(){
+ if(isNative()){
+  const result=await checkNativeBridge().signIn();
+  nativeAccount=result?.user?.id?result.user:null;
+  if(!nativeAccount)throw Error('Google sign-in did not return an account. Check the Clerk Native API settings.');
+  return nativeAccount;
+ }
  const client=await loadClerk();
  if(client.user)return client.user;
  client.openSignIn({signInForceRedirectUrl:location.origin+location.pathname,signUpForceRedirectUrl:location.origin+location.pathname});
  return null;
 }
 export async function clerkSignOut(){
+ if(isNative()){
+  await checkNativeBridge().signOut();
+  nativeAccount=null;
+  return;
+ }
  const client=await loadClerk();
  await client.signOut();
 }

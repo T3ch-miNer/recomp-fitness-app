@@ -4,7 +4,9 @@
 // the 4B Instruct model has Featherless AI inference support).
 const ALLOWED_ORIGIN='https://t3ch-miner.github.io';
 const TEST_ORIGIN='https://recomp-food-ai.rahul-dbz95.workers.dev';
-const isAllowedOrigin=origin=>origin===ALLOWED_ORIGIN||origin===TEST_ORIGIN;
+// The Android APK (Capacitor) serves the app from https://localhost; iOS uses capacitor://localhost.
+const APP_ORIGINS=new Set([ALLOWED_ORIGIN,TEST_ORIGIN,'https://localhost','capacitor://localhost']);
+const isAllowedOrigin=origin=>APP_ORIGINS.has(origin);
 const MAX_BYTES=2_900_000;
 // Models listed on the Hub are not necessarily live at an Inference Provider.
 // Consult the Hugging Face router's active image-capable catalogue on each scan.

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const get=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const backSrc=get('workout-back.js');
@@ -60,8 +61,8 @@ test('workout controls use in-app confirmations and persist Back minimisation',(
  assert.match(app,/case 'confirm-accept':settleConfirmation\(true\)/);
  assert.match(app,/case 'confirm-cancel':settleConfirmation\(false\)/);
  assert.match(app,/await confirmInApp\('Discard this unfinished workout/);
- assert.match(app,/await confirmInApp\('Restore this backup/);
- assert.match(app,/await confirmInApp\('Delete this food entry/);
+ assert.match(app,/title:'Restore this backup\?'/);
+ assert.match(app,/await (confirmInApp\(|sureInApp\(el,)'Delete this food entry/);
  assert.ok(!/\b(?:window\.)?(?:confirm|alert|prompt)\s*\(/.test(app),'native blocking dialogs must all be gone');
  assert.ok(!/indexedDB|deleteDatabase|\bclear\(/.test(backSrc+dialogSrc),'UI modules must not modify fitness records');
 });
@@ -72,7 +73,7 @@ test('16px editable kg/reps, themed dialog and updated offline shell',()=>{
  assert.match(css,/recomp-confirm-dialog/);
  assert.match(css,/var\(--panel\)/);
  assert.match(index,/workout-polish\.css\?v=2\.5\.5/);
- assert.match(index,/app\.js\?v=3-android-you/);
+ assert.ok(index.includes(APP_SCRIPT));
  for(const name of ['workout-back.js','confirmation-dialog.js','workout-polish.css']){
   assert.ok(sw.includes("'./"+name+"'"),name+' must be included offline');
  }

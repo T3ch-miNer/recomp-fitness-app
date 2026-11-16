@@ -4,6 +4,8 @@ Recomp remains on **free GitHub Pages**. AI detection is entirely optional; manu
 
 **Status:** The owner deployed Cloudflare and successfully tested Hugging Face on real food photos. The v2.7 draft now adds **whole-dish recognition with approximate macros**; this newest revision still needs redeployment and real-photo testing before the Recomp app itself is released.
 
+> **Action needed (v3.8.1): redeploy the Worker for the Android app.** The APK runs from `https://localhost`, which older Worker code refused, so photo scans failed in the app with "Could not contact the photo scanner". The latest `photo-scan-worker/worker.js` also allows `https://localhost` and `capacitor://localhost`. Paste it into the `recomp-food-ai` Worker and click **Deploy**; the secrets don't change. Until then, the APK sends scans through Android's own networking with the website origin, so scanning already works in v3.8.1.
+
 ## Why Hugging Face + a Cloudflare Worker?
 
 For a personal beta, Hugging Face Inference Providers lets you experiment with a hosted multimodal model without an OpenAI API subscription. Its current free allowance is **$0.10 per month** in inference credits (subject to change). Extra usage may require payment. The Cloudflare free Worker tier is suitable for a small personal proxy.

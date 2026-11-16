@@ -39,7 +39,7 @@ test('Clerk development mode remains clearly labelled but can be tested from Git
 
 test('guest remains optional and development warning appears in first-run and Settings',()=>{
  assert.match(onboard,/developmentMode=false/);
- assert.match(onboard,/Development mode/);
+ assert.match(onboard,/still in testing and doesn\\'t back up your data/);
  assert.match(onboard,/Continue without signing in/);
  assert.match(app,/developmentMode:isClerkDevelopmentMode\(\)/);
  assert.match(app,/auth-dev-notice/);

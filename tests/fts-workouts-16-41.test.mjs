@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const source=readFileSync(new URL('../fts-workouts-16-41.js',import.meta.url),'utf8');
 const {FTS_WORKOUTS_16_TO_41,mergeFtsFinalWorkouts,mergeFtsReviewedWorkouts}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
@@ -86,9 +87,9 @@ test('Recomp imports new FTS plans on fresh and existing installs, caching them 
  assert.match(app,/mergeFtsFinalWorkouts\(state.templates\)/);
  assert.match(app,/Number\(state.ftsWorkoutImportVersion\|\|0\)<5/);
  assert.match(app,/await put\('state',state\)/);
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
  assert.ok(sw.includes("'./fts-workouts-16-41.js'"));
- assert.ok(page.includes('app.js?v=3-android-you'));
+ assert.ok(page.includes(APP_SCRIPT));
 });
 
 test('Workout 17 C group is two back-to-back supersets with weights left unspecified',()=>{

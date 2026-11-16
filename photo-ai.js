@@ -102,6 +102,34 @@ export function buildAiDishDiaryEntry({meal,date,mealType,model}){
   aiUncertain:meal.uncertain!==false};
 }
 
+// In the APK the web view runs from https://localhost, which the deployed Worker
+// refuses before the photo is sent. Android's own networking isn't bound by that
+// browser rule, so scans go through CapacitorHttp there. Until the Worker that
+// allows the APK origin is deployed, the request carries the website origin the
+// Worker already accepts; the private access code is still required either way.
+export const SCANNER_APP_ORIGIN='https://t3ch-miner.github.io';
+const nativeHttp=()=>globalThis.Capacitor?.isNativePlatform?.()?globalThis.Capacitor?.Plugins?.CapacitorHttp:null;
+export function scannerFetch(url,init={}){
+ const http=nativeHttp();
+ if(!http?.request)return fetch(url,init);
+ const signal=init.signal;
+ if(signal?.aborted)return Promise.reject(new DOMException('Aborted','AbortError'));
+ const headers={...(init.headers||{}),Origin:SCANNER_APP_ORIGIN};
+ const request=http.request({url,method:init.method||'GET',headers,
+  data:init.body!=null?JSON.parse(init.body):undefined,responseType:'text',
+  connectTimeout:20000,readTimeout:120000}).then(res=>{
+   const status=Number(res?.status)||0;
+   const raw=typeof res?.data==='string'?res.data:JSON.stringify(res?.data??null);
+   return {ok:status>=200&&status<300,status,json:async()=>JSON.parse(raw),text:async()=>raw};
+  });
+ if(!signal)return request;
+ return new Promise((resolve,reject)=>{
+  const onAbort=()=>reject(new DOMException('Aborted','AbortError'));
+  signal.addEventListener('abort',onAbort,{once:true});
+  request.then(resolve,reject).finally(()=>signal.removeEventListener('abort',onAbort));
+ });
+}
+
 /** Turn a failed Worker/provider request into a useful, non-secret browser message. */
 export function explainPhotoAiFailure(error){
  const raw=String(error?.message||'The image scan failed.').slice(0,230);
@@ -124,7 +152,7 @@ export function explainPhotoAiFailure(error){
  return {issue:'provider',message:raw};
 }
 /** Auth-only model check. Does not upload a photo or consume image inference credits. */
-export async function checkPhotoAiConnection({endpoint,accessToken,signal,fetchImpl=fetch}){
+export async function checkPhotoAiConnection({endpoint,accessToken,signal,fetchImpl=scannerFetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
  if(typeof accessToken!=='string'||!accessToken||accessToken.length>256)
   throw Error('Enter the private scan access token from your Worker.');
@@ -146,7 +174,7 @@ export async function checkPhotoAiConnection({endpoint,accessToken,signal,fetchI
  }
  return {model:String(data?.selected||'Hugging Face vision').slice(0,100)};
 }
-export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=fetch}){
+export async function scanPhotoWithWorker({endpoint,accessToken,imageDataUrl,signal,fetchImpl=scannerFetch}){
  const safeEndpoint=savePhotoAiEndpoint(endpoint);
  if(!accessToken||typeof accessToken!=='string'||accessToken.length>256)throw Error('Enter the private scan access token from your Worker.');
  if(/^(?:sk[-_]|hf_)/i.test(accessToken))throw Error('Do not paste a Hugging Face or OpenAI API token into Recomp. Use a separate Worker access token.');

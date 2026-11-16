@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {orderedWorkoutPlans,workoutHistoryHtml,foodHistoryHtml} from '../history-view.js';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 test('uncompleted plans stay on top and most recently completed plan moves to the bottom',()=>{
  const plans=[{id:'a',name:'Workout A'},{id:'b',name:'Workout B'},{id:'c',name:'Workout C'},{id:'d',name:'Workout D'}];
@@ -44,14 +45,14 @@ test('history shortcut sits beside both Plan and Food and completed sessions ret
  const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
- assert.ok(app.includes('food-fab-cluster history-action-cluster'));
  assert.ok(app.includes('plan-fab-cluster history-action-cluster'));
+ assert.ok(app.includes('fan-cluster ${tab===\'nutrition\'?\'food-fab-cluster\':\'\'} history-action-cluster'));
  assert.match(app,/case 'toggle-history'/);
  assert.match(app,/case 'view-workout-history'/);
  assert.match(app,/orderedWorkoutPlans\(\(state\.fitnessMode==='basic'\?state\.templates\.filter/);
  assert.ok(app.includes('templateId:s.templateId'));
  assert.ok(app.includes('templateId:prior.templateId'));
  assert.match(html,/history-shortcuts\.css\?v=2\.9\.4-history-shortcuts/);
- assert.match(sw,/recomp-shell-v3-you-1000-recipes/);
+ assert.ok(sw.includes(CACHE));
  assert.match(sw,/history-view\.js/);
 });

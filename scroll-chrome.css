@@ -23,3 +23,28 @@
  #recomp-bottom-dock.bottom-nav.premium-dock,
  .plan-fab-cluster,.food-fab-cluster,#app>.quick-fab{transition:none!important}
 }
+
+/* v3.4: the minimised-workout bar. On Workouts it hides while the in-progress
+   card is visible, and it drops down when the nav hides on scroll. */
+.floating-workout.on-workouts{transition:transform 280ms cubic-bezier(.22,1,.36,1),opacity 220ms ease}
+.floating-workout.on-workouts.near-notice{opacity:0;pointer-events:none;transform:translate3d(-50%,18px,0)}
+@media(max-width:760px){
+ .floating-workout{transition:transform 280ms cubic-bezier(.22,1,.36,1),opacity 220ms ease}
+ body.scroll-chrome-hidden .floating-workout:not(.near-notice){transform:translate3d(-50%,88px,0)}
+}
+/* One slim row: icon, workout name, live timer. */
+.floating-workout{display:flex;align-items:center;gap:10px;min-height:0!important;padding:9px 12px 9px 14px!important}
+.floating-workout>.icon:first-child{width:22px;height:22px;flex:none}
+.floating-workout .mini-workout-copy{flex:1;min-width:0;display:grid;gap:1px;line-height:1.2}
+.floating-workout .mini-workout-copy b{font-size:13px}
+.floating-workout .mini-workout-details{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.floating-workout .mini-workout-time{flex:none;font-size:17px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.floating-workout .lift-icon{flex:none;width:16px;height:16px}
+.floating-workout .mini-workout-stop{flex:none;display:grid;place-items:center;width:34px;height:34px;margin-left:2px;border-radius:11px;border:1px solid color-mix(in srgb,var(--red,#f05d6c) 45%,var(--line));background:color-mix(in srgb,var(--red,#f05d6c) 12%,transparent);color:var(--red,#f05d6c);cursor:pointer}
+.floating-workout .mini-workout-stop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.floating-workout .lift-icon{display:none}
+.stop-workout-summary{display:grid;gap:3px;margin:0 0 16px}
+.stop-workout-summary span{color:var(--muted);font-size:13px}
+.stop-workout-actions{display:grid;gap:8px}
+.stop-workout-actions .btn{justify-content:center;gap:8px;min-height:48px}
+.stop-workout-actions .hint{margin:-2px 0 4px;text-align:center}

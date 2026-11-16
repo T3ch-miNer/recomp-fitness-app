@@ -102,7 +102,7 @@ export function renderMuscleFocus(exercises=[]){
  const list=muscles.slice(0,6).map(m=>`<div class="muscle-focus-row"><span>${m.label}</span><b class="${m.emphasis}">${m.emphasis==='primary'?'Main':'Supporting'}</b></div>`).join('');
  const empty='<p class="muscle-focus-empty">No recognised strength exercises yet. Add exercises to see their muscle focus here.</p>';
  return `<section class="muscle-focus-card" aria-labelledby="muscle-focus-title">
- <div class="muscle-focus-eyebrow"><span class="status-dot"></span> MUSCLE FOCUS <span class="muscle-focus-aside">DETAILED VIEW</span></div>
+ <div class="muscle-focus-eyebrow"><span class="status-dot"></span> MUSCLE FOCUS</div>
  <h2 id="muscle-focus-title">Know what you're training.</h2>
  <p class="muscle-focus-subtitle">Muscles targeted by your current workout exercises</p>
  ${muscles.length?`<div class="muscle-map-figures">${figure('front',muscles)}${figure('back',muscles)}</div>
@@ -110,4 +110,18 @@ export function renderMuscleFocus(exercises=[]){
  <div class="muscle-focus-list">${list}</div>`:empty}
  <p class="muscle-focus-hint">Estimated emphasis from exercise names and planned sets, not measured muscle activation.${unknown.length?' Some exercises could not be matched.':''}</p>
  </section>`;
+}
+
+// One compact row inside the workout. The full map opens as its own page so
+// the sets you need to log stay near the top of the screen.
+export function renderMuscleFocusLink(exercises=[]){
+ const {muscles}=getWorkoutMuscles(exercises);
+ if(!muscles.length)return '';
+ const main=muscles.filter(m=>m.emphasis==='primary').map(m=>m.label);
+ const names=(main.length?main:muscles.map(m=>m.label));
+ const shown=names.slice(0,3).join(', ')+(names.length>3?` +${names.length-3}`:'');
+ return `<button type="button" class="muscle-focus-link" data-action="open-muscle-focus" aria-label="See muscles worked: ${shown}">
+ <span class="muscle-focus-link-copy"><span class="muscle-focus-link-label">Muscles worked</span><span class="muscle-focus-link-names">${shown}</span></span>
+ <span class="muscle-focus-link-go" aria-hidden="true">›</span>
+ </button>`;
 }

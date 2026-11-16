@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const html=read('index.html'),css=read('recomp-boot.css'),app=read('app.js');
@@ -61,9 +62,9 @@ test('both launcher PNGs are regenerated from the matching heartbeat mark',()=>{
 });
 
 test('offline startup caches the animated stylesheet and new assets',()=>{
- assert.match(sw,/const CACHE='recomp-shell-v3-you-1000-recipes'/);
+ assert.ok(sw.includes(`const CACHE='${CACHE}'`));
  assert.ok(sw.includes("'./recomp-boot.css'"));
  for(const path of ['icon.svg','icon-192.png','icon-512.png','manifest.webmanifest'])
   assert.ok(sw.includes("'./"+path+"'"),path+' should be cached for PWA use');
- assert.ok(html.includes('app.js?v=3-android-you'));
+ assert.ok(html.includes(APP_SCRIPT));
 });

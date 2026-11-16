@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {CACHE,APP_SCRIPT} from './release.mjs';
 
 const legacySource=readFileSync(new URL('../fts-workouts.js',import.meta.url),'utf8');
 const legacyUrl='data:text/javascript;base64,'+Buffer.from(legacySource).toString('base64');
@@ -94,6 +95,6 @@ test('one-time migration retains every pre-existing FTS edit and custom plan',()
 test('new and existing installs can load all fifteen plans offline',()=>{
  assert.match(app,/templates:structuredClone\(\[\.\.\.FTS_WORKOUTS,\.\.\.FTS_WORKOUTS_5_TO_15,\.\.\.FTS_WORKOUTS_16_TO_41\]\)/);
  assert.ok(worker.includes("'./fts-workouts-5-15.js'"));
- assert.ok(worker.includes("recomp-shell-v3-you-1000-recipes"));
- assert.ok(index.includes("app.js?v=3-android-you"));
+ assert.ok(worker.includes(CACHE));
+ assert.ok(index.includes(APP_SCRIPT));
 });

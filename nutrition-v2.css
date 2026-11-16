@@ -133,3 +133,8 @@ body.nf-open{overflow:hidden}
  border-color:var(--line);background:var(--panel2);color:var(--text);
 }
 .nf-vision-panel .nf-ai-check-connection:disabled{opacity:.6}
+
+/* v3.4: Today's intake leads the page; the everyday plate opens as a pop-up. */
+.nutrition-intake-card .plate-guide-button{margin-top:16px;justify-content:center;gap:8px}
+.meal-guide-modal>:first-child{margin-top:0}
+.meal-guide-modal .card,.meal-guide-modal section{box-shadow:none}

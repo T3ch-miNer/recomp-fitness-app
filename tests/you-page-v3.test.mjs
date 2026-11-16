@@ -38,7 +38,8 @@ test('browser You dashboard never claims to read Android statistics',()=>{
  reset();
  const html=renderYouPage({date:'2026-10-27',activity:{steps:4800},stepGoal:8000,dailyTasksDone:1,dailyTasksTotal:3});
  assert.match(html,/You\./);
- assert.match(html,/4,800/);
+ assert.doesNotMatch(html,/4,800/,'steps live on Home now');
+ assert.match(html,/Habits/);
  assert.match(html,/manual|browser|Android APK/i);
  assert.doesNotMatch(html,/data-action="you-usage-settings"/);
  const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
