@@ -1,0 +1,38 @@
+{
+  "format": "recomp-personal-plan-v1",
+  "title": "Vegetarian recomp: 3-day full body",
+  "goals": {
+    "calories": 2250,
+    "protein": 135,
+    "carbs": 260,
+    "fat": 70,
+    "fibre": 32,
+    "water": 2800,
+    "steps": 9000
+  },
+  "workouts": [
+    {
+      "name": "Full Body A",
+      "subtitle": "Monday. Calorie target is an estimate from height, weight and moderate activity.",
+      "exercises": [
+        {
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90,
+          "notes": "Pick a load that leaves 2 reps in reserve"
+        },
+        {
+          "name": "Dumbbell bench press",
+          "sets": 3,
+          "reps": 10,
+          "restSeconds": 90
+        },
+        {
+          "name": "Seated cable row",
+          "sets": 3,
+          "reps": 12,
+          "restSeconds": 75
+        },
+        {
+          "name": "Plank"

@@ -3,7 +3,7 @@
 ### An offline-first fitness and nutrition tracker that uses AI carefully
 
 [![Live app](https://img.shields.io/badge/Live%20app-Open%20Recomp-0f6e56?style=for-the-badge&logo=githubpages&logoColor=white)](https://t3ch-miner.github.io/recomp-fitness-app/)
-![Tests](https://img.shields.io/badge/tests-245%20passing-2ea44f?style=flat-square)
+[![CI](https://github.com/T3ch-miNer/recomp-fitness-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/T3ch-miNer/recomp-fitness-app/actions/workflows/ci.yml)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=111)
 ![Capacitor](https://img.shields.io/badge/Capacitor%208-Android-119EFF?style=flat-square&logo=capacitor&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1-F38020?style=flat-square&logo=cloudflare&logoColor=white)
@@ -109,13 +109,29 @@ Health and body data is sensitive, especially under GDPR, so the defaults are co
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & CI
+
+Tests use Node's built-in test runner (`node:test`), so there's no test framework to install. You'll need Node 22, the version in [`.nvmrc`](.nvmrc).
 
 ```bash
-npm test
+npm install            # installs ESLint and the Capacitor packages
+npm test               # run the full suite
+npm run lint           # ESLint
+npm run test:coverage  # tests plus an lcov report in coverage/lcov.info
 ```
 
-The suite contains **245 tests across 45 files**, covering plan validation, nutrition maths, AI response parsing, workout flows, navigation and storage. GitHub Actions runs the tests and builds a debug Android APK.
+The suite has 300+ tests covering plan validation, nutrition maths, AI response parsing, workout flows, navigation and storage.
+
+**The LLM plan flow** has its own offline tests. [`tests/llm-prompt-builder.test.mjs`](tests/llm-prompt-builder.test.mjs) checks that the prompt embeds the right profile and measurements, keeps unknown fields out and includes the safety and format instructions. Contract tests also confirm that the limits the prompt states are the ones the importer enforces. [`tests/llm-plan-import.test.mjs`](tests/llm-plan-import.test.mjs) feeds sample model responses from [`tests/fixtures/llm-responses`](tests/fixtures/llm-responses) through the importer. The good ones must import, and the bad ones (fenced or truncated JSON, wrong types, out-of-range values, crash-diet targets) must be rejected with a specific message. No model is ever called, and a helper fails the test if anything tries to use the network.
+
+**CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request to `main` and every push to `main`, with two required checks:
+
+| Check | What it does |
+|---|---|
+| **Lint** | Runs ESLint with a correctness-only config ([`eslint.config.mjs`](eslint.config.mjs)) |
+| **Test & coverage** | Runs the full suite and fails on any failing test, then posts a coverage summary and uploads `coverage/lcov.info` as an artifact |
+
+Both jobs use the Node version from `.nvmrc` with npm caching, have a read-only token and use no secrets. A separate workflow builds a debug Android APK on pushes to `main`.
 
 ---
 

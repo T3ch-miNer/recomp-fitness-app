@@ -485,7 +485,7 @@ async function syncNativeActivity(){
  const date=today(),previous=state.activity.find(x=>x.date===date);
  const next=await readHealthConnectDay(date);
  if(previous&&previous.source!=='Health Connect'&&(Number(previous.steps)>0||Number(previous.activeCalories)>0)){
-  if(!await confirmInApp("Replace today\'s manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
+  if(!await confirmInApp("Replace today's manually entered steps and active calories with Health Connect totals? Older dates remain unchanged."))return;
  }
  if(next.steps===0&&next.activeCalories===0&&previous&&(previous.steps||previous.activeCalories)){
   notify('No activity returned from Health Connect; existing manual values were kept.');return;
