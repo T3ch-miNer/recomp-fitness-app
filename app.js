@@ -30,6 +30,7 @@ import {buildBackup,readBackup,summariseBackup,describeBackup,workoutsCsv,foodCs
 import {runMotion,refreshMotionClock,motionBundleReady} from './motion-bridge.js';
 import {FIRST_RUN_KEY,shouldOfferFirstRun,showFirstRunWelcome} from './first-run.js';
 import {showFitnessModeSelection,FITNESS_MODES} from './fitness-mode.js';
+import {showPersonalJourney,JOURNEY_MEASUREMENTS} from './personal-journey.js';
 import {showBasicOnboarding} from './basic-onboarding.js';
 import {generateBasicProgramme} from './basic-programmes.js';
 import {PERSONAL_PLAN_FORMAT,validateFitnessProfile,buildPersonalPlanningPrompt,parsePersonalPlan,previewPersonalPlan} from './personal-plan.js';
@@ -340,7 +341,7 @@ async function setFitnessMode(mode,{firstChoice=false}={}){
   throw error;
  }
  if(mode==='basic'&&state.basicOnboardingPending)setTimeout(()=>maybeShowBasicOnboarding(),0);
- if(mode==='advanced'&&!state.fitnessProfile){modal={type:'fitness-profile'};render();}
+ if(mode==='advanced'&&!state.fitnessProfile){setTimeout(()=>launchPersonalJourney(),0);}
 }
 function maybeShowFitnessMode(){
  if(state?.fitnessMode||document.getElementById('recomp-first-run')||
@@ -365,24 +366,26 @@ function maybeShowBasicOnboarding(force=false){
   catch(error){Object.assign(state,{basicProfile:old.profile,basicProgramme:old.programme,basicOnboardingPending:old.pending,templates:old.templates,weights:old.weights});throw error;}
  }});
 }
-function personalProfileFields(){
- const p=state.fitnessProfile||{days:3,minutes:45},field=(id,label,type='number',rest='')=>
-  `<label>${label}<input name="${id}" type="${type}" ${rest} value="${escapeHtml(p[id]??'')}"/></label>`;
- const select=(id,label,values)=>`<label>${label}<select name="${id}">${values.map(([value,text])=>`<option value="${value}" ${(p[id]||'')===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
- return `<p class="hint personal-plan-hint">Measurements are optional. They stay in your Recomp records and may be included in a separate cloud backup only if you enable that feature. The GPT prompt includes them only if you explicitly copy it.</p>
- <div class="fitness-profile-grid">
- ${select('goal','Primary goal',[['body-recomposition','Build muscle & lose fat'],['build-muscle','Gain muscle'],['lose-fat','Reduce body fat'],['maintain','Maintain'],['improve-fitness','Improve fitness']])}
- ${select('diet','Dietary preference',[['omnivore','Mixed diet'],['vegetarian','Vegetarian'],['vegan','Vegan'],['pescatarian','Pescatarian'],['halal','Halal'],['other','Other / specify']])}
- ${select('equipment','Available equipment',[['gym','Gym'],['home','Home equipment'],['bodyweight','Bodyweight only']])}
- ${select('activity','Activity level',[['moderate','Moderately active'],['sedentary','Mostly sitting'],['light','Light activity'],['active','Very active']])}
- ${field('age','Age (18+, optional)','number','min="18" max="100"')}
- ${field('heightCm','Height (cm, optional)','number','min="100" max="230" step="0.1"')}
- ${field('weightKg','Weight (kg, optional)','number','min="30" max="350" step="0.1"')}
- ${field('waistCm','Waist (cm, optional)','number','min="30" max="250" step="0.1"')}
- ${field('days','Training days per week','number','required min="1" max="7"')}
- ${field('minutes','Minutes per workout','number','required min="10" max="180"')}
- <label class="wide">Food preferences, restrictions and exercise limitations (optional)<textarea name="notes" maxlength="650">${escapeHtml(p.notes||'')}</textarea></label>
- </div><p class="hint">For medical conditions, injuries or pregnancy, consult a qualified professional before acting on an AI-generated programme.</p>`;
+// Launch the six-stage private journey, never a second scrolling form.
+function launchPersonalJourney(){
+ if(modal){modal=null;render();}
+ return showPersonalJourney({
+  profile:state.fitnessProfile,
+  measurements:state.measurements?.at(-1)||null,
+  onSave:async ({profile,measurements})=>{
+   const clean=validateFitnessProfile(profile);
+   const previousProfile=state.fitnessProfile,previousMeasurements=state.measurements;
+   state.fitnessProfile=clean;
+   if(Object.keys(measurements).length){
+    const old=state.measurements?.at(-1)||{};
+    state.measurements=[...state.measurements,{...old,...measurements,id:uid(),date:today()}];
+   }
+   try{await persist();}
+   catch(err){state.fitnessProfile=previousProfile;state.measurements=previousMeasurements;throw err;}
+   modal={type:'personal-prompt'};render();
+   notify('Your personalised profile is saved. Review the prompt before sharing it with an AI.');
+  }
+ });
 }
 function personalPromptControls(){
  const profile=state.fitnessProfile;
@@ -881,7 +884,7 @@ function settingsView(){
  const cfg=cloud.getConfig(),ses=cloud.getSession(),clerkUser=getClerkAccount(),clerkReady=isClerkLoginAvailable(),clerkDev=isClerkDevelopmentMode();
  const pages={
   account:`<section id="settings-account" class="settings-section settings-page-body">
-<div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?(state.basicProgramme?'Basic: '+state.basicProgramme.title+' · '+state.basicProgramme.days+' days/week':'Basic: Full Body A & B · set up your programme'):'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':'<button type="button" class="btn" data-action="basic-profile">'+(state.basicProfile?'Edit Basic profile &amp; plan':'Set up Basic programme')+'</button>'}</div></div>
+<div class="card fitness-mode-settings"><b>Training experience</b><p class="small muted">${state.fitnessMode==='basic'?(state.basicProgramme?'Basic: '+state.basicProgramme.title+' · '+state.basicProgramme.days+' days/week':'Basic: Full Body A & B · set up your programme'):'Advanced: your own programme and nutrition targets'}</p><div class="row wrap"><button type="button" class="btn" data-action="switch-fitness-mode">Switch mode</button>${state.fitnessMode==='advanced'?'<button type="button" class="btn" data-action="fitness-profile">Edit my profile</button>':'<button type="button" class="btn" data-action="basic-profile">'+(state.basicProfile?'Edit Basic profile &amp; plan':'Set up Basic programme')+'</button>'}<button type="button" class="btn" data-action="personal-plan-upload">Import AI plan</button></div><p class="small muted">Made a plan with your AI coach? Import its recomp-plan.json file here any time to set up your workouts and targets.</p></div>
 <div class="card settings-account-card">${clerkDev?'<div class="auth-dev-notice" role="note"><b>Development mode · test sign-in</b><span>Clerk Google login is for testing, not production. Signing in does not back up or transfer your Recomp data. You can always stay a guest.</span></div>':''}<div class="row space"><b>${clerkUser?'Signed in as '+escapeHtml(clerkUser.name||clerkUser.email||'Google account'):'Guest mode'}</b><span class="pill">${clerkUser?(clerkDev?'Development account':'Signed in'):clerkReady?(clerkDev?'Development mode':'Clerk ready'):'Guest access'}</span></div>${clerkUser?.email?`<p class="small muted">${escapeHtml(clerkUser.email)}</p>`:''}<p class="small muted">Google sign-in through Clerk is optional and separate from cloud backup. All your saved workouts and meals remain on this device unless you explicitly choose a backup.</p><div class="row wrap">${clerkUser?'<button class="btn" data-action="clerk-signout">Sign out</button>':clerkReady?'<button class="btn primary" type="button" data-action="clerk-login" '+(clerkSignInBusy?'disabled aria-busy="true"':'')+'>'+(clerkSignInBusy?'Signing in…':'Continue with Google')+'</button>':'<span class="pill">Google login coming later</span>'}${!getClerkKey()?'<button class="btn" data-action="clerk-setup">Set up Clerk</button>':''}</div>${!clerkReady?'<p class="hint">Google sign-in is unavailable on this GitHub Pages release until a production Clerk domain is ready. All tracking works without an account.</p>':''}${clerkSignInError?'<p class="hint" role="alert" data-clerk-login-error>'+escapeHtml(clerkSignInError)+'</p>':''}</div>
 </section>`,
   targets:`<section id="settings-targets" class="settings-section settings-page-body">
@@ -1052,7 +1055,7 @@ function modalView(){if(!modal)return '';
 if(modal.type==='stop-workout')return stopWorkoutView();
 if(modal.type==='reminder-prompt')return reminderPromptView();
 if(modal.type==='meal-guide')return modalShell('Your everyday plate',`<div class="meal-guide-modal">${mealGuideView()}</div>`);
-if(modal.type==='fitness-profile')return modalShell('Your personal fitness profile',personalProfileFields(),'form-fitness-profile','Save my profile');
+if(modal.type==='fitness-profile')return modalShell('Your personal fitness journey','<p class="hint">Your interview has a new six-stage experience. Close this window and choose Edit fitness profile to begin.</p>');
 if(modal.type==='personal-prompt'){
  if(!state.fitnessProfile)return modalShell('Complete profile first','<p class="hint">Save a fitness profile to generate your personal GPT prompt.</p><button type="button" class="btn primary block" data-action="fitness-profile">Complete profile</button>');
  const prompt=buildPersonalPlanningPrompt(state.fitnessProfile,{measurements:state.measurements?.at(-1)||null});
@@ -1118,7 +1121,7 @@ if(modal.type==='food-portion')return foodPortionView();
 if(modal.type==='food')return modalShell('Log a meal',`${modalField('name','Food or meal name','','text','required maxlength="100"')}<div class="field"><label class="label">Meal</label><select class="input" name="meal">${['Breakfast','Lunch','Dinner','Snack'].map(m=>`<option ${m===(modal.meal||'Breakfast')?'selected':''}>${m}</option>`).join('')}</select></div><div class="field-row">${modalField('calories','Calories (kcal)',0,'number','min="0" required')}${modalField('protein','Protein (g)',0,'number','min="0" step="0.1"')}${modalField('carbs','Carbs (g)',0,'number','min="0" step="0.1"')}${modalField('fat','Fat (g)',0,'number','min="0" step="0.1"')}${modalField('fibre','Fibre (g)',0,'number','min="0" step="0.1"')}${modalField('date','Date',today(),'date','required')}</div><p class="hint">Enter values from the package or a reliable recipe estimate. For a mixed meal, add each food separately or use Photo meal.</p>`,'form-food','Add to diary');
 if(modal.type==='weight')return modalShell('Add weekly weight',`${modalField('weight','Body weight (kg)',state.weights.at(-1)?.kg ?? '','number','step="0.1" min="20" max="400" required')}${modalField('date','Measurement date',today(),'date','required')}`,'form-weight','Save weigh-in');
 if(modal.type==='measure-wizard')return measureWizard({i:modal.i,values:modal.values,unit:measureUnit(),date:modal.date,last:state.measurements.at(-1)||{}});
-if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${[['chest','Chest'],['belly','Belly button'],['below','Below belly button'],['shoulders','Shoulders'],['neck','Neck'],['rightBicep','Right bicep'],['leftBicep','Left bicep'],['rightThigh','Right thigh'],['leftThigh','Left thigh'],['rightCalf','Right calf'],['leftCalf','Left calf'],['wrist','Wrist']].map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
+if(modal.type==='measurement') {const old=state.measurements.at(-1)||{};return modalShell('Body measurements',`${modalField('date','Date',today(),'date','required')}<p class="hint">All body measurements below are in inches. Leave unknown values blank.</p><div class="field-row">${JOURNEY_MEASUREMENTS.map(([key,label])=>[key,label]).map(([k,l])=>modalField(k,l,old[k]??'','number','step="0.1" min="0"')).join('')}</div>`,'form-measurement','Save measurements');}
 if(modal.type==='photo-guide')return photoGuideView();
 if(modal.type==='photo')return modalShell('Add progress photo',`${modalField('date','Photo date',today(),'date','required')}<div class="field"><label class="label">View</label><select class="input" name="view"><option>Front</option><option>Left side</option><option>Right side</option><option>Back</option></select></div><div class="field"><label class="label">Choose photo</label><input class="input" type="file" name="photo" accept="image/*" required/></div><p class="hint">The photo is compressed locally and stored offline. It will only be uploaded if you connect and back up to your own cloud.</p>`,'form-photo','Save photo');
 if(modal.type==='activity'){let a=activityToday();return modalShell('Manual activity entry',`${modalField('steps','Steps today',a.steps,'number','min="0" required')}${modalField('activeCalories','Calories burnt during activity (kcal)',a.activeCalories,'number','min="0" required')}${modalField('date','Date',today(),'date','required')}<p class="hint">Samsung Health/Health Connect automatic import is planned for a native Android development phase.</p>`,'form-activity','Update activity');}
@@ -1566,7 +1569,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   if(!await confirmInApp('Switch to '+(next==='basic'?'Basic (ready-made workout programmes)':'Advanced (personal planning tools)')+'? Your saved workouts and history will not be deleted.',{title:'Switch fitness mode?',approveLabel:'Switch mode',danger:false}))break;
   await setFitnessMode(next);break;
  }
- case 'fitness-profile':modal={type:'fitness-profile'};render();break;
+ case 'fitness-profile':launchPersonalJourney();break;
  case 'basic-profile':maybeShowBasicOnboarding(true);break;
  case 'copy-personal-prompt':modal={type:'personal-prompt'};render();break;
  case 'personal-prompt-copy':{
@@ -1591,15 +1594,17 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   if(!personalImportReview)throw Error('Select and review a JSON plan first.');
   if(state.session)throw Error('Finish or discard your active workout before importing a routine.');
   const p=personalImportReview;
-  if(!await confirmInApp('Import '+p.workouts.length+' workouts and '+p.meals.length+' meal suggestions? Previously imported personal plans and daily targets will be replaced. Existing food logs, workout history and other plans stay intact.',{title:'Import your personal plan?',approveLabel:'Apply plan',danger:false}))break;
-  const old={goals:state.goals,templates:state.templates,meals:state.personalMeals,active:state.personalPlanActive,title:state.personalPlanTitle};
+  if(!await confirmInApp('Import '+p.workouts.length+' workouts and '+p.meals.length+' meal suggestions?'+(state.fitnessMode==='basic'?' Recomp will also switch you to Advanced mode, where imported plans live.':'')+' Previously imported personal plans and daily targets will be replaced. Existing food logs, workout history and other plans stay intact.',{title:'Import your personal plan?',approveLabel:'Apply plan',danger:false}))break;
+  const old={goals:state.goals,templates:state.templates,meals:state.personalMeals,active:state.personalPlanActive,title:state.personalPlanTitle,mode:state.fitnessMode,pending:state.basicOnboardingPending};
+  // Imported plans are shown in Advanced mode, so importing from Basic switches over.
+  if(state.fitnessMode==='basic'){state.fitnessMode='advanced';state.basicOnboardingPending=false;}
   const id=uid();
   state.templates=state.templates.filter(t=>!t.personalImported).concat(p.workouts.map((w,i)=>({...structuredClone(w),id:'personal-'+id+'-'+(i+1),personalImported:true})));
   state.goals={...state.goals,...p.goals};
   state.personalMeals=structuredClone(p.meals);state.personalPlanActive=true;state.personalPlanTitle=p.title;
   try{await commit();}
-  catch(err){state.goals=old.goals;state.templates=old.templates;state.personalMeals=old.meals;state.personalPlanActive=old.active;state.personalPlanTitle=old.title;render();throw err;}
-  personalImportReview=null;modal=null;render();notify('Personal routine and updated goals saved.');break;
+  catch(err){state.goals=old.goals;state.templates=old.templates;state.personalMeals=old.meals;state.personalPlanActive=old.active;state.personalPlanTitle=old.title;state.fitnessMode=old.mode;state.basicOnboardingPending=old.pending;render();throw err;}
+  tab='workouts';state.lastTab='workouts';settingsPage=null;lastMotionPage=null;personalImportReview=null;modal=null;render();notify('Your AI plan is ready: '+p.workouts.length+' new workouts.');break;
  }
  case 'online-catalogue-refresh':void updatePublishedCatalogue({showFeedback:true});break;
  case 'online-workout-import':{
@@ -1922,13 +1927,6 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  }
  if(id==='you-day-note-form'){await saveDayNote(form.dataset.date,{text:data.get('note'),mood:data.get('mood')});noteSavedFor=form.dataset.date;render();notify('Note saved for this day.');return;}
  if(id==='you-add-habit-form'){addYouHabit(data.get('habit'));render();notify('Wellbeing habit added.');return;}
- if(id==='form-fitness-profile'){
-  const raw=Object.fromEntries(['goal','diet','equipment','activity','age','heightCm','weightKg','waistCm','days','minutes','notes'].map(k=>[k,String(data.get(k)||'')]));
-  const profile=validateFitnessProfile(raw),previous=state.fitnessProfile;
-  state.fitnessProfile=profile;
-  try{await persist();}catch(err){state.fitnessProfile=previous;throw err;}
-  modal={type:'personal-prompt'};render();notify('Profile saved in your private Recomp records. Review the prompt before sharing it.');return;
- }
 
  if(id==='form-water'){let amount=n(data.get('amount'));if(amount<=0||amount>15000)throw new Error('Enter a water amount between 1 and 15,000 ml');state.water.push({id:uid(),date:data.get('date'),ml:amount});notify(`Added ${amount} ml`);}
  else if(id==='form-meal-guide-item'){
@@ -1981,7 +1979,7 @@ async function onSubmit(form){let data=new FormData(form),id=form.id;
  }
  else if(id==='form-food'){let item={id:uid(),date:data.get('date'),name:String(data.get('name')).trim().slice(0,100),meal:data.get('meal')};for(let k of ['calories','protein','carbs','fat','fibre']){item[k]=n(data.get(k));if(item[k]<0||item[k]>100000)throw new Error('Check the nutrition amounts');}if(!item.name)throw new Error('Enter a food name');state.food.push(item);}
  else if(id==='form-weight'){let kg=n(data.get('weight'));if(kg<20||kg>400)throw new Error('Enter a valid body weight');state.weights.push({id:uid(),date:data.get('date'),kg});}
- else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const k of ['chest','belly','below','shoulders','neck','rightBicep','leftBicep','rightThigh','leftThigh','rightCalf','leftCalf','wrist']){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
+ else if(id==='form-measurement'){let m={id:uid(),date:data.get('date')};for(const [k] of JOURNEY_MEASUREMENTS){let val=data.get(k);m[k]=val===''?'':n(val);}state.measurements.push(m);}
  else if(id==='form-photo'){const file=data.get('photo');if(!(file instanceof File)||!file.size)throw new Error('Choose a photograph');if(file.size>40*1024*1024)throw new Error('Photo is too large (maximum 40 MB)');if(!file.type.startsWith('image/'))throw new Error('Choose an image file');const blob=await makePhotoJpeg(file);await savePhotoBlob(blob,data.get('date'),data.get('view'));return;}
  else if(id==='form-activity'){let entry={date:data.get('date'),steps:Math.max(0,n(data.get('steps'))),activeCalories:Math.max(0,n(data.get('activeCalories')))};state.activity=state.activity.filter(a=>a.date!==entry.date);state.activity.push(entry);}
  else if(id==='form-task'){let name=String(data.get('name')).trim();if(!name)throw new Error('Enter a task');state.tasks.push({id:uid(),label:name,auto:null});}

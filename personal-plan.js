@@ -4,6 +4,14 @@ export const PERSONAL_PLAN_FORMAT='recomp-personal-plan-v1';
 const G=['calories','protein','carbs','fat','fibre','water','steps'];
 const max={calories:10000,protein:650,carbs:1400,fat:400,fibre:160,water:12000,steps:100000};
 const goodText=(s,n=120)=>typeof s==='string'&&s.trim()&&s.length<=n;
+// Multi-select answers arrive as an array, or as a single legacy string from
+// profiles saved before multi-select existed (for example 'vegetarian').
+function choiceList(value,allowed,label,fallback=[]){
+ const raw=Array.isArray(value)?value:String(value??'').split(',');
+ const out=[...new Set(raw.map(x=>String(x).trim()).filter(x=>x&&x!=='none'))];
+ for(const x of out)if(!allowed.includes(x))throw Error('Choose a valid '+label+' option.');
+ return out.length?out:[...fallback];
+}
 function str(s,n=120,label='text'){if(!goodText(s,n))throw Error('Check the '+label+'. It must be text of 1–'+n+' characters.');return s.trim();}
 function planTitle(value){
  if(typeof value!=='string'||!value.trim())throw Error('Plan title is missing. Ask your AI for a short, descriptive title.');
@@ -26,8 +34,7 @@ export function validateFitnessProfile(p){
  const options=['build-muscle','lose-fat','maintain','improve-fitness','body-recomposition'];
  const goal=String(p.goal||'');
  if(!options.includes(goal))throw Error('Choose a fitness goal.');
- const diet=String(p.diet||'omnivore');
- if(!['omnivore','vegetarian','vegan','pescatarian','halal','other'].includes(diet))throw Error('Choose a dietary preference.');
+ const diet=choiceList(p.diet,['omnivore','vegetarian','vegan','pescatarian','halal','other'],'dietary preference',['omnivore']);
  const equipment=String(p.equipment||'gym');
  if(!['gym','home','bodyweight'].includes(equipment))throw Error('Choose your workout equipment.');
  const age=p.age==null||p.age===''?null:number(Number(p.age),18,100,'age');
@@ -39,13 +46,44 @@ export function validateFitnessProfile(p){
  const notes=String(p.notes||'').trim().slice(0,650);
  const activity=String(p.activity||'moderate');
  if(!['sedentary','light','moderate','active'].includes(activity))throw Error('Choose an activity level.');
- return {goal,diet,equipment,age,heightCm,weightKg,waistCm,days,minutes,activity,notes};
+ const enums={
+  experience:['beginner','intermediate','advanced'],
+  trainingTime:['flexible','morning','afternoon','evening'],
+  cuisine:['indian','mixed','global','mediterranean','east-asian','other'],
+  mealPrep:['quick','moderate','flexible'],
+  budget:['low','moderate','flexible'],
+  stress:['low','moderate','high','unsure'],
+  sexForEstimate:['not-specified','female','male'],
+  hasInjury:['no','yes'],
+  injuryWhen:['','under-6-weeks','6-weeks-6-months','6-12-months','over-1-year','long-term'],
+  injuryRecovery:['','recovered','mostly','recovering','unsure']
+ };
+ const extra={
+  secondaryGoal:choiceList(p.secondaryGoal,['strength','endurance','mobility','consistency'],'secondary goal'),
+  trainingStyle:choiceList(p.trainingStyle,['balanced','strength','hypertrophy','cardio','mobility'],'training style',['balanced'])
+ };
+ for(const [key,allowed] of Object.entries(enums)){
+  const value=String(p[key]||allowed[0]);
+  if(!allowed.includes(value))throw Error('Choose a valid '+key+' option.');
+  extra[key]=value;
+ }
+ extra.targetWeeks=p.targetWeeks==null||p.targetWeeks===''?null:number(Number(p.targetWeeks),4,52,'target timeframe');
+ extra.sleepHours=p.sleepHours==null||p.sleepHours===''?null:number(Number(p.sleepHours),1,16,'sleep hours');
+ for(const key of ['allergies','avoidFoods','exerciseLimits','foodNotes']){
+  extra[key]=String(p[key]||'').trim().slice(0,300);
+ }
+ // Free-text follow-ups are kept only when the answer they belong to applies.
+ extra.dietOther=diet.includes('other')?String(p.dietOther||'').trim().slice(0,80):'';
+ extra.cuisineOther=extra.cuisine==='other'?String(p.cuisineOther||'').trim().slice(0,80):'';
+ for(const key of ['injuryDetails','injuryCare'])extra[key]=extra.hasInjury==='yes'?String(p[key]||'').trim().slice(0,300):'';
+ if(extra.hasInjury!=='yes')extra.injuryWhen=extra.injuryRecovery='';
+ return {goal,diet,equipment,age,heightCm,weightKg,waistCm,days,minutes,activity,notes,...extra};
 }
 export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  const p=validateFitnessProfile(profile);
  // Explicit copy only: known saved measurements from the Body tab, in inches.
  const names=['chest','belly','below','shoulders','neck','rightBicep','leftBicep',
-  'rightThigh','leftThigh','rightCalf','leftCalf','wrist'];
+  'rightThigh','leftThigh','rightCalf','leftCalf','wrist','underChest','rightForearm','leftForearm','naturalWaist','hips','rightKnee','leftKnee','rightAnkle','leftAnkle'];
  const body={};
  if(measurements&&typeof measurements==='object'){
   for(const key of names){
@@ -58,9 +96,11 @@ export function buildPersonalPlanningPrompt(profile,{measurements=null}={}){
  'Do not assert exact calorie needs from incomplete data. Explain assumptions and uncertainty in the workout subtitles or supporting notes, never in the plan title. Avoid crash diets, extreme calorie deficits or unsafe exercise prescriptions.',
  'Review the proposed plan for sensible daily energy goals, progressive training and food portions before emitting the final JSON.',
  'If there are injuries, medical conditions, pregnancy, eating-disorder concerns or medications in notes, suggest qualified professional guidance rather than prescribing treatment.',
+ 'diet, secondaryGoal and trainingStyle are lists: respect every choice in them. dietOther and cuisineOther describe an "other" choice in the user’s own words.',
+ 'If hasInjury is "yes", use injuryDetails, injuryWhen, injuryRecovery and injuryCare. Start movements that load the affected area gently and offer low-impact alternatives. For recent or unresolved injuries, recommend checking with a physiotherapist or doctor before training that area. Never diagnose.',
  'Profile (provided voluntarily): '+JSON.stringify(p),
  'Latest recorded body measurements, in inches (only if you voluntarily saved them in Recomp): '+JSON.stringify(body),
- 'Respect dietary preferences, equipment, schedule and culturally familiar Indian/global meals. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
+ 'Respect dietary preferences, allergies, exercise limitations, preferred training time, cooking time, recovery, budget, cuisine and culturally familiar Indian/global meals. Use any available age, height, weight, activity level and sex-for-estimate only when voluntarily provided. State cooked vs dry food weights. Do not invent lab-verified nutrition values; provide estimates only.',
  'If this AI supports file creation, generate and attach a downloadable UTF-8 file named recomp-plan.json containing ONLY the JSON object (no Markdown fences or commentary). If downloadable files are unavailable, return ONLY the raw UTF-8 JSON object (no Markdown fences or commentary) so the user can save it as recomp-plan.json and import it into Recomp.',
  'IMPORTANT: The top-level JSON "title" must be a short, clear plan name of 1–120 characters (preferably under 80). Do not put calorie disclaimers, assumptions, explanations or paragraphs in the title. Put relevant explanations in a workout "subtitle" or an exercise/meal "notes" field instead.',
  'Use EXACT schema:',
