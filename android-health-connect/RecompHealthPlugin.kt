@@ -1,7 +1,9 @@
 // Optional native Android source for a future Capacitor wrapper.
 // Not compiled by the PWA GitHub Pages build. Android Studio device testing required.
 // Register RecompHealthPlugin in your Capacitor BridgeActivity and add the Health Connect SDK.
-// Read-only; uses aggregated steps to avoid double counting devices.
+// Read-only; uses aggregated steps to avoid double counting devices, and also
+// reports each contributing app's own total so the web layer can detect when
+// Health Connect's combined figure has added two step counters together.
 package com.recomp.health
 
 import android.content.Intent
@@ -11,8 +13,10 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -94,9 +98,27 @@ class RecompHealthPlugin : Plugin() {
             )
             val steps = response[StepsRecord.COUNT_TOTAL] ?: 0L
             val calories = response[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
+            // One aggregate per contributing app. Each is that app's own
+            // de-duplicated total for the day.
+            val sources = JSArray()
+            for (origin in response.dataOrigins) {
+                val own = client.aggregate(
+                    AggregateRequest(
+                        metrics = setOf(StepsRecord.COUNT_TOTAL, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
+                        timeRangeFilter = TimeRangeFilter.between(from, to),
+                        dataOriginFilter = setOf(DataOrigin(origin.packageName))
+                    )
+                )
+                sources.put(JSObject().apply {
+                    put("app", origin.packageName)
+                    put("steps", own[StepsRecord.COUNT_TOTAL] ?: 0L)
+                    put("activeCalories", own[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0)
+                })
+            }
             val result = JSObject().apply {
                 put("date", date.toString());put("steps", steps)
                 put("activeCalories", calories)
+                put("sources", sources)
             }
             withContext(Dispatchers.Main) { call.resolve(result) }
         } catch (e: Exception) {

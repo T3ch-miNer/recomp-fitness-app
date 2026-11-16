@@ -10,7 +10,7 @@ const estimateSource=readFileSync(new URL('../recipe-estimates.js',import.meta.u
 const estimateUrl='data:text/javascript;base64,'+Buffer.from(estimateSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
 const {estimateBatchNutrition}=await import(estimateUrl);
 const healthSource=readFileSync(new URL('../health-connect.js',import.meta.url),'utf8');
-const {validateDailyActivity,mergeDailyActivity,nativeHealthAvailable,readHealthConnectDay}=await import('data:text/javascript;base64,'+Buffer.from(healthSource).toString('base64'));
+const {validateDailyActivity,mergeDailyActivity,nativeHealthAvailable,readHealthConnectDay,describeHealthSources,healthSourceName}=await import('data:text/javascript;base64,'+Buffer.from(healthSource).toString('base64'));
 
 test('ingredient-based batch estimate recognises common dry weights and eggs',()=>{
  const output=estimateBatchNutrition([
@@ -59,6 +59,37 @@ test('Health Connect data validates date, ranges, and preserves historical activ
  assert.equal(merged.find(x=>x.date===today).notes,'keep');
  assert.throws(()=>validateDailyActivity({date:today,steps:-5,activeCalories:10},today));
  assert.throws(()=>validateDailyActivity({date:'2026-10-18',steps:5,activeCalories:10},today));
+});
+
+test('two apps counting the same day are not added together',()=>{
+ const day='2026-11-16';
+ const samsung={app:'com.sec.android.app.shealth',steps:2104,activeCalories:61.2},fit={app:'com.google.android.apps.fitness',steps:2050,activeCalories:55};
+ // Health Connect's combined total came back as roughly the sum of both apps.
+ const clean=validateDailyActivity({date:day,steps:4154,activeCalories:116.2,sources:[samsung,fit]},day);
+ assert.equal(clean.steps,2104,'uses the largest single app, not the sum');
+ assert.equal(clean.stepsFrom,'Samsung Health');
+ assert.equal(clean.activeCalories,61.2);
+ assert.equal(clean.combinedSteps,4154);
+ assert.deepEqual(clean.sources.map(s=>s.name),['Samsung Health','Google Fit']);
+ assert.equal(describeHealthSources(clean),' Using Samsung Health. Google Fit counted 2,050.');
+ // One source, or an app that reported nothing, leaves the total alone.
+ const single=validateDailyActivity({date:day,steps:2104,activeCalories:61.2,sources:[samsung]},day);
+ assert.equal(single.steps,2104);assert.equal(single.stepsFrom,undefined);assert.equal(describeHealthSources(single),'');
+ const idle=validateDailyActivity({date:day,steps:2104,activeCalories:61.2,sources:[samsung,{...fit,steps:0,activeCalories:0}]},day);
+ assert.equal(idle.steps,2104);assert.equal(describeHealthSources(idle),'');
+ // Older app builds send no per-app list: behaviour is unchanged.
+ assert.equal(validateDailyActivity({date:day,steps:4154,activeCalories:10},day).steps,4154);
+ // Malformed entries are ignored rather than trusted.
+ const messy=validateDailyActivity({date:day,steps:500,activeCalories:5,sources:[null,{app:'',steps:9},{app:'x',steps:-1,activeCalories:0},{app:'x',steps:1.5,activeCalories:0},{app:'com.example.steps',steps:500,activeCalories:5}]},day);
+ assert.deepEqual(messy.sources.map(s=>s.app),['com.example.steps']);
+ assert.equal(healthSourceName('com.android.healthconnect.phone.abc123'),'This phone');
+ assert.equal(healthSourceName('com.example.steps'),'com.example.steps');
+ // A later sync replaces the earlier one, including its source details.
+ const first=mergeDailyActivity([],clean),second=mergeDailyActivity(first,single);
+ assert.equal(second.length,1);assert.equal(second[0].steps,2104);assert.equal(second[0].stepsFrom,undefined);assert.equal(second[0].combinedSteps,2104);
+ const plugin=readFileSync(new URL('../android-health-connect/RecompHealthPlugin.kt',import.meta.url),'utf8');
+ assert.match(plugin,/dataOriginFilter = setOf\(DataOrigin\(origin\.packageName\)\)/);
+ assert.match(plugin,/put\("sources", sources\)/);
 });
 
 test('plain web PWA has no false native health connection',async()=>{
