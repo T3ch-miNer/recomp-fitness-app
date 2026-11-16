@@ -54,7 +54,15 @@ test('local draft survives resume, avoids unknown keys, and recovers invalid sto
 });
 test('all stages validate optional and required ranges without collecting unknown facts',()=>{
  const d=draftFromSaved();
- for(let i=0;i<5;i++)assert.equal(validateJourneyStep(d,i),true);
+ for(const i of [0,2,3,4])assert.equal(validateJourneyStep(d,i),true);
+ // Age, height, weight and sex are required on the starting-point step.
+ assert.throws(()=>validateJourneyStep(d,1),/Enter your age/);
+ Object.assign(d.fields,{age:'29',heightCm:'',weightKg:'70'});
+ assert.throws(()=>validateJourneyStep(d,1),/Enter your height in cm/);
+ d.fields.heightCm='175';
+ assert.throws(()=>validateJourneyStep(d,1),/Choose an option for sex/);
+ d.fields.sexForEstimate='not-specified';
+ assert.equal(validateJourneyStep(d,1),true);
  d.fields.age='17';
  assert.throws(()=>validateJourneyStep(d,1),/Age/);
  d.fields.age='29';d.fields.heightCm='250';
@@ -71,7 +79,7 @@ test('expanded data validates into an AI prompt with preferred cuisine and priva
  Object.assign(d.fields,{goal:'body-recomposition',diet:'vegetarian',equipment:'home',
   age:'30',heightCm:'173',weightKg:'73',days:'4',minutes:'50',targetWeeks:'12',
   allergies:'peanuts',avoidFoods:'mushrooms',exerciseLimits:'avoid deep knee flexion',
-  cuisine:'indian',experience:'beginner',foodNotes:'dal and rice',sleepHours:'7.5'});
+  cuisine:'indian',experience:'beginner',foodNotes:'dal and rice',sleepHours:'7.5',sexForEstimate:'female'});
  d.measurements.naturalWaist=32.5;d.measurements.hips=39.5;
  const res=makeJourneyResult(d);
  assert.equal(res.profile.waistCm,'82.6');
