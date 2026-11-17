@@ -14,7 +14,10 @@ const confirmUrl='data:text/javascript;base64,'+Buffer.from(confirmSource).toStr
 const estimatesSource=await readFile(new URL('./recipe-estimates.js',import.meta.url),'utf8');
 const estimatesUrl='data:text/javascript;base64,'+Buffer.from(estimatesSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
 const collectionSource=await readFile(new URL('./recipe-collection.js',import.meta.url),'utf8');
-const collectionUrl='data:text/javascript;base64,'+Buffer.from(collectionSource.replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'")).toString('base64');
+const recipeFileUrl=async name=>'data:text/javascript;base64,'+Buffer.from(await readFile(new URL('./'+name,import.meta.url),'utf8')).toString('base64');
+let collectionWired=collectionSource.replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'");
+for(const name of ['recipes-indian.js','recipes-asian.js','recipes-mediterranean.js','recipes-global.js'])collectionWired=collectionWired.replace("from './"+name+"'","from '"+await recipeFileUrl(name)+"'");
+const collectionUrl='data:text/javascript;base64,'+Buffer.from(collectionWired).toString('base64');
 const moduleSource=source.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'").replace("from './recipe-collection.js'","from '"+collectionUrl+"'").replace("from './confirmation-dialog.js'","from '"+confirmUrl+"'");
 const {monday,addDays,parseIngredients,avoidedIngredients,groceryItems}=
   await import('data:text/javascript;base64,'+Buffer.from(moduleSource).toString('base64'));

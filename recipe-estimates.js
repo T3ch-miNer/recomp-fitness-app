@@ -39,7 +39,30 @@ const custom={
  'sweet potato':[86,1.6,20.1,0.1,3],
  potatoes:[77,2,17,0.1,2.2],
  'peanut butter':[588,25,20,50,6],
- cashews:[553,18.2,30.2,43.9,3.3]
+ cashews:[553,18.2,30.2,43.9,3.3],
+ // v3.10 additions for the larger collection.
+ 'chicken mince':[143,17.4,0,8.1,0],
+ 'lean lamb':[134,20.6,0,5.3,0],
+ mackerel:[205,18.6,0,13.9,0],
+ 'light mozzarella':[254,24.3,2.8,15.9,0],
+ parmesan:[431,38,4.1,29,0],
+ halloumi:[316,21,1.6,25,0],
+ 'dry bulgur':[342,12.3,75.9,1.3,12.5],
+ 'dry couscous':[376,12.8,77.4,0.6,5],
+ 'dry green lentils':[352,24.6,63,1.1,10.7],
+ 'cooked white beans':[139,9.7,25,0.4,6.3],
+ 'vital wheat gluten':[370,75,14,1.9,0.6],
+ kale:[49,4.3,8.8,0.9,3.6],
+ leek:[61,1.5,14,0.3,1.8],
+ 'spring onions':[32,1.8,7.3,0.2,2.6],
+ 'pak choi':[13,1.5,2.2,0.2,1],
+ 'fresh herbs':[40,3,7,0.8,3],
+ honey:[304,0.3,82,0,0.2],
+ 'sesame seeds':[573,17.7,23.4,49.7,11.8],
+ almonds:[579,21.2,21.6,49.9,12.5],
+ 'fish sauce':[35,5,3.6,0,0],
+ 'tamarind paste':[239,2.8,62.5,0.6,5.1],
+ 'dry oats':[389,16.9,66.3,6.9,10.6]
 };
 const alias={
  'whole wheat flour atta':'atta','atta flour':'atta',
@@ -62,7 +85,9 @@ const alias={
  'carrots':'carrot','eggs':'egg','spinach leaves':'spinach','tomatoes':'tomato',
  'yellow moong dal':'moongDalCooked','white rice cooked':'riceCooked',
  'plain yoghurt':'curd','red onion':'onion','green beans':'beans','mushrooms':'mushroom',
- 'bell peppers':'capsicum','roasted peanuts':'peanuts','rolled oats':'oats'
+ 'bell peppers':'capsicum','roasted peanuts':'peanuts','rolled oats':'oats',
+ 'aubergine':'brinjal','okra':'okra','butternut squash':'pumpkin','green cabbage':'cabbage','cauliflower':'cauliflower',
+ 'grated coconut':'coconut','plain flour':'atta','semolina':'rava','flattened rice':'poha','green chillies':'capsicum'
 };
 const byName=new Map();
 for(const [k,v] of Object.entries(INGREDIENT_REFERENCE))byName.set(normal(k),v);

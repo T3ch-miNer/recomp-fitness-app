@@ -5,11 +5,33 @@
 // recipe-estimates.js, so it is an estimate, not a label value.
 // Keep ids stable: recipes added to a recipe book remember where they came from.
 import {estimateBatchNutrition} from './recipe-estimates.js';
+import {INDIAN_RECIPES} from './recipes-indian.js';
+import {ASIAN_RECIPES} from './recipes-asian.js';
+import {MEDITERRANEAN_RECIPES} from './recipes-mediterranean.js';
+import {GLOBAL_RECIPES} from './recipes-global.js';
 
 export const COLLECTION_TAGS=Object.freeze([
- ['all','All'],['chicken','Chicken'],['fish','Fish & prawns'],['beef-turkey','Beef & turkey'],['eggs','Eggs'],
+ ['all','All'],['chicken','Chicken'],['fish','Fish & prawns'],['beef-turkey','Beef, lamb & turkey'],['eggs','Eggs'],
  ['paneer','Paneer'],['vegetarian','Vegetarian'],['vegan','Vegan'],['quick','30 min or less'],['high-protein','High protein']
 ]);
+
+// Cuisines grouped for the region filter. Anything unlisted counts as Europe & Africa.
+export const COLLECTION_REGIONS=Object.freeze([
+ ['all','All cuisines'],['indian','Indian'],['asian','East & Southeast Asian'],
+ ['mediterranean','Mediterranean & Middle Eastern'],['americas','The Americas & Caribbean'],['europe-africa','British, European & African']
+]);
+const REGION_OF={
+ indian:/indian|goan|maharashtrian|kerala|kolkata|andhra|mumbai|hyderabadi|punjabi|bengali|mangalorean|konkan|kashmiri|mughlai|parsi|gujarati|indo-chinese/i,
+ asian:/thai|malaysian|vietnamese|singaporean|japanese|chinese|sichuan|indonesian|cantonese|korean|east asian/i,
+ mediterranean:/italian|levantine|greek|lebanese|moroccan|north african|turkish|persian|spanish|portuguese|french|middle eastern|cypriot|mediterranean/i,
+ americas:/mexican|american|tex-mex|cajun|peruvian|brazilian|cuban|jamaican|caribbean/i
+};
+export function regionOf(cuisine){
+ const c=String(cuisine||'');
+ if(/anglo-indian/i.test(c))return 'europe-africa';
+ for(const [region,pattern] of Object.entries(REGION_OF))if(pattern.test(c))return region;
+ return 'europe-africa';
+}
 
 // [id, name, base, minutes, cuisine, protein tag, diet, ingredients, steps]
 const R=[
@@ -141,7 +163,7 @@ const R=[
   'Boil the pasta and add the peas for the last 2 minutes.\nFry the mushrooms in oil until deeply golden, then add garlic and spinach.\nBlend the cottage cheese with a little pasta water.\nToss everything together off the heat.']
 ];
 
-const normalName=s=>String(s).replace(/whole-wheat/g,'whole wheat').replace(/fat-free/g,'fat free').replace(/Greek/g,'greek').replace(/\(besan\)/,'besan');
+const normalName=s=>String(s).replace(/whole-wheat/g,'whole wheat').replace(/fat-free/g,'fat free').replace(/Greek/g,'greek').replace(/\(besan\)/,'besan').replace(/\s*\([^)]*\)/g,'');
 function parse(lines){
  return lines.split('\n').map(line=>{
   const m=line.match(/^(\d+(?:\.\d+)?)\s*(g|ml|pcs)\s+(.+)$/);
@@ -153,7 +175,7 @@ function parse(lines){
 let built=null;
 export function recipeCollection(){
  if(built)return built;
- built=Object.freeze(R.map(([id,name,base,mins,cuisine,protein,diet,ingredients,steps])=>{
+ built=Object.freeze([...R,...INDIAN_RECIPES,...ASIAN_RECIPES,...MEDITERRANEAN_RECIPES,...GLOBAL_RECIPES].map(([id,name,base,mins,cuisine,protein,diet,ingredients,steps])=>{
   const items=parse(ingredients);
   const estimate=estimateBatchNutrition(items.map(i=>({...i,name:normalName(i.name)})));
   if(!estimate.complete)throw Error('Recipe '+id+' has ingredients without nutrition: '+estimate.missing.join(', '));
@@ -163,15 +185,15 @@ export function recipeCollection(){
   if(diet==='vegan')tags.add('vegan');
   if(mins<=30)tags.add('quick');
   if(perServing>=35)tags.add('high-protein');
-  return Object.freeze({id:'collection-'+id,name,base,mins,cuisine,diet,tags:[...tags],
+  return Object.freeze({id:'collection-'+id,name,base,mins,cuisine,region:regionOf(cuisine),diet,tags:[...tags],
    ingredients:items,steps:steps.split('\n').map((s,i)=>(i+1)+'. '+s).join('\n'),
    kcal:Math.round(t.kcal),protein:t.protein,carbs:t.carbs,fat:t.fat,fibre:t.fibre});
  }));
  return built;
 }
-export function filterCollection(list,{tag='all',query=''}={}){
+export function filterCollection(list,{tag='all',query='',region='all'}={}){
  const q=String(query).trim().toLowerCase();
- return list.filter(r=>r.tags.includes(tag)&&(!q||(r.name+' '+r.cuisine+' '+r.ingredients.map(i=>i.name).join(' ')).toLowerCase().includes(q)));
+ return list.filter(r=>r.tags.includes(tag)&&(region==='all'||r.region===region)&&(!q||(r.name+' '+r.cuisine+' '+r.ingredients.map(i=>i.name).join(' ')).toLowerCase().includes(q)));
 }
 // A copy for the user's recipe book, which they can edit freely.
 export function recipeFromCollection(r){
