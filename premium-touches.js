@@ -199,7 +199,7 @@ export function fadeEdges(el,max=Number(el?.dataset?.fadeMax)||(el?.dataset?.fad
 const fadeRO=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>{if(e.target.isConnected)fadeEdges(e.target);else fadeRO.unobserve(e.target);})):null;
 // Existing scrollers that get a fade without touching their markup.
 export const FADE_VERTICAL='.nf-food-results,.food-search-results,.custom-group-members';
-export const FADE_SIDEWAYS='.part-chips,.mw-tabs,.tab-row,.you-day-photos';
+export const FADE_SIDEWAYS='.part-chips,.mw-tabs,.tab-row,.you-day-photos,.mp-chips';
 function syncFades(root){
  for(const el of root.querySelectorAll(FADE_VERTICAL))if(!el.dataset.fade)el.dataset.fade='v';
  for(const el of root.querySelectorAll(FADE_SIDEWAYS))if(!el.dataset.fade)el.dataset.fade='h';

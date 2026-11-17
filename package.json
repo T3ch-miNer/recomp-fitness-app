@@ -14,15 +14,15 @@
     "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-exclude='tests/**' --test-coverage-exclude='**/*.test.mjs' --test-coverage-exclude='**/*.min.js' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info meal-planner.test.mjs tests/*.test.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.0.0",
-    "@capacitor/app": "^8.1.2",
-    "@capacitor/core": "^8.0.0",
-    "@capacitor/filesystem": "^8.1.0",
-    "@capacitor/local-notifications": "^8.1.0",
-    "@capacitor/share": "^8.0.0"
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/local-notifications": "8.3.1",
+    "@capacitor/share": "8.0.3"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.0.0",
+    "@capacitor/cli": "8.6.2",
     "eslint": "^10.1.0"
   }
 }

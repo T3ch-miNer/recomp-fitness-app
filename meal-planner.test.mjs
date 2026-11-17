@@ -13,7 +13,9 @@ const confirmSource=await readFile(new URL('./confirmation-dialog.js',import.met
 const confirmUrl='data:text/javascript;base64,'+Buffer.from(confirmSource).toString('base64');
 const estimatesSource=await readFile(new URL('./recipe-estimates.js',import.meta.url),'utf8');
 const estimatesUrl='data:text/javascript;base64,'+Buffer.from(estimatesSource.replace("from './food-db.js'","from '"+foodUrl+"'")).toString('base64');
-const moduleSource=source.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'").replace("from './confirmation-dialog.js'","from '"+confirmUrl+"'");
+const collectionSource=await readFile(new URL('./recipe-collection.js',import.meta.url),'utf8');
+const collectionUrl='data:text/javascript;base64,'+Buffer.from(collectionSource.replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'")).toString('base64');
+const moduleSource=source.replace("from './food-db.js'","from '"+foodUrl+"'").replace("from './recipe-estimates.js'","from '"+estimatesUrl+"'").replace("from './recipe-collection.js'","from '"+collectionUrl+"'").replace("from './confirmation-dialog.js'","from '"+confirmUrl+"'");
 const {monday,addDays,parseIngredients,avoidedIngredients,groceryItems}=
   await import('data:text/javascript;base64,'+Buffer.from(moduleSource).toString('base64'));
 

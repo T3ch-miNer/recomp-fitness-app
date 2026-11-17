@@ -16,7 +16,30 @@ const custom={
  'frozen wok vegetables':[45,2,7,0.5,3],
  courgette:[17,1.2,3.1,0.3,1],
  ginger:[80,1.8,18,0.8,2],
- 'unripe mango':[60,0.5,14,0.4,1.6]
+ 'unripe mango':[60,0.5,14,0.4,1.6],
+ // v3.9 recipe collection: raw weights unless the name says cooked, tinned or dry.
+ 'chicken thigh':[121,19.7,0,4.1,0],
+ 'lean beef mince':[137,21.4,0,5,0],
+ 'turkey mince':[150,18.7,0,8.3,0],
+ salmon:[208,20.4,0,13.4,0],
+ 'raw prawns':[85,20.1,0,0.5,0],
+ 'tinned tuna':[116,25.5,0,0.8,0],
+ 'fat free greek yoghurt':[59,10.3,3.6,0.4,0],
+ 'cottage cheese':[81,10.5,4.8,2.3,0],
+ feta:[264,14.2,4.1,21.3,0],
+ 'light coconut milk':[73,0.7,2.8,6.8,0],
+ 'dry quinoa':[368,14.1,64.2,6.1,7],
+ 'dry brown rice':[370,7.9,77,2.9,3.5],
+ 'dry whole wheat pasta':[348,14.6,67,1.4,9],
+ 'dry egg noodles':[384,14.2,71,4.4,3.3],
+ 'dry rice noodles':[364,6,80,0.6,1.6],
+ 'cooked black beans':[132,8.9,23.7,0.5,8.7],
+ broccoli:[34,2.8,6.6,0.4,2.6],
+ garlic:[149,6.4,33,0.5,2.1],
+ 'sweet potato':[86,1.6,20.1,0.1,3],
+ potatoes:[77,2,17,0.1,2.2],
+ 'peanut butter':[588,25,20,50,6],
+ cashews:[553,18.2,30.2,43.9,3.3]
 };
 const alias={
  'whole wheat flour atta':'atta','atta flour':'atta',
@@ -37,7 +60,9 @@ const alias={
  'bottle gourd':'bottleGourd','raw mango':'rawMango',
  'mixed spices':'spices','cooking oil':'oil',
  'carrots':'carrot','eggs':'egg','spinach leaves':'spinach','tomatoes':'tomato',
- 'yellow moong dal':'moongDalCooked','white rice cooked':'riceCooked'
+ 'yellow moong dal':'moongDalCooked','white rice cooked':'riceCooked',
+ 'plain yoghurt':'curd','red onion':'onion','green beans':'beans','mushrooms':'mushroom',
+ 'bell peppers':'capsicum','roasted peanuts':'peanuts','rolled oats':'oats'
 };
 const byName=new Map();
 for(const [k,v] of Object.entries(INGREDIENT_REFERENCE))byName.set(normal(k),v);
