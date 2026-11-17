@@ -1,6 +1,7 @@
 import {FOOD_ITEMS,nutrientsForGrams} from './food-db.js';
 import {estimateBatchNutrition} from './recipe-estimates.js';
 import {confirmStandalone,showCopyPanel} from './confirmation-dialog.js';
+import {recipeCollection,filterCollection,recipeFromCollection,COLLECTION_TAGS} from './recipe-collection.js';
 // Recomp recipe book and weekly batch-cooking planner.
 // Data lives in the existing app state, so device backups and cloud snapshots include it.
 const defaultExclusions = 'tomato, citrus, coffee, tofu, soya';
@@ -133,7 +134,7 @@ const estimate=(r,p,person)=>{
 };
 export function openMealPlanner({state,save,log,notify}) {
  const p=ensure(state);
- let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',catalogueQuery='',message='';
+ let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',catalogueQuery='',message='',collectionTag='all',collectionQuery='';
  const overlay=document.createElement('div');overlay.className='mp-overlay';
  overlay.setAttribute('role','presentation');document.body.appendChild(overlay);
  const focusBefore=document.activeElement;
@@ -169,12 +170,36 @@ export function openMealPlanner({state,save,log,notify}) {
  function recipesView(){
   const visible=p.recipes.filter(r=>(showAvoided||!avoidedIngredients(r,p.exclusions).length)&&r.name.toLowerCase().includes(query.toLowerCase()));
   return '<div class="mp-between"><div><h2>Recipe book</h2><p class="mp-muted">'+p.recipes.length+' saved recipes. Edit ingredients and step-by-step cooking methods.</p></div>'+button('new','+ Add recipe')+'</div>'+
-  '<div class="mp-actions">'+button('open-catalogue','Browse '+FOOD_ITEMS.length+' Indian foods')+'</div>'+ 
+  '<div class="mp-actions">'+button('open-collection','Browse '+recipeCollection().length+' Recomp recipes','class="mp-button mp-primary"')+button('open-catalogue','Browse '+FOOD_ITEMS.length+' Indian foods')+'</div>'+ 
   '<label class="mp-field">Find a recipe <input type="search" id="mp-search" placeholder="Search chicken, paneer, dal…" value="'+e(query)+'"></label>'+
   '<label class="mp-check"><input type="checkbox" id="mp-show-avoided" '+(showAvoided?'checked':'')+'> Show recipes with avoided ingredients</label>'+
   (visible.length?visible.map(card).join(''):'<div class="mp-card">No matching recipes. Remove a filter or add your own.</div>');
  }
 
+ // Recomp recipe collection: tested batch-cook dinners with full methods.
+ function collectionView(){
+  const all=recipeCollection(),inBook=new Set(p.recipes.map(r=>r.sourceCollectionId).filter(Boolean));
+  const shown=filterCollection(all,{tag:collectionTag,query:collectionQuery});
+  const notYet=shown.filter(r=>!inBook.has(r.id));
+  const per=(r,k)=>k==='kcal'?Math.round(r.kcal/4):Math.round(r[k]/4);
+  const row=r=>{
+   const have=inBook.has(r.id),avoided=avoidedIngredients(r,p.exclusions);
+   return '<article class="mp-card mp-collection-card"><div class="mp-between"><div><b>'+e(r.name)+'</b><div class="mp-muted">'+e(r.cuisine)+' · '+r.mins+' min · ~'+per(r,'kcal')+' kcal · '+per(r,'protein')+' g protein per serving</div></div>'+
+    button('add-collection',have?'✓ In your book':'Add','data-id="'+e(r.id)+'" '+(have?'disabled':''))+'</div>'+
+    (avoided.length?'<p class="mp-alert">Contains avoided ingredient: '+e(avoided.join(', '))+'</p>':'')+
+    '<details class="mp-collection-more"><summary>Ingredients and method</summary><h3>Ingredients for four servings</h3><ul>'+r.ingredients.map(i=>'<li>'+amountText(i.amount)+' '+e(i.unit)+' '+e(i.name)+'</li>').join('')+'</ul>'+
+    '<h3>Method</h3><p class="mp-method">'+e(r.steps)+'</p>'+
+    '<p class="mp-muted">Per serving, estimated: '+per(r,'kcal')+' kcal · '+per(r,'protein')+' g protein · '+per(r,'carbs')+' g carbs · '+per(r,'fat')+' g fat · '+per(r,'fibre')+' g fibre.</p></details></article>';
+  };
+  return '<div class="mp-actions">'+button('tab','← My recipes','data-view="recipes"')+'</div>'+
+   '<h2>Recomp recipe collection</h2><p class="mp-muted">'+all.length+' batch-cook dinners. Each makes four servings: dinner tonight and lunch tomorrow for two. None use tomato, citrus, coffee, tofu or soya.</p>'+
+   '<div class="mp-chips" role="group" aria-label="Filter recipes">'+COLLECTION_TAGS.map(([tag,label])=>button('collection-tag',label,'data-tag="'+tag+'" aria-pressed="'+(tag===collectionTag)+'" class="mp-chip'+(tag===collectionTag?' mp-active':'')+'"')).join('')+'</div>'+
+   '<label class="mp-field">Search the collection<input type="search" id="mp-collection-search" value="'+e(collectionQuery)+'" placeholder="Try salmon, paneer, noodles, broccoli…" autocomplete="off"></label>'+
+   '<div class="mp-between"><p class="mp-muted">'+shown.length+' recipe'+(shown.length===1?'':'s')+(notYet.length<shown.length?' · '+(shown.length-notYet.length)+' already in your book':'')+'</p>'+
+   (notYet.length>1?button('add-collection-all','Add all '+notYet.length):'')+'</div>'+
+   (shown.length?shown.map(row).join(''):'<div class="mp-card">No recipes match. Try another filter or search.</div>')+
+   '<p class="mp-note">Nutrition is estimated from standard ingredient values, not lab-tested. Check labels, oil and cooked yields. Recipes you add become your own copies to edit.</p>';
+ }
  function catalogueView(){
   const q=catalogueQuery.trim().toLowerCase();
   const matches=FOOD_ITEMS.filter(food=>(food.name+' '+food.aliases+' '+food.category).toLowerCase().includes(q));
@@ -236,7 +261,7 @@ export function openMealPlanner({state,save,log,notify}) {
    '<header class="mp-header"><div><strong>Recipes & weekly plan</strong><small>Recomp · Dinner today, lunch tomorrow</small></div>'+button('close','Close ×')+'</header>'+
    '<nav class="mp-tabs" aria-label="Meal planner sections">'+[['week','Week'],['recipes','Recipes'],['groceries','Groceries'],['settings','Preferences']].map(([key,label])=>button('tab',label,'data-view="'+key+'" class="mp-button '+(view===key?'mp-active':'')+'"')).join('')+'</nav>'+
    '<div class="mp-body">'+(message?'<p role="status" class="mp-message">'+e(message)+'</p>':'')+
-   (view==='week'?weekView():view==='recipes'?recipesView():view==='catalogue'?catalogueView():view==='groceries'?groceriesView():view==='settings'?settingsView():view==='detail'?detailView(recipeById(p,editing)):editorView())+
+   (view==='week'?weekView():view==='recipes'?recipesView():view==='collection'?collectionView():view==='catalogue'?catalogueView():view==='groceries'?groceriesView():view==='settings'?settingsView():view==='detail'?detailView(recipeById(p,editing)):editorView())+
    '</div></section>';
   overlay.querySelector('.mp-body').scrollTop=scroll;
  }
@@ -266,6 +291,17 @@ export function openMealPlanner({state,save,log,notify}) {
    return;
   }
   if(kind==='open-catalogue'){view='catalogue';catalogueQuery='';message='';render();return;}
+  if(kind==='open-collection'){view='collection';message='';render();return;}
+  if(kind==='collection-tag'){collectionTag=element.dataset.tag||'all';message='';render();return;}
+  if(kind==='add-collection'||kind==='add-collection-all'){
+   const inBook=new Set(p.recipes.map(r=>r.sourceCollectionId).filter(Boolean));
+   const picks=kind==='add-collection'?recipeCollection().filter(r=>r.id===element.dataset.id):filterCollection(recipeCollection(),{tag:collectionTag,query:collectionQuery});
+   const fresh=picks.filter(r=>!inBook.has(r.id)).map(recipeFromCollection);
+   if(!fresh.length){message='Already in your recipe book.';render();return;}
+   for(const r of fresh){if(p.recipes.some(x=>x.id===r.id))r.id=id();p.recipes.push(r);}
+   await persist(fresh.length===1?'Added “'+fresh[0].name+'” to your recipe book.':'Added '+fresh.length+' recipes to your recipe book.');
+   return;
+  }
   if(kind==='import-catalogue'){
    const food=FOOD_ITEMS.find(item=>item.id===element.dataset.id);
    if(!food)throw new Error('Food not found in local catalogue.');
@@ -333,6 +369,7 @@ export function openMealPlanner({state,save,log,notify}) {
  });
  overlay.addEventListener('input',event=>{
   if(event.target.id==='mp-search'){query=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-search');input?.focus();input?.setSelectionRange(pos,pos);}
+  if(event.target.id==='mp-collection-search'){collectionQuery=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-collection-search');input?.focus();input?.setSelectionRange(pos,pos);}
   if(event.target.id==='mp-catalogue-search'){catalogueQuery=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-catalogue-search');input?.focus();input?.setSelectionRange(pos,pos);}
  });
  overlay.addEventListener('submit',async event=>{

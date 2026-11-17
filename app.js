@@ -1321,6 +1321,10 @@ refreshMotionClock(Boolean(state.session),timerTick);
 }
 async function handleAndroidBack(){
  if(!state)return;
+ // The Advanced journey sits above everything: Back steps to the previous
+ // stage, and on the first stage saves the draft and closes it.
+ const journey=document.getElementById('recomp-personal-journey');
+ if(journey){(journey.querySelector('[data-journey-back]:not([disabled])')||journey.querySelector('[data-journey-close]'))?.click();return;}
  // Food search and the meal planner draw their own overlays: step back inside
  // them first, then close them, before anything else happens.
  const sheet=document.querySelector('.nf-overlay,.mp-overlay');
