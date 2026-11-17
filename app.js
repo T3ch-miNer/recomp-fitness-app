@@ -24,7 +24,7 @@ import {openNutrition,mealForHour} from './nutrition-v2.js';
 import {FOOD_ITEMS,FOOD_COUNT,findFood,searchFoods,nutrientsForGrams,applyOnlineFoodCatalogue} from './food-db.js';
 import {loadCachedOnlineCatalogue,refreshOnlineCatalogue,validateOnlineCatalogue} from './online-catalogue.js';
 import {openMealPlanner} from './meal-planner.js';
-import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity} from './health-connect.js';
+import {nativeHealthAvailable,readHealthConnectDay,mergeDailyActivity,describeHealthSources} from './health-connect.js';
 import {renderYouPage,isNativeWellbeingAvailable,getYouData,habitStreak,setYouHabit,addYouHabit,removeYouHabit,readAndroidWellbeingDay,rememberDeviceDay,openUsageSettings,clearDeviceDays,getYouRaw,replaceYouData} from './you-page.js';
 import {buildBackup,readBackup,summariseBackup,describeBackup,workoutsCsv,foodCsv,weightsCsv,saveTextFiles,backupAge,nativeFileSharing} from './backup.js';
 import {runMotion,refreshMotionClock,motionBundleReady} from './motion-bridge.js';
@@ -495,7 +495,7 @@ async function syncNativeActivity(){
  }
  state.activity=mergeDailyActivity(state.activity,next);
  await commit();
- notify('Health Connect: '+num(next.steps)+' steps · '+num(next.activeCalories)+' active kcal');
+ notify('Health Connect: '+num(next.steps)+' steps · '+num(next.activeCalories)+' active kcal.'+describeHealthSources(next));
 }
 function checkboxDone(task){let d=today();if(Object.prototype.hasOwnProperty.call(state.taskChecks?.[d]||{},task.id))return Boolean(state.taskChecks[d][task.id]);if(task.auto==='protein')return nutritionTotals(d).protein >= state.goals.protein;if(task.auto==='steps')return activityToday(d).steps >= state.goals.steps;if(task.auto==='water')return waterSum(d)>=state.goals.water;if(task.auto==='workout')return state.workoutHistory.some(w=>w.date===d);return Boolean(state.taskChecks[d]?.[task.id]);}
 function progress(value,max){return `<div class="progress"><div style="width:${Math.min(100,Math.max(0,max?n(value)/n(max)*100:0))}%"></div></div>`;}
