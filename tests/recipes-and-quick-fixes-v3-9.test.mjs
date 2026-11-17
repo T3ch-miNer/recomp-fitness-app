@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {recipeCollection,filterCollection,recipeFromCollection,COLLECTION_TAGS} from '../recipe-collection.js';
+import {recipeCollection,filterCollection,recipeFromCollection,COLLECTION_TAGS,COLLECTION_REGIONS,regionOf} from '../recipe-collection.js';
 import {estimateBatchNutrition} from '../recipe-estimates.js';
 
 const read=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
 const list=recipeCollection();
 
-test('the collection has 40+ recipes with unique ids and names',()=>{
- assert.ok(list.length>=40,'got '+list.length);
+test('the collection has 240+ recipes with unique ids and names',()=>{
+ assert.ok(list.length>=240,'got '+list.length);
  assert.equal(new Set(list.map(r=>r.id)).size,list.length);
  assert.equal(new Set(list.map(r=>r.name.toLowerCase())).size,list.length);
  for(const r of list)assert.match(r.id,/^collection-[a-z0-9-]+$/);
@@ -48,6 +48,8 @@ test('filters cover every tag and search looks at ingredients too',()=>{
  assert.equal(filterCollection(list,{tag:'all'}).length,list.length);
  assert.ok(filterCollection(list,{tag:'vegan'}).every(r=>r.tags.includes('vegetarian')));
  assert.ok(filterCollection(list,{tag:'beef-turkey'}).every(r=>!r.tags.includes('chicken')));
+ assert.ok(filterCollection(list,{region:'indian'}).length>=50);
+ assert.ok(filterCollection(list,{tag:'fish',region:'asian'}).every(r=>r.region==='asian'&&r.tags.includes('fish')));
  assert.ok(filterCollection(list,{tag:'quick'}).every(r=>r.mins<=30));
  const salmon=filterCollection(list,{query:'salmon'});
  assert.ok(salmon.length>=2&&salmon.every(r=>/salmon/i.test(r.name+r.ingredients.map(i=>i.name).join(' '))));
@@ -88,4 +90,28 @@ test('Android build packages are pinned to exact versions',()=>{
  const pkg=JSON.parse(read('package.json'));
  for(const [name,version] of Object.entries({...pkg.dependencies,'@capacitor/cli':pkg.devDependencies['@capacitor/cli']}))
   assert.match(version,/^\d+\.\d+\.\d+$/,name+' is '+version);
+});
+
+test('every region has plenty of recipes and cuisines map sensibly',()=>{
+ for(const [region] of COLLECTION_REGIONS)if(region!=='all')assert.ok(filterCollection(list,{region}).length>=25,region);
+ assert.equal(regionOf('Goan'),'indian');assert.equal(regionOf('Sichuan'),'asian');assert.equal(regionOf('Levantine'),'mediterranean');
+ assert.equal(regionOf('Jamaican'),'americas');assert.equal(regionOf('Anglo-Indian'),'europe-africa');assert.equal(regionOf('Ethiopian'),'europe-africa');
+});
+
+test('vegan recipes contain no animal products, vegetarian none with meat or fish',()=>{
+ const animal=/\b(eggs?|egg white|yoghurt|milk|butter|ghee|paneer|cheese|feta|mozzarella|parmesan|halloumi|honey|fish sauce|curd)\b/i;
+ const meat=/chicken|beef|lamb|turkey|prawn|salmon|tuna|mackerel|white fish|fish sauce/i;
+ for(const r of list){
+  const names=r.ingredients.map(i=>i.name.replace(/peanut butter|coconut milk/gi,''));
+  if(r.tags.includes('vegan'))assert.ok(!names.some(n=>animal.test(n)),r.name+': '+names.filter(n=>animal.test(n)));
+  if(r.tags.includes('vegetarian'))assert.ok(!names.some(n=>meat.test(n)),r.name);
+ }
+});
+
+test('planner pages the collection 30 at a time and filters by cuisine',()=>{
+ const planner=read('meal-planner.js');
+ assert.match(planner,/const COLLECTION_PAGE=30;/);
+ assert.match(planner,/kind==='collection-more'\)\{collectionLimit\+=COLLECTION_PAGE/);
+ assert.match(planner,/id="mp-collection-region"/);
+ for(const f of ['recipes-indian.js','recipes-asian.js','recipes-mediterranean.js','recipes-global.js'])assert.match(read('sw.js'),new RegExp("'\\./"+f.replace('.','\\.')+"'"));
 });

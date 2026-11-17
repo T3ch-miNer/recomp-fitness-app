@@ -1,7 +1,8 @@
 import {FOOD_ITEMS,nutrientsForGrams} from './food-db.js';
 import {estimateBatchNutrition} from './recipe-estimates.js';
 import {confirmStandalone,showCopyPanel} from './confirmation-dialog.js';
-import {recipeCollection,filterCollection,recipeFromCollection,COLLECTION_TAGS} from './recipe-collection.js';
+import {recipeCollection,filterCollection,recipeFromCollection,COLLECTION_TAGS,COLLECTION_REGIONS} from './recipe-collection.js';
+const COLLECTION_PAGE=30;
 // Recomp recipe book and weekly batch-cooking planner.
 // Data lives in the existing app state, so device backups and cloud snapshots include it.
 const defaultExclusions = 'tomato, citrus, coffee, tofu, soya';
@@ -134,7 +135,7 @@ const estimate=(r,p,person)=>{
 };
 export function openMealPlanner({state,save,log,notify}) {
  const p=ensure(state);
- let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',catalogueQuery='',message='',collectionTag='all',collectionQuery='';
+ let week=monday(new Date()),view='week',editing=null,showAvoided=false,query='',catalogueQuery='',message='',collectionTag='all',collectionQuery='',collectionRegion='all',collectionLimit=COLLECTION_PAGE;
  const overlay=document.createElement('div');overlay.className='mp-overlay';
  overlay.setAttribute('role','presentation');document.body.appendChild(overlay);
  const focusBefore=document.activeElement;
@@ -179,7 +180,8 @@ export function openMealPlanner({state,save,log,notify}) {
  // Recomp recipe collection: tested batch-cook dinners with full methods.
  function collectionView(){
   const all=recipeCollection(),inBook=new Set(p.recipes.map(r=>r.sourceCollectionId).filter(Boolean));
-  const shown=filterCollection(all,{tag:collectionTag,query:collectionQuery});
+  const shown=filterCollection(all,{tag:collectionTag,query:collectionQuery,region:collectionRegion});
+  const visible=shown.slice(0,collectionLimit);
   const notYet=shown.filter(r=>!inBook.has(r.id));
   const per=(r,k)=>k==='kcal'?Math.round(r.kcal/4):Math.round(r[k]/4);
   const row=r=>{
@@ -194,10 +196,12 @@ export function openMealPlanner({state,save,log,notify}) {
   return '<div class="mp-actions">'+button('tab','← My recipes','data-view="recipes"')+'</div>'+
    '<h2>Recomp recipe collection</h2><p class="mp-muted">'+all.length+' batch-cook dinners. Each makes four servings: dinner tonight and lunch tomorrow for two. None use tomato, citrus, coffee, tofu or soya.</p>'+
    '<div class="mp-chips" role="group" aria-label="Filter recipes">'+COLLECTION_TAGS.map(([tag,label])=>button('collection-tag',label,'data-tag="'+tag+'" aria-pressed="'+(tag===collectionTag)+'" class="mp-chip'+(tag===collectionTag?' mp-active':'')+'"')).join('')+'</div>'+
+   '<label class="mp-field">Cuisine<select id="mp-collection-region">'+COLLECTION_REGIONS.map(([key,label])=>'<option value="'+key+'" '+(key===collectionRegion?'selected':'')+'>'+e(label)+' ('+(key==='all'?all.length:all.filter(r=>r.region===key).length)+')</option>').join('')+'</select></label>'+
    '<label class="mp-field">Search the collection<input type="search" id="mp-collection-search" value="'+e(collectionQuery)+'" placeholder="Try salmon, paneer, noodles, broccoli…" autocomplete="off"></label>'+
    '<div class="mp-between"><p class="mp-muted">'+shown.length+' recipe'+(shown.length===1?'':'s')+(notYet.length<shown.length?' · '+(shown.length-notYet.length)+' already in your book':'')+'</p>'+
    (notYet.length>1?button('add-collection-all','Add all '+notYet.length):'')+'</div>'+
-   (shown.length?shown.map(row).join(''):'<div class="mp-card">No recipes match. Try another filter or search.</div>')+
+   (shown.length?visible.map(row).join(''):'<div class="mp-card">No recipes match. Try another filter or search.</div>')+
+   (shown.length>visible.length?'<div class="mp-actions mp-more">'+button('collection-more','Show '+Math.min(COLLECTION_PAGE,shown.length-visible.length)+' more','class="mp-button mp-primary"')+'<span class="mp-muted">Showing '+visible.length+' of '+shown.length+'</span></div>':'')+
    '<p class="mp-note">Nutrition is estimated from standard ingredient values, not lab-tested. Check labels, oil and cooked yields. Recipes you add become your own copies to edit.</p>';
  }
  function catalogueView(){
@@ -291,11 +295,12 @@ export function openMealPlanner({state,save,log,notify}) {
    return;
   }
   if(kind==='open-catalogue'){view='catalogue';catalogueQuery='';message='';render();return;}
-  if(kind==='open-collection'){view='collection';message='';render();return;}
-  if(kind==='collection-tag'){collectionTag=element.dataset.tag||'all';message='';render();return;}
+  if(kind==='open-collection'){view='collection';collectionLimit=COLLECTION_PAGE;message='';render();return;}
+  if(kind==='collection-tag'){collectionTag=element.dataset.tag||'all';collectionLimit=COLLECTION_PAGE;message='';render();return;}
+  if(kind==='collection-more'){collectionLimit+=COLLECTION_PAGE;render();return;}
   if(kind==='add-collection'||kind==='add-collection-all'){
    const inBook=new Set(p.recipes.map(r=>r.sourceCollectionId).filter(Boolean));
-   const picks=kind==='add-collection'?recipeCollection().filter(r=>r.id===element.dataset.id):filterCollection(recipeCollection(),{tag:collectionTag,query:collectionQuery});
+   const picks=kind==='add-collection'?recipeCollection().filter(r=>r.id===element.dataset.id):filterCollection(recipeCollection(),{tag:collectionTag,query:collectionQuery,region:collectionRegion});
    const fresh=picks.filter(r=>!inBook.has(r.id)).map(recipeFromCollection);
    if(!fresh.length){message='Already in your recipe book.';render();return;}
    for(const r of fresh){if(p.recipes.some(x=>x.id===r.id))r.id=id();p.recipes.push(r);}
@@ -354,6 +359,7 @@ export function openMealPlanner({state,save,log,notify}) {
   const target=event.target;
   try{
    if(target.id==='mp-show-avoided'){showAvoided=target.checked;render();}
+   if(target.id==='mp-collection-region'){collectionRegion=target.value||'all';collectionLimit=COLLECTION_PAGE;render();overlay.querySelector('#mp-collection-region')?.focus();}
    if(target.dataset.mpSelect==='assign'){
     const i=Number(target.dataset.day),rid=target.value,rec=recipeById(p,rid);
     if(rec&&avoidedIngredients(rec,p.exclusions).length&&!await confirmStandalone('This recipe contains an avoided ingredient: '+avoidedIngredients(rec,p.exclusions).join(', ')+'. Plan it anyway?',{title:'Check ingredients',approveLabel:'Plan anyway',danger:false})){render();return;}
@@ -369,7 +375,7 @@ export function openMealPlanner({state,save,log,notify}) {
  });
  overlay.addEventListener('input',event=>{
   if(event.target.id==='mp-search'){query=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-search');input?.focus();input?.setSelectionRange(pos,pos);}
-  if(event.target.id==='mp-collection-search'){collectionQuery=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-collection-search');input?.focus();input?.setSelectionRange(pos,pos);}
+  if(event.target.id==='mp-collection-search'){collectionQuery=event.target.value;collectionLimit=COLLECTION_PAGE;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-collection-search');input?.focus();input?.setSelectionRange(pos,pos);}
   if(event.target.id==='mp-catalogue-search'){catalogueQuery=event.target.value;const pos=event.target.selectionStart;render();const input=overlay.querySelector('#mp-catalogue-search');input?.focus();input?.setSelectionRange(pos,pos);}
  });
  overlay.addEventListener('submit',async event=>{
