@@ -46,11 +46,11 @@ test('splash dismisses only after initial app render, and never edits records',(
 });
 
 test('both launcher PNGs are regenerated from the matching heartbeat mark',()=>{
- assert.equal(manifest.background_color,'#050709');
- assert.equal(manifest.theme_color,'#050709');
+ assert.equal(manifest.background_color,'#01010D');
+ assert.equal(manifest.theme_color,'#01010D');
  assert.equal(manifest.icons[0].src,'./icon.svg');
  assert.ok(logo.includes('M42 104h24l16-38 24 60 18-42 14 20h22'));
- assert.ok(logo.includes('#050709'));
+ assert.ok(logo.includes('#01010D'));
  for(const size of [192,512]){
   const data=readFileSync(new URL('../icon-'+size+'.png',import.meta.url));
   assert.equal(data.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
