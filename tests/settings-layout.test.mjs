@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {CACHE,APP_SCRIPT} from './release.mjs';
 import {reminderSummary,renderReminderSettings} from '../reminders.js';
 import {backupAge} from '../backup.js';
+import {normalisePalette,paletteById,paletteSettingsHtml} from '../palettes.js';
 
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const app=read('app.js'),css=read('settings-layout.css'),htmlPage=read('index.html'),sw=read('sw.js');
@@ -13,7 +14,7 @@ const getView=new Function(
  'state','heading','svg','cloud','getClerkAccount','isClerkLoginAvailable',
  'isClerkDevelopmentMode','getClerkKey','escapeHtml','themeChoice',
  'nativeHealthAvailable','localStorage','dateDisplay','goalDraft','settingsCloudOpen','onlineStatus','onlineCatalog','onlineError','onlineBusy','clerkSignInError','clerkSignInBusy',
- 'reminderSummary','renderReminderSettings','nativeRemindersAvailable','exactAlarm','num','backupAge','nativeFileSharing',
+ 'reminderSummary','renderReminderSettings','nativeRemindersAvailable','exactAlarm','num','backupAge','nativeFileSharing','paletteById','paletteSettingsHtml','paletteChoice',
  app.slice(begin,end)+'\nreturn {settingsView,setPage:p=>{settingsPage=p;},pages:SETTINGS_PAGES};'
 );
 function build({signedIn=true,draft=null,advanced=false}={}){
@@ -26,7 +27,7 @@ function build({signedIn=true,draft=null,advanced=false}={}){
  ()=>true,()=>false,()=>true,
  s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
  ()=>'system',()=>false,{getItem:()=>null},()=>'',draft,advanced,'Connected',{foods:[],workouts:[],exercises:[]},'',false,'',false,
- reminderSummary,renderReminderSettings,()=>false,'granted',x=>Math.round(Number(x)||0).toLocaleString('en-GB'),backupAge,()=>false
+ reminderSummary,renderReminderSettings,()=>false,'granted',x=>Math.round(Number(x)||0).toLocaleString('en-GB'),backupAge,()=>false,paletteById,paletteSettingsHtml,()=>normalisePalette(undefined)
  );
  return client;
 }

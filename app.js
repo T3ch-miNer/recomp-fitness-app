@@ -40,6 +40,7 @@ import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTas
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,restoreNativeClerkAccount,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 import {initPremiumTouches,wasHeld,setDynamicLabel} from './premium-touches.js';
+import {normalisePalette,paletteById,rememberPalette,paletteSettingsHtml} from './palettes.js';
 import {personalBests,personalBestBadge} from './rewards.js';
 import {suggestNext,setsToChange} from './progression.js';
 import {prepareRestAlerts,scheduleRestAlert,cancelRestAlert} from './rest-alert.js';
@@ -261,7 +262,8 @@ const renderLater=()=>{render();};
 const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
 function themeChoice(){return ['light','dark'].includes(state?.preferences?.themeMode)?state.preferences.themeMode:'system';}
 function effectiveTheme(){const selected=themeChoice();return selected==='system'?(window.matchMedia?.('(prefers-color-scheme: dark)')?.matches?'dark':'light'):selected;}
-function applyTheme(){const mode=effectiveTheme();document.documentElement.dataset.theme=mode;document.documentElement.style.colorScheme=mode;for(const el of document.querySelectorAll('meta[name="theme-color"]')){if(el.media?.includes('dark')&&mode==='dark'||el.media?.includes('light')&&mode==='light'||!el.media){el.content=mode==='dark'?'#050709':'#f3f2ee';}}}
+function paletteChoice(){return normalisePalette(state?.preferences?.palette);}
+function applyTheme(){const mode=effectiveTheme(),palette=paletteById(paletteChoice());document.documentElement.dataset.theme=mode;document.documentElement.dataset.palette=palette.id;document.documentElement.style.colorScheme=mode;rememberPalette(palette.id);for(const el of document.querySelectorAll('meta[name="theme-color"]')){if(el.media?.includes('dark')&&mode==='dark'||el.media?.includes('light')&&mode==='light'||!el.media){el.content=palette.chrome[mode];}}}
 
 function haptic(kind='tap',force=false){
   // PWAs can only request vibration. Android, the browser and user settings decide whether it is felt.
@@ -876,7 +878,7 @@ function settingsSummary(id,{clerkUser,ses}){
  if(id==='targets')return `${num(g.calories)} kcal · ${num(g.protein)} g protein · ${num(g.steps)} steps`;
  if(id==='reminders')return reminderSummary(state.reminders);
  if(id==='routine')return `${state.tasks.length} daily task${state.tasks.length===1?'':'s'}`;
- if(id==='appearance'){const t=themeChoice();return t==='system'?'Follows your phone':t==='dark'?'Dark':'Light';}
+ if(id==='appearance'){const t=themeChoice();return paletteById(paletteChoice()).name+' · '+(t==='system'?'follows your phone':t==='dark'?'dark':'light');}
  if(id==='data'){const age=backupAge(state.lastExportAt);return ses?'Cloud backup on':hasPersonalData()&&age.due?`${age.text} · back up now`:age.text;}
  return '';
 }
@@ -898,7 +900,7 @@ ${state.fitnessMode==='advanced'?personalPromptControls():''}
   reminders:`<section id="settings-reminders" class="settings-section settings-page-body"> <div class="card settings-reminders-card">${renderReminderSettings(state.reminders,{native:nativeRemindersAvailable(),exact:exactAlarm})}</div>
 </section>`,
   appearance:`<section id="settings-appearance" class="settings-section settings-page-body">
-<div class="section-head"><h2 class="section-title">Appearance</h2></div><div class="card settings-appearance-card"><label class="label" for="appearance-mode">Theme</label><select class="input" id="appearance-mode" aria-label="Theme"><option value="system" ${themeChoice()==='system'?'selected':''}>Follow phone settings</option><option value="light" ${themeChoice()==='light'?'selected':''}>Day · Light</option><option value="dark" ${themeChoice()==='dark'?'selected':''}>Night · Dark</option></select><p class="small muted" style="margin-bottom:0">Use the sun and moon beside Settings to switch instantly.</p></div>
+<div class="section-head"><h2 class="section-title">Appearance</h2></div><div class="card settings-appearance-card"><label class="label" for="appearance-mode">Theme</label><select class="input" id="appearance-mode" aria-label="Theme"><option value="system" ${themeChoice()==='system'?'selected':''}>Follow phone settings</option><option value="light" ${themeChoice()==='light'?'selected':''}>Day · Light</option><option value="dark" ${themeChoice()==='dark'?'selected':''}>Night · Dark</option></select><p class="small muted" style="margin-bottom:0">Use the sun and moon beside Settings to switch instantly.</p>${paletteSettingsHtml(paletteChoice(),escapeHtml)}<p class="small muted" style="margin-bottom:0">Every colour theme works in both day and night mode.</p></div>
 <div class="section-head"><h2 class="section-title">Feel and sound</h2></div><div class="card stack settings-sound-card"><p class="small muted" style="margin:0">A tiny bit of feedback, just where it matters. Sound plays through your phone’s media volume. Vibration depends on Android and browser support.</p><label class="check-task"><input class="checkbox" type="checkbox" id="enable-haptics" ${state.preferences?.haptics===false?'':'checked'}/> Gentle haptics</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-water-sound" ${state.preferences?.waterSound===false?'':'checked'}/> Water sound effects</label><label class="check-task"><input class="checkbox" type="checkbox" id="enable-app-sounds" ${state.preferences?.appSounds===false?'':'checked'}/> App sound effects <span class="small muted">· taps, tasks & saves</span></label><div class="row feel-test-actions"><button class="btn" data-action="test-haptics">${svg('check','tiny-icon')} Test haptics</button><button class="btn" data-action="test-water-sound">${svg('volume','tiny-icon')} Test water sound</button><button class="btn" data-action="test-app-sound">${svg('volume','tiny-icon')} Test app sound</button></div></div>
 <div class="section-head"><h2 class="section-title">Rest timer alert</h2></div><div class="card settings-notifications-card"><p class="small muted">When rest ends, Recomp plays a chime and vibrates while the app is open.</p><button class="btn" data-action="test-chime">${svg('volume','tiny-icon')} Test chime</button> <button class="btn" data-action="notification-permission">${svg('bell','tiny-icon')} Allow notifications</button></div>
 </section>`,
@@ -2139,6 +2141,11 @@ document.addEventListener('change',async event=>{
  }
 });
 document.addEventListener('change',async event=>{const el=event.target;
+if(el.name==='palette'&&el.closest?.('.palette-picker')){
+ state.preferences??={haptics:true,waterSound:true};
+ state.preferences.palette=normalisePalette(el.value);
+ applyTheme();haptic('tap');await persist();render();notify(paletteById(el.value).name+' theme on.');return;
+}
 if(el.id==='appearance-mode'){
  state.preferences??={haptics:true,waterSound:true};
  state.preferences.themeMode=el.value;

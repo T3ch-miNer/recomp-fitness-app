@@ -1,0 +1,79 @@
+/* Recomp colour themes (v3.11). Picked in Settings › Look & feel and stored in
+   preferences.palette; palette-boot.js sets <html data-palette> before first paint.
+   "mint" is the original look from premium.css, so it adds nothing here.
+   Each theme sets colour tokens for light, dark and "follow the phone". */
+:root{--highlight:var(--accent);--rb-c1:110,245,200;--rb-c2:191,245,106;--rb-hex1:#6EF5C8;--rb-hex2:#BFF56A}
+
+/* ---------- Indigo: Onyx Black #01010D, Electric Indigo #6331FB, Tropical Mint #88F9C0. Indigo fills buttons, rings and bars; text uses #9378FF (about 5.8:1 on Onyx, where #6331FB is only about 3.4:1). Mint is the highlight. ---------- */
+:root[data-palette="indigo"],:root[data-palette="indigo"][data-theme="light"]{
+  --glass:rgba(255,255,255,.74);--glass-edge:rgba(255,255,255,.95);--ink:#FFFFFF;color-scheme:light;--bg:#F5F4FB;--panel:#FFFFFF;--panel2:#EEEDF7;--text:#0B0A1F;--muted:#66648A;--line:rgba(11,10,31,.09);--accent:#5A28F0;--accent2:rgba(99,49,251,.10);--strong:#3D16C2;--accent-grad:linear-gradient(135deg,#6331FB 0%,#7A50FF 100%);--accent-glow:rgba(99,49,251,.32);--shadow:0 1px 2px rgba(11,10,31,.04),0 18px 36px -20px rgba(40,20,120,.18);--overlay:rgba(11,10,31,.5);--nav-glass:rgba(255,255,255,.82);--nav-float:rgba(255,255,255,.88);--nav-float-border:rgba(99,49,251,.14);--field:rgba(11,10,31,.045);--field-strong:rgba(11,10,31,.09);--c-fuel:#6331FB;--c-protein:#12B977;--c-steps:#7A50FF;--c-fibre:#1A8FD6;--card-grad:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.65));--aurora-1:rgba(99,49,251,.10);--aurora-2:rgba(136,249,192,.22);--aurora-3:rgba(99,49,251,.05);--highlight:#0E9F68;--hold-ink:#FFFFFF
+}
+:root[data-palette="indigo"][data-theme="dark"]{
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 22px 44px -22px rgba(0,0,0,.9);--glass:rgba(255,255,255,.05);--glass-edge:rgba(255,255,255,.09);--field:rgba(255,255,255,.05);--field-strong:rgba(255,255,255,.09);--ink:#FFFFFF;color-scheme:dark;--bg:#01010D;--panel:#0D0D1C;--panel2:#15152A;--text:#F5F4FF;--muted:#9C9AB8;--line:rgba(163,150,255,.10);--accent:#9378FF;--accent2:rgba(99,49,251,.20);--strong:#D2C7FF;--accent-grad:linear-gradient(135deg,#6331FB 0%,#8257FF 100%);--accent-glow:rgba(99,49,251,.5);--overlay:rgba(1,1,13,.76);--nav-glass:rgba(13,13,28,.82);--nav-float:rgba(13,13,28,.86);--nav-float-border:rgba(147,120,255,.2);--c-fuel:#6D3DFF;--c-protein:#88F9C0;--c-steps:#9378FF;--c-fibre:#5CC8FF;--card-grad:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));--aurora-1:rgba(99,49,251,.18);--aurora-2:rgba(136,249,192,.07);--aurora-3:rgba(99,49,251,.06);--highlight:#88F9C0
+}
+@media (prefers-color-scheme:dark){
+:root[data-palette="indigo"]:not([data-theme="light"]){
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 22px 44px -22px rgba(0,0,0,.9);--glass:rgba(255,255,255,.05);--glass-edge:rgba(255,255,255,.09);--field:rgba(255,255,255,.05);--field-strong:rgba(255,255,255,.09);--ink:#FFFFFF;color-scheme:dark;--bg:#01010D;--panel:#0D0D1C;--panel2:#15152A;--text:#F5F4FF;--muted:#9C9AB8;--line:rgba(163,150,255,.10);--accent:#9378FF;--accent2:rgba(99,49,251,.20);--strong:#D2C7FF;--accent-grad:linear-gradient(135deg,#6331FB 0%,#8257FF 100%);--accent-glow:rgba(99,49,251,.5);--overlay:rgba(1,1,13,.76);--nav-glass:rgba(13,13,28,.82);--nav-float:rgba(13,13,28,.86);--nav-float-border:rgba(147,120,255,.2);--c-fuel:#6D3DFF;--c-protein:#88F9C0;--c-steps:#9378FF;--c-fibre:#5CC8FF;--card-grad:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));--aurora-1:rgba(99,49,251,.18);--aurora-2:rgba(136,249,192,.07);--aurora-3:rgba(99,49,251,.06);--highlight:#88F9C0
+}
+}
+:root[data-palette="indigo"] #recomp-pulse{
+  --rb-bg:#01010D;--rb-c1:99,49,251;--rb-c2:136,249,192;--rb-hex1:#6331FB;--rb-hex2:#88F9C0
+}
+@media (prefers-color-scheme:light){:root[data-palette="indigo"] #recomp-pulse{--rb-bg:#F5F4FB}}
+:root[data-palette="indigo"][data-theme="dark"] .foil-surface{--foil-base:linear-gradient(135deg,#121226 0%,#121226 44%,#1b1838 72%,#121226 100%);background:#121226}
+:root[data-palette="indigo"] .summary-hero.foil-tint::after,:root[data-palette="indigo"] .you-calendar.foil-tint::after{background:linear-gradient(112deg,transparent 0%,rgba(99,49,251,.10) 18%,rgba(99,49,251,.07) 30%,transparent 44%,rgba(136,249,192,.08) 58%,rgba(99,49,251,.09) 74%,transparent 100%)!important;background-size:400% 100%!important;background-position:var(--tint-shift,0%) 50%!important}
+:root[data-palette="indigo"] #recomp-bottom-dock.bottom-nav.premium-dock.foil-tint.foil-tint{background-image:linear-gradient(100deg,transparent 0%,rgba(99,49,251,.10) 22%,transparent 44%,rgba(136,249,192,.07) 64%,transparent 86%)!important}
+:root[data-palette="indigo"] .eyebrow::before{background:var(--highlight)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--highlight) 20%,transparent)!important}
+:root[data-palette="indigo"] .you-cal-dot.workout{background:var(--highlight)}
+
+/* ---------- Blossom: Plum Black #0C0510, Hot Pink #E8287A, Lilac #C9A7FF. Pink fills buttons, rings and bars with white labels (about 4.2:1); text uses #FF7AB6 on dark (about 8:1) and #C2185B on light (about 6:1). Lilac is the highlight. ---------- */
+:root[data-palette="blossom"],:root[data-palette="blossom"][data-theme="light"]{
+  --glass:rgba(255,255,255,.74);--glass-edge:rgba(255,255,255,.95);--ink:#FFFFFF;color-scheme:light;--bg:#FFF6FA;--panel:#FFFFFF;--panel2:#FBEEF4;--text:#1E0A16;--muted:#86647A;--line:rgba(30,10,22,.09);--accent:#C2185B;--accent2:rgba(232,40,122,.10);--strong:#8E0F43;--accent-grad:linear-gradient(135deg,#E8287A 0%,#FF5C9E 100%);--accent-glow:rgba(232,40,122,.30);--shadow:0 1px 2px rgba(30,10,22,.04),0 18px 36px -20px rgba(140,20,80,.18);--overlay:rgba(30,10,22,.5);--nav-glass:rgba(255,255,255,.82);--nav-float:rgba(255,255,255,.88);--nav-float-border:rgba(232,40,122,.14);--field:rgba(30,10,22,.045);--field-strong:rgba(30,10,22,.09);--c-fuel:#E8287A;--c-protein:#8B5CF6;--c-steps:#D6528F;--c-fibre:#0FA3B1;--card-grad:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.65));--aurora-1:rgba(232,40,122,.10);--aurora-2:rgba(201,167,255,.22);--aurora-3:rgba(255,92,158,.06);--highlight:#7B4FD0
+}
+:root[data-palette="blossom"][data-theme="dark"]{
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 22px 44px -22px rgba(0,0,0,.9);--glass:rgba(255,255,255,.05);--glass-edge:rgba(255,255,255,.09);--field:rgba(255,255,255,.05);--field-strong:rgba(255,255,255,.09);--ink:#FFFFFF;color-scheme:dark;--bg:#0C0510;--panel:#170B1C;--panel2:#22122A;--text:#FFF4FA;--muted:#B49AB0;--line:rgba(255,140,200,.10);--accent:#FF7AB6;--accent2:rgba(232,40,122,.20);--strong:#FFD1E6;--accent-grad:linear-gradient(135deg,#E8287A 0%,#FF5C9E 100%);--accent-glow:rgba(232,40,122,.5);--overlay:rgba(12,5,16,.78);--nav-glass:rgba(23,11,28,.82);--nav-float:rgba(23,11,28,.86);--nav-float-border:rgba(255,122,182,.2);--c-fuel:#F0377F;--c-protein:#C9A7FF;--c-steps:#FF9EC8;--c-fibre:#5CE1E6;--card-grad:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));--aurora-1:rgba(232,40,122,.18);--aurora-2:rgba(201,167,255,.08);--aurora-3:rgba(255,92,158,.06);--highlight:#C9A7FF
+}
+@media (prefers-color-scheme:dark){
+:root[data-palette="blossom"]:not([data-theme="light"]){
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 22px 44px -22px rgba(0,0,0,.9);--glass:rgba(255,255,255,.05);--glass-edge:rgba(255,255,255,.09);--field:rgba(255,255,255,.05);--field-strong:rgba(255,255,255,.09);--ink:#FFFFFF;color-scheme:dark;--bg:#0C0510;--panel:#170B1C;--panel2:#22122A;--text:#FFF4FA;--muted:#B49AB0;--line:rgba(255,140,200,.10);--accent:#FF7AB6;--accent2:rgba(232,40,122,.20);--strong:#FFD1E6;--accent-grad:linear-gradient(135deg,#E8287A 0%,#FF5C9E 100%);--accent-glow:rgba(232,40,122,.5);--overlay:rgba(12,5,16,.78);--nav-glass:rgba(23,11,28,.82);--nav-float:rgba(23,11,28,.86);--nav-float-border:rgba(255,122,182,.2);--c-fuel:#F0377F;--c-protein:#C9A7FF;--c-steps:#FF9EC8;--c-fibre:#5CE1E6;--card-grad:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));--aurora-1:rgba(232,40,122,.18);--aurora-2:rgba(201,167,255,.08);--aurora-3:rgba(255,92,158,.06);--highlight:#C9A7FF
+}
+}
+:root[data-palette="blossom"] #recomp-pulse{
+  --rb-bg:#0C0510;--rb-c1:232,40,122;--rb-c2:201,167,255;--rb-hex1:#E8287A;--rb-hex2:#C9A7FF
+}
+@media (prefers-color-scheme:light){:root[data-palette="blossom"] #recomp-pulse{--rb-bg:#FFF6FA}}
+:root[data-palette="blossom"][data-theme="dark"] .foil-surface{--foil-base:linear-gradient(135deg,#1c0f22 0%,#1c0f22 44%,#2a1430 72%,#1c0f22 100%);background:#1c0f22}
+:root[data-palette="blossom"] .summary-hero.foil-tint::after,:root[data-palette="blossom"] .you-calendar.foil-tint::after{background:linear-gradient(112deg,transparent 0%,rgba(232,40,122,.10) 18%,rgba(232,40,122,.07) 30%,transparent 44%,rgba(201,167,255,.08) 58%,rgba(232,40,122,.09) 74%,transparent 100%)!important;background-size:400% 100%!important;background-position:var(--tint-shift,0%) 50%!important}
+:root[data-palette="blossom"] #recomp-bottom-dock.bottom-nav.premium-dock.foil-tint.foil-tint{background-image:linear-gradient(100deg,transparent 0%,rgba(232,40,122,.10) 22%,transparent 44%,rgba(201,167,255,.07) 64%,transparent 86%)!important}
+:root[data-palette="blossom"] .eyebrow::before{background:var(--highlight)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--highlight) 20%,transparent)!important}
+:root[data-palette="blossom"] .you-cal-dot.workout{background:var(--highlight)}
+
+/* Shared touches for the non-original themes */
+:root:is([data-palette="indigo"],[data-palette="blossom"]) .you-cal-day.today{box-shadow:inset 0 0 0 2px var(--highlight)}
+:root:is([data-palette="indigo"],[data-palette="blossom"]) .next-weight.add{background:color-mix(in srgb,var(--highlight) 10%,transparent);border-color:color-mix(in srgb,var(--highlight) 30%,transparent)}
+:root:is([data-palette="indigo"],[data-palette="blossom"]) :is(.workout-card .last-time .next-up,.next-weight .next-weight-set){color:var(--highlight)}
+.mp-chip.mp-active{border-color:var(--accent);background:var(--accent2);color:var(--accent)}
+
+/* Theme picker in Settings › Look & feel */
+.palette-picker{border:0;margin:14px 0 4px;padding:0;min-width:0}
+.palette-options{display:grid;gap:8px;margin-top:6px}
+.palette-option{position:relative;display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;border:1px solid var(--line);background:var(--field);cursor:pointer;transition:border-color .15s,background-color .15s}
+.palette-option input{position:absolute;opacity:0;pointer-events:none}
+.palette-option.selected,.palette-option:has(input:checked){border-color:var(--accent);background:var(--accent2)}
+.palette-option:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.palette-swatches{display:flex;flex:none}
+.palette-swatches i{width:28px;height:28px;border-radius:50%;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line);margin-left:-8px}
+.palette-swatches i:first-child{margin-left:0}
+.palette-text{display:grid;gap:1px;min-width:0}
+.palette-text b{font-size:14px}
+.palette-text small{font-size:12px;color:var(--muted);line-height:1.35}
+.palette-option.selected .palette-text b::after,.palette-option:has(input:checked) .palette-text b::after{content:" ✓";color:var(--accent)}
+
+/* Launch screen surfaces for the non-original themes (Mint keeps its green glass). */
+:root:is([data-palette="indigo"],[data-palette="blossom"]) #recomp-pulse{--rb-grid:rgba(var(--rb-c1),.12)}
+:root:is([data-palette="indigo"],[data-palette="blossom"]) #recomp-pulse::before{background:radial-gradient(ellipse 41% 32% at 52% 45%,rgba(var(--rb-c1),.20),transparent 73%),radial-gradient(ellipse 28% 20% at 84% 24%,rgba(var(--rb-c2),.08),transparent 80%),radial-gradient(ellipse 50% 28% at 10% 94%,rgba(var(--rb-c1),.10),transparent 76%)}
+:root:is([data-palette="indigo"],[data-palette="blossom"]) #recomp-pulse .rb-squircle{border-color:rgba(var(--rb-c2),.22);background:linear-gradient(140deg,rgba(var(--rb-c1),.22),rgba(14,12,26,.86) 55%,rgba(var(--rb-c1),.14));box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -18px 34px rgba(0,0,0,.19),0 35px 100px rgba(0,0,0,.22),0 0 53px rgba(var(--rb-c1),.12)}
+:root:is([data-palette="indigo"],[data-palette="blossom"]) #recomp-pulse :is(.rb-traindots span,.rb-progress){border-color:rgba(var(--rb-c2),.14)}
+@media (prefers-color-scheme:light){
+ :root:is([data-palette="indigo"],[data-palette="blossom"]) #recomp-pulse .rb-squircle{background:linear-gradient(135deg,rgba(var(--rb-c1),.10),#ffffff);box-shadow:0 25px 80px rgba(var(--rb-c1),.14)}
+}

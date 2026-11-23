@@ -2,8 +2,8 @@
    A self-contained visual layer: it never reads or changes workout data. */
 #recomp-pulse, #recomp-pulse * {box-sizing:border-box}
 #recomp-pulse{
- --rb-bg:#050709;--rb-text:#f6faf8;--rb-muted:#859593;--rb-mint:#6ef5c8;
- --rb-lime:#bff56a;--rb-grid:rgba(123,245,199,.13);
+ --rb-bg:#050709;--rb-text:#f6faf8;--rb-muted:#859593;--rb-mint:var(--rb-hex1);
+ --rb-lime:var(--rb-hex2);--rb-grid:rgba(123,245,199,.13);
  position:fixed;z-index:90;inset:0;isolation:isolate;overflow:hidden;
  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
  min-height:100vh;min-height:100dvh;padding:clamp(30px,5vh,55px) 20px calc(40px + env(safe-area-inset-bottom));
@@ -30,18 +30,18 @@
 #recomp-pulse .rb-top{display:flex;align-items:center;gap:10px;justify-content:center;
  font-size:10px;font-weight:760;letter-spacing:.26em;color:var(--rb-muted);white-space:nowrap}
 #recomp-pulse .rb-top-dot{width:6px;height:6px;border-radius:50%;background:var(--rb-mint);
- box-shadow:0 0 0 4px rgba(110,245,200,.07),0 0 19px rgba(110,245,200,.5)}
+ box-shadow:0 0 0 4px rgba(var(--rb-c2),.07),0 0 19px rgba(var(--rb-c2),.5)}
 #recomp-pulse .rb-main{display:flex;flex-direction:column;align-items:center;justify-content:center;
  gap:0;margin-top:-7px;min-width:0;width:100%}
 #recomp-pulse .rb-orbit{width:282px;height:282px;max-width:86vw;position:relative;
  display:grid;place-items:center;animation:rb-intro .8s cubic-bezier(.2,.9,.3,1) both}
 #recomp-pulse .rb-orbit::before,#recomp-pulse .rb-orbit::after{
  content:"";position:absolute;inset:13px;border-radius:50%;
- border:1px solid rgba(110,245,200,.14);pointer-events:none}
-#recomp-pulse .rb-orbit::after{inset:32px;border-style:dashed;border-color:rgba(110,245,200,.09);
+ border:1px solid rgba(var(--rb-c2),.14);pointer-events:none}
+#recomp-pulse .rb-orbit::after{inset:32px;border-style:dashed;border-color:rgba(var(--rb-c2),.09);
  animation:rb-orbit-turn 24s linear infinite}
 #recomp-pulse .rb-orbit-light{position:absolute;inset:3px;border-radius:50%;
- background:conic-gradient(from 25deg,transparent 0 63%,rgba(191,245,106,.62) 72%,rgba(110,245,200,.24) 76%,transparent 81% 100%);
+ background:conic-gradient(from 25deg,transparent 0 63%,rgba(var(--rb-c1),.62) 72%,rgba(var(--rb-c2),.24) 76%,transparent 81% 100%);
  -webkit-mask:radial-gradient(circle,transparent 69%,#000 70% 71%,transparent 73%);
  mask:radial-gradient(circle,transparent 69%,#000 70% 71%,transparent 73%);
  animation:rb-orbit-turn 8s linear infinite}
@@ -52,15 +52,15 @@
  0 35px 100px rgba(0,0,0,.22),0 0 53px rgba(63,238,185,.055);
  animation:rb-float 4.1s ease-in-out infinite}
 #recomp-pulse .rb-squircle::before{content:"";position:absolute;inset:-9px;border-radius:56px;
- border:1px solid rgba(110,245,200,.08)}
+ border:1px solid rgba(var(--rb-c2),.08)}
 #recomp-pulse .rb-icon{position:relative;width:132px;height:132px;overflow:visible;
- filter:drop-shadow(0 3px 20px rgba(110,245,200,.25))}
-#recomp-pulse .rb-trace{stroke:rgba(110,245,200,.14);fill:none;stroke-linecap:round;
+ filter:drop-shadow(0 3px 20px rgba(var(--rb-c2),.25))}
+#recomp-pulse .rb-trace{stroke:rgba(var(--rb-c2),.14);fill:none;stroke-linecap:round;
  stroke-linejoin:round;stroke-width:12}
 #recomp-pulse .rb-wave{stroke:url(#rb-pulse-grad);fill:none;stroke-linecap:round;stroke-linejoin:round;
  stroke-width:12;stroke-dasharray:260;stroke-dashoffset:260;
  animation:rb-draw 2.6s cubic-bezier(.55,0,.25,1) .35s infinite}
-#recomp-pulse .rb-dot{fill:#bff56a;transform-origin:148px 58px;
+#recomp-pulse .rb-dot{fill:var(--rb-hex2);transform-origin:148px 58px;
  animation:rb-dot-flash 2.6s ease-in-out .35s infinite}
 #recomp-pulse .rb-wordmark{font-size:clamp(48px,12vw,60px);line-height:1.04;
  font-weight:810;letter-spacing:-.078em;white-space:nowrap;
@@ -76,7 +76,7 @@
  padding:10px 12px;color:var(--rb-muted);border:1px solid rgba(151,190,179,.14);
  border-radius:13px;background:rgba(125,178,164,.045)}
 #recomp-pulse .rb-traindots span:nth-child(2){color:var(--rb-text);
- border-color:rgba(110,245,200,.31);background:rgba(110,245,200,.09)}
+ border-color:rgba(var(--rb-c2),.31);background:rgba(var(--rb-c2),.09)}
 #recomp-pulse .rb-foot{display:grid;justify-items:center;gap:13px;width:100%;
  animation:rb-rise .75s .65s both}
 #recomp-pulse .rb-progress{width:150px;height:3px;overflow:hidden;border-radius:20px;
@@ -100,7 +100,7 @@
  56%{opacity:1;transform:scale(1.34)}72%{opacity:.8;transform:scale(1)}}
 @keyframes rb-progress{from{transform:translateX(-100%)}to{transform:translateX(350%)}}
 @media(prefers-color-scheme:light){
- #recomp-pulse{--rb-bg:#f3f2ee;--rb-text:#141f1b;--rb-muted:#61736b;
+ #recomp-pulse{--rb-bg:#F3F2EE;--rb-text:#141f1b;--rb-muted:#61736b;
  --rb-grid:rgba(55,148,114,.10)}
  #recomp-pulse .rb-squircle{background:linear-gradient(135deg,#e7f9ed,#f8fcf5);
  box-shadow:0 25px 80px rgba(49,126,95,.12)}
@@ -120,3 +120,6 @@
  #recomp-pulse .rb-traindots{margin-top:12px}
  #recomp-pulse .rb-foot{gap:5px}
 }
+
+#rb-pulse-grad stop:first-child{stop-color:var(--rb-hex1)}
+#rb-pulse-grad stop:last-child{stop-color:var(--rb-hex2)}
