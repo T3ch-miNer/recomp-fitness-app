@@ -145,4 +145,52 @@ drawable.mkdir(parents=True,exist_ok=True)
         android:pathData="M2.5,13h4l2.5,-6 4,11 3,-8 2,3h3.5"/>
 </vector>
 """)
-print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions, plus the reminder icon.')
+# Launcher icon and launch images in the Recomp brand (v3.12). Capacitor's
+# template ships its own logo, so every file it creates is replaced here.
+import shutil
+res=base/'res'
+icons=root/'android-icons'
+for density in ['mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi']:
+    for name in ['ic_launcher','ic_launcher_round','ic_launcher_foreground','ic_launcher_background']:
+        target=res/f'mipmap-{density}'
+        target.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(icons/f'mipmap-{density}'/f'{name}.png',target/f'{name}.png')
+for folder in (icons/'splash').iterdir():
+    (res/folder.name).mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(folder/'splash.png',res/folder.name/'splash.png')
+# The template's vector foreground and white background are no longer used.
+for stale in [res/'drawable-v24'/'ic_launcher_foreground.xml',res/'drawable'/'ic_launcher_background.xml']:
+    if stale.exists():stale.unlink()
+(res/'values'/'ic_launcher_background.xml').write_text("""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#01010D</color>
+</resources>
+""")
+adaptive="""<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@mipmap/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
+</adaptive-icon>
+"""
+(res/'mipmap-anydpi-v26').mkdir(parents=True,exist_ok=True)
+for name in ['ic_launcher.xml','ic_launcher_round.xml']:(res/'mipmap-anydpi-v26'/name).write_text(adaptive)
+# Android 13 themed icons: the pulse in one colour, inside the 66 dp safe zone.
+(res/'drawable'/'ic_launcher_monochrome.xml').write_text("""<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="432" android:viewportHeight="432">
+    <group android:translateX="23.6" android:translateY="53.2" android:scaleX="1.85" android:scaleY="1.85">
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="12" android:fillColor="#00000000"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M42,104h24l16,-38 24,60 18,-42 14,20h22"/>
+        <path android:fillColor="#FFFFFFFF" android:pathData="M148,58m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0"/>
+    </group>
+</vector>
+""")
+# Android 12+ system splash: Onyx behind the icon instead of white.
+styles=res/'values'/'styles.xml'
+styles_xml=styles.read_text()
+if 'windowSplashScreenBackground' not in styles_xml:
+    styles_xml=styles_xml.replace('<item name="android:background">@drawable/splash</item>','<item name="android:background">@drawable/splash</item>\n        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>',1)
+    styles.write_text(styles_xml)
+
+print('Integrated RecompHealth and RecompWellbeing with opt-in Android permissions, the reminder icon, and the Recomp launcher icon and launch images.')
