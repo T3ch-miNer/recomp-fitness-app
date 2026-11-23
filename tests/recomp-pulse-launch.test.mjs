@@ -21,12 +21,12 @@ test('approved Recomp Pulse loader appears before the app is ready',()=>{
  assert.ok(!/<iframe|<video|<img[^>]+src="https?:\/\//i.test(html),'do not add remote boot assets');
 });
 
-test('animated launch uses the indigo and mint palette and supports light/reduced-motion users',()=>{
+test('animated launch follows the chosen colour theme and supports light/reduced-motion users',()=>{
  for(const key of ['rb-drift','rb-orbit-turn','rb-intro','rb-rise','rb-float','rb-draw','rb-dot-flash','rb-progress'])
   assert.match(css,new RegExp('@keyframes '+key));
- assert.match(css,/#01010D/);
- assert.match(css,/#6331FB/);
- assert.match(css,/#88F9C0/);
+ assert.match(css,/#050709/);
+ assert.match(css,/rgba\(var\(--rb-c1\),/);
+ assert.match(css,/#rb-pulse-grad stop:first-child\{stop-color:var\(--rb-hex1\)\}/);
  assert.match(css,/@media\(prefers-color-scheme:light\)/);
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
  assert.match(css,/#recomp-pulse\.rb-leaving\{opacity:0\}/);
