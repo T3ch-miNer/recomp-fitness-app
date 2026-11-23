@@ -40,7 +40,8 @@ import {showDailyTaskPrompt,shouldAskForDailyTasks,dailyTaskRecord,makeTodaysTas
 import {getClerkKey,isClerkLoginAvailable,isClerkDevelopmentMode,getClerkAccount,loadClerk,restoreNativeClerkAccount,openClerkSignIn,clerkSignOut,saveClerkKey} from './clerk-auth.js';
 import {readGoalDraft,validateGoalDraft} from './goal-draft.js';
 import {initPremiumTouches,wasHeld,setDynamicLabel} from './premium-touches.js';
-import {normalisePalette,paletteById,rememberPalette,paletteSettingsHtml} from './palettes.js';
+import {normalisePalette,paletteById,rememberPalette,paletteSettingsHtml,storedPalette} from './palettes.js';
+import {weeklyCheckin,renderCheckin,shouldShowCheckin,checkinKey} from './weekly-checkin.js';
 import {personalBests,personalBestBadge} from './rewards.js';
 import {suggestNext,setsToChange} from './progression.js';
 import {prepareRestAlerts,scheduleRestAlert,cancelRestAlert} from './rest-alert.js';
@@ -262,7 +263,8 @@ const renderLater=()=>{render();};
 const reducedMotion=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
 function themeChoice(){return ['light','dark'].includes(state?.preferences?.themeMode)?state.preferences.themeMode:'system';}
 function effectiveTheme(){const selected=themeChoice();return selected==='system'?(window.matchMedia?.('(prefers-color-scheme: dark)')?.matches?'dark':'light'):selected;}
-function paletteChoice(){return normalisePalette(state?.preferences?.palette);}
+// The saved setting wins; the copy kept for the launch screen covers older backups without one.
+function paletteChoice(){return normalisePalette(state?.preferences?.palette||storedPalette());}
 function applyTheme(){const mode=effectiveTheme(),palette=paletteById(paletteChoice());document.documentElement.dataset.theme=mode;document.documentElement.dataset.palette=palette.id;document.documentElement.style.colorScheme=mode;rememberPalette(palette.id);for(const el of document.querySelectorAll('meta[name="theme-color"]')){if(el.media?.includes('dark')&&mode==='dark'||el.media?.includes('light')&&mode==='light'||!el.media){el.content=palette.chrome[mode];}}}
 
 function haptic(kind='tap',force=false){
@@ -593,6 +595,7 @@ function homeTasksSection(checked){return `<section class="dashboard-tasks" aria
 function homeView(){const nutr=nutritionTotals(),act=activityToday(),w=waterSum(),checked=todaysTasks().filter(checkboxDone).length;const waterAmount=n(state.waterDefault,250)||250;const account=getClerkAccount(),viewerName=account?.firstName||account?.name?.split(/\s+/)[0]||'';return `
 ${heading(greeting(new Date().getHours(),viewerName),new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))}
 <div class="dashboard-intro" role="text" aria-label="${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}"><span class="orbit-dot" aria-hidden="true"></span><span data-motion-motivation aria-hidden="true">${escapeHtml(dayQuip({nutr,w,act,checked,totalTasks:todaysTasks().length}))}</span></div>
+${homeCheckinHtml()}
 <section class="summary-hero hero-rings foil-tint" aria-label="Today's rings"><div class="rings-wrap">${ringSvg([{pct:n(nutr.calories)/n(state.goals.calories,1),cls:'fuel',r:90},{pct:n(nutr.protein)/n(state.goals.protein,1),cls:'protein',r:75},{pct:w/n(state.goals.water,1),cls:'water',r:60}])}<div class="rings-center"><span class="rings-num">${num(Math.max(0,state.goals.calories-nutr.calories))}</span><span class="rings-label">kcal left</span></div></div><div class="rings-legend"><div class="legend-row" style="--c:var(--c-fuel)"><i></i><span>Fuel</span><b>${num(nutr.calories)}<small>/ ${num(state.goals.calories)}</small></b></div><div class="legend-row" style="--c:var(--c-protein)"><i></i><span>Protein</span><b>${num(nutr.protein)}<small>/ ${num(state.goals.protein)} g</small></b></div><div class="legend-row" style="--c:var(--c-water)"><i></i><span>Water</span><b>${num(w)}<small>/ ${num(state.goals.water)} ml</small></b></div></div></section>
 <div class="metric-grid">${metric('Protein',nutr.protein,state.goals.protein,'g','protein','',nutr.protein>=state.goals.protein?'Gains secured':'Feed the gains')}${metric('Steps',act.steps,state.goals.steps,'','walk','refresh-steps',stepRefresh?'Checking…':'Tap to refresh')}${metric('Calories burnt',act.activeCalories,null,'kcal','flame','metric-active',act.activeCalories?'Tap to update':'Go on, break a sweat ↗')}${metric('Water',w,state.goals.water,'ml','water','metric-water',`Tap for +${num(waterAmount)} ml`)}</div>
 ${stepRefreshInfo?`<div class="connection-note">${svg('info','tiny-icon')} <span><b>Health Connect is not available in this browser.</b> You can still enter steps and calories manually.</span><button class="btn ghost" data-action="activity">Edit</button></div>`:''}
@@ -1240,11 +1243,16 @@ function scheduleScrollChrome(){
 window.addEventListener('scroll',scheduleScrollChrome,{passive:true});
 window.addEventListener('resize',scheduleScrollChrome,{passive:true});
 document.addEventListener('focusin',scheduleScrollChrome);
+// Weekly check-in data, shared by Today (Sundays and Mondays) and the You page.
+function userGoal(){return String(state.basicProfile?.goal||state.fitnessProfile?.goal||'');}
+function checkinData(){const you=getYouData();return weeklyCheckin({today:today(),weights:state.weights,history:state.workoutHistory,food:state.food,goals:state.goals,device:you.device,target:Number(state.basicProgramme?.days||state.fitnessProfile?.days)||null,goal:userGoal()});}
+function homeCheckinHtml(){if(!state.weeklyCheckinPreview&&!shouldShowCheckin(today(),state.weeklyCheckinSeen))return '';return renderCheckin(checkinData(),{dismissible:true,goal:userGoal()});}
 function youView(){const tasks=todaysTasks(),now=today(),you=getYouData();
  const target=Number(state.basicProgramme?.days||state.fitnessProfile?.days)||null;
  const insightsHtml={
   insight:weeklyInsight({history:state.workoutHistory,device:you.device,dayNotes:state.dayNotes,today:now}),
   mood:moodCard(moodSeries(state.dayNotes,now)),
+  checkin:renderCheckin(checkinData(),{goal:userGoal()}),
   training:trainingCard(workoutWeeks(state.workoutHistory,now),{streak:weekStreak(state.workoutHistory,now),target}),
   phone:opts=>phoneCard(screenWeek(you.device,now),opts)
  };
@@ -1841,6 +1849,7 @@ async function handleAction(el,event){const a=el.dataset.action;if(a==='close-mo
   case 'preview-template-exercise':if(templateById(el.dataset.id)?.items?.[Number(el.dataset.index)]){modal={type:'video',templateId:el.dataset.id,index:Number(el.dataset.index),returnTo:modal?.type==='video-library'?'video-library':'edit-template',playing:false};render();}break;
  case 'load-exercise-video':if(modal?.type==='video'){modal.playing=true;render();}break;
  case 'close-rest':restSheet=false;render();break;
+ case 'dismiss-checkin':state.weeklyCheckinSeen=checkinKey(today());delete state.weeklyCheckinPreview;await persist();render();notify('See you next Sunday. Your week stays on the You page.');break;
  case 'apply-next-weight':{const e=state.session?.exercises?.[Number(el.dataset.index)];const sug=e&&nextWeightFor(e);if(!sug)break;
   const idx=setsToChange(e,sug);for(const k of idx){e.sets[k].kg=sug.kg;e.sets[k].manualKg=false;}
   await commit();haptic('tap');notify(`${idx.length} set${idx.length===1?'':'s'} set to ${+sug.kg.toFixed(2)} kg.`);break;}

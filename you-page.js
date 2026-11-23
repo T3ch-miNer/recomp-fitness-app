@@ -125,6 +125,7 @@ export function renderYouPage({date,dailyTasksDone=0,dailyTasksTotal=0,calendarH
  return `${headerHtml||'<header class="you-header"><span class="eyebrow">Your wellbeing</span><h1 class="page-title">You.</h1><p class="subhead">Small daily wins, without the pressure.</p></header>'}
  ${calendarHtml}
  ${insightsHtml.insight?`<section class="you-insight" aria-label="Weekly insight"><span class="you-insight-mark" aria-hidden="true">✦</span><p>${esc(insightsHtml.insight)}</p></section>`:''}
+ ${insightsHtml.checkin||''}
  ${insightsHtml.mood||''}
  ${insightsHtml.training||''}
  ${phone}
