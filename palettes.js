@@ -17,6 +17,7 @@ export function paletteById(id){return PALETTES.find(p=>p.id===normalisePalette(
 // Remembered outside the main database too, so the launch screen can use the
 // right colours before the app has loaded (see palette-boot.js).
 export function rememberPalette(id){try{localStorage.setItem(PALETTE_KEY,normalisePalette(id));}catch{}}
+export function storedPalette(){try{return localStorage.getItem(PALETTE_KEY);}catch{return null;}}
 
 export function paletteSettingsHtml(selected,escape=String){
  const current=normalisePalette(selected);
